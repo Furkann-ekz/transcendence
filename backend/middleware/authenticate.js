@@ -1,4 +1,4 @@
-// backend/server_functions/auth.js
+// backend/middleware/authenticate.js
 const jwt = require('jsonwebtoken');
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -15,5 +15,4 @@ async function authenticate(request, reply) {
         return reply.code(401).send({ error: 'Unauthorized: Invalid token' });
     }
 }
-
 module.exports = authenticate;

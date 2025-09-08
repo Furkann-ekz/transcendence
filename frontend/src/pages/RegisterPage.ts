@@ -1,6 +1,8 @@
 // frontend/src/pages/RegisterPage.ts
+import { registerUser } from '../api/auth';
+import { navigateTo } from '../router';
 
-export function RegisterPage(): string {
+export function render() {
   return `
     <div class="min-h-screen bg-gray-100 flex items-center justify-center">
       <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
@@ -30,4 +32,24 @@ export function RegisterPage(): string {
       </div>
     </div>
   `;
+}
+
+export function afterRender() {
+  const form = document.querySelector<HTMLFormElement>('#register-form');
+  if (form) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = (form.querySelector('#name') as HTMLInputElement).value;
+      const email = (form.querySelector('#email') as HTMLInputElement).value;
+      const password = (form.querySelector('#password') as HTMLInputElement).value;
+
+      try {
+        await registerUser(email, password, name);
+        alert('Kayıt başarılı! Lütfen giriş yapın.');
+        navigateTo('/'); // Giriş sayfasına yönlendir
+      } catch (error: any) {
+        alert(error.message);
+      }
+    });
+  }
 }

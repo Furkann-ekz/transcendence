@@ -4,49 +4,32 @@ require('dotenv').config();
 const fastify = require('fastify')({ logger: true });
 const { Server } = require('socket.io');
 const cors = require('@fastify/cors');
-const prisma = require('./prisma/db');
+const initializeSocket = require('./websockets');
 
-// Modülleri import et
-const setupLoginRoute = require('./server_functions/login');
-const setupRegisterRoute = require('./server_functions/register');
-const setupProfileRoute = require('./server_functions/profile');
-const setupUsersRoute = require('./server_functions/users');
-const setupIoAuth = require('./server_functions/io_use');
-const setupIoConnection = require('./server_functions/io_connection');
-
-// Eklentileri kaydet
+// Eklentileri Kaydet
 fastify.register(cors, { origin: "*" });
 
-// Socket.io sunucusunu başlat
+// HTTP Yollarını Kaydet
+fastify.register(require('./api/auth.routes'));
+fastify.register(require('./api/users.routes'));
+
+// Socket.io Sunucusunu Başlat
 const io = new Server(fastify.server, {
-    cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
-    }
+    cors: { origin: "*", methods: ["GET", "POST"] }
 });
+initializeSocket(io);
 
-const onlineUsers = new Map();
-
-// Socket.io modüllerini çalıştır
-setupIoAuth(io);
-setupIoConnection(io, onlineUsers);
-
-// HTTP Yollarını kaydet
-setupLoginRoute(fastify);
-setupRegisterRoute(fastify);
-setupProfileRoute(fastify);
-setupUsersRoute(fastify);
-
+// Ana Durum Yolu
 fastify.get('/', (request, reply) => {
-    reply.send({ status: 'Server is running and modularized!' });
+    reply.send({ status: 'Server is running - Refactored!' });
 });
 
+// Sunucuyu Başlatma Fonksiyonu
 const start = async () => {
     try {
         await fastify.listen({ port: 3000, host: '0.0.0.0' });
     } catch (err) {
         fastify.log.error(err);
-        await prisma.$disconnect();
         process.exit(1);
     }
 };

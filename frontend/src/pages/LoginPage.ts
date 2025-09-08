@@ -1,6 +1,8 @@
 // frontend/src/pages/LoginPage.ts
+import { loginUser } from '../api/auth';
+import { navigateTo } from '../router';
 
-export function LoginPage(): string {
+export function render() {
   return `
     <div class="min-h-screen bg-gray-100 flex items-center justify-center">
       <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
@@ -26,4 +28,24 @@ export function LoginPage(): string {
       </div>
     </div>
   `;
+}
+
+export function afterRender() {
+  const form = document.querySelector<HTMLFormElement>('#login-form');
+  if (form) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = (form.querySelector('#email') as HTMLInputElement).value;
+      const password = (form.querySelector('#password') as HTMLInputElement).value;
+
+      try {
+        const data = await loginUser(email, password);
+        localStorage.setItem('token', data.token); // Token'ı tarayıcıda sakla
+        alert('Giriş başarılı! Ana sayfaya yönlendiriliyorsunuz.');
+        navigateTo('/dashboard'); // Ana sayfaya yönlendir
+      } catch (error: any) {
+        alert(error.message);
+      }
+    });
+  }
 }
