@@ -1,12 +1,15 @@
 // frontend/src/pages/OnlineGamePage.ts
+import { getSocket } from '../socket'; // Merkezi soketi import et
+import { navigateTo } from '../router';
+import type { Socket } from 'socket.io-client';
 import { jwt_decode } from '../utils';
-import { io, Socket } from 'socket.io-client';
 
 let socket: Socket | null = null;
 let canvas: HTMLCanvasElement;
 let context: CanvasRenderingContext2D;
 let gameState: any = {};
 let playerIsLeft: boolean = true;
+let animationFrameId: number;
 
 type Player = {
   id: number;
@@ -27,7 +30,6 @@ function renderGame() {
     context.fillText(leftScore.toString(), canvas.width / 4, canvas.height / 5);
     context.fillText(rightScore.toString(), 3 * canvas.width / 4, canvas.height / 5);
 
-    // DÜZELTME: 'p' parametresine 'Player' tipini ekledik
     const leftPlayer = players.find((p: Player) => p.isLeft);
     const rightPlayer = players.find((p: Player) => !p.isLeft);
 
@@ -39,28 +41,31 @@ function renderGame() {
     context.fill();
 }
 
-
 function gameLoop() {
     renderGame();
-    requestAnimationFrame(gameLoop);
+    animationFrameId = requestAnimationFrame(gameLoop);
 }
 
 function handleKeyDown(event: KeyboardEvent) {
-    if (!socket) return;
+    if (!socket || !gameState.players) return;
     let newY;
     
-    // DÜZELTME: 'p' parametresine 'Player' tipini ekledik
     const player = gameState.players.find((p: Player) => p.isLeft === playerIsLeft);
     if (!player) return;
 
-    if (event.key === 'w' || event.key === 'ArrowUp') {
-        newY = player.paddleY - 20;
-    } else if (event.key === 's' || event.key === 'ArrowDown') {
-        newY = player.paddleY + 20;
-    }
-    
-    if (newY !== undefined) {
-        socket.emit('playerMove', { paddleY: newY });
+    // Sadece kendi raketimizi kontrol etmemize izin ver
+    if ((player.isLeft && (event.key === 'w' || event.key === 's')) || 
+        (!player.isLeft && (event.key === 'ArrowUp' || event.key === 'ArrowDown'))) 
+    {
+        if (event.key === 'w' || event.key === 'ArrowUp') {
+            newY = player.paddleY - 30;
+        } else if (event.key === 's' || event.key === 'ArrowDown') {
+            newY = player.paddleY + 30;
+        }
+        
+        if (newY !== undefined) {
+            socket.emit('playerMove', { paddleY: newY });
+        }
     }
 }
 
@@ -68,34 +73,40 @@ export function render() {
     return `
     <div class="h-screen w-screen bg-gray-900 flex flex-col items-center justify-center">
       <div id="game-status" class="text-3xl text-white mb-4">Rakip Bekleniyor...</div>
-      <canvas id="pong-canvas" width="800" height="600" class="bg-black hidden"></canvas>
-      <a href="/lobby" data-link class="mt-4 text-blue-400">Lobbiye Geri Dön</a>
+      <canvas id="pong-canvas" width="800" height="600" class="bg-black border border-white hidden"></canvas>
+      <a href="/lobby" data-link class="mt-4 text-blue-400">Lobiden Ayrıl</a>
     </div>
   `;
 }
 
 export function afterRender() {
-    const token = localStorage.getItem('token');
-    socket = io(import.meta.env.VITE_API_URL, { auth: { token } });
+    // DÜZELTME: Yeni soket oluşturmak yerine mevcut olanı alıyoruz
+    socket = getSocket();
+    if (!socket) {
+        navigateTo('/');
+        return;
+    }
     
     const statusDiv = document.getElementById('game-status')!;
     const canvasEl = document.getElementById('pong-canvas') as HTMLCanvasElement;
     canvas = canvasEl;
     context = canvas.getContext('2d')!;
+    
+    const token = localStorage.getItem('token');
 
     socket.on('waitingForPlayer', () => {
         statusDiv.textContent = 'Rakip Bekleniyor...';
     });
 
     socket.on('gameStart', ({ players }) => {
-        statusDiv.textContent = 'Oyun Başladı!';
+        statusDiv.textContent = ''; // Veya skorları gösterebiliriz
         canvas.classList.remove('hidden');
         
-        const myData = players.find((p: Player) => p.id === jwt_decode(token!).userId);
+        const myData = players.find((p: any) => p.id === jwt_decode(token!).userId);
         if (myData) playerIsLeft = myData.isLeft;
 
         window.addEventListener('keydown', handleKeyDown);
-        requestAnimationFrame(gameLoop);
+        gameLoop(); // Oyun döngüsünü burada başlat
     });
 
     socket.on('gameStateUpdate', (newGameState) => {
@@ -105,10 +116,20 @@ export function afterRender() {
     socket.on('opponentLeft', () => {
         statusDiv.textContent = 'Rakibin oyundan ayrıldı!';
         window.removeEventListener('keydown', handleKeyDown);
+        cancelAnimationFrame(animationFrameId);
     });
 }
 
 export function cleanup() {
-    if (socket) socket.disconnect();
+    // Kullanıcı bu sayfadan ayrıldığında (örn. lobiye dönerek),
+    // sunucuya bekleme listesinden veya oyundan çıkmak istediğini bildirebiliriz.
+    // Şimdilik sadece temel temizliği yapalım.
+    if (socket) {
+      socket.off('waitingForPlayer');
+      socket.off('gameStart');
+      socket.off('gameStateUpdate');
+      socket.off('opponentLeft');
+    }
     window.removeEventListener('keydown', handleKeyDown);
+    cancelAnimationFrame(animationFrameId);
 }

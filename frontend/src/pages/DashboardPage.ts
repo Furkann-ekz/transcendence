@@ -14,7 +14,7 @@ export function render(): string {
       <nav class="bg-gray-800 text-white p-4 flex justify-between items-center">
         <h1 class="text-xl font-bold">Transcendence</h1>
         <div>
-          <a href="/lobby" data-link class="bg-green-500 ...">Oyuna Git</a>
+          <a href="/lobby" data-link class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mr-4">Oyuna Git</a>
           <button id="logout-button" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">Çıkış Yap</button>
         </div>
       </nav>
