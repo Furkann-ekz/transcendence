@@ -88,15 +88,17 @@ export function render() {
 export function afterRender() {
     socket = getSocket();
     if (!socket) { navigateTo('/'); return; }
-    
+
     const statusDiv = document.getElementById('game-status')!;
     const canvasEl = document.getElementById('pong-canvas') as HTMLCanvasElement;
     canvas = canvasEl;
     context = canvas.getContext('2d')!;
     const token = localStorage.getItem('token');
 
-    // Dinleyici fonksiyonlarını tanımla
-    const onWaiting = () => statusDiv.textContent = 'Rakip Bekleniyor...';
+    // Olay dinleyicilerini tanımla
+    const onWaiting = () => {
+        statusDiv.textContent = 'Rakip Bekleniyor...';
+    };
     const onGameStart = ({ players }: { players: any[] }) => {
         statusDiv.textContent = '';
         canvas.classList.remove('hidden');
@@ -105,12 +107,16 @@ export function afterRender() {
         window.addEventListener('keydown', handleKeyDown);
         gameLoop();
     };
-    const onGameStateUpdate = (newGameState: any) => gameState = newGameState;
+    const onGameStateUpdate = (newGameState: any) => {
+        gameState = newGameState;
+    };
     const onOpponentLeft = () => {
         statusDiv.textContent = 'Rakibin oyundan ayrıldı! Oyun Bitti.';
         window.removeEventListener('keydown', handleKeyDown);
         cancelAnimationFrame(animationFrameId); // Çizim döngüsünü durdur
-        if (socket) socket.off('gameStateUpdate', onGameStateUpdate); // Güncellemeleri dinlemeyi bırak
+        if (socket) {
+            socket.off('gameStateUpdate', onGameStateUpdate); // Güncellemeleri dinlemeyi bırak
+        }
     };
 
     // Olay dinleyicilerini ekle
@@ -120,10 +126,11 @@ export function afterRender() {
     socket.on('opponentLeft', onOpponentLeft);
 }
 
-
 // Sayfadan ayrılırken çalışan temizlik fonksiyonu
 export function cleanup() {
+    const socket = getSocket();
     if (socket) {
+      // afterRender'da eklenen tüm dinleyicileri burada kapat
       socket.off('waitingForPlayer');
       socket.off('gameStart');
       socket.off('gameStateUpdate');
@@ -132,5 +139,6 @@ export function cleanup() {
     window.removeEventListener('keydown', handleKeyDown);
     if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
+        animationFrameId = 0; // ID'yi sıfırla
     }
 }
