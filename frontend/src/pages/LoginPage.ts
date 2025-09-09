@@ -1,6 +1,7 @@
 // frontend/src/pages/LoginPage.ts
 import { loginUser } from '../api/auth';
 import { navigateTo } from '../router';
+import { connectSocket } from '../socket'; // EKSİK IMPORT EKLENDİ
 
 export function render() {
   return `
@@ -40,9 +41,9 @@ export function afterRender() {
 
       try {
         const data = await loginUser(email, password);
-        localStorage.setItem('token', data.token); // Token'ı tarayıcıda sakla
-        alert('Giriş başarılı! Ana sayfaya yönlendiriliyorsunuz.');
-        navigateTo('/dashboard'); // Ana sayfaya yönlendir
+        localStorage.setItem('token', data.token);
+        connectSocket(data.token);
+        navigateTo('/dashboard');
       } catch (error: any) {
         alert(error.message);
       }

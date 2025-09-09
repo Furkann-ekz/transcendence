@@ -2,48 +2,44 @@
 import * as LoginPage from '../pages/LoginPage';
 import * as RegisterPage from '../pages/RegisterPage';
 import * as DashboardPage from '../pages/DashboardPage';
-import * as GamePage from '../pages/GamePage';
+import * as LobbyPage from '../pages/LobbyPage';
+import * as LocalGamePage from '../pages/LocalGamePage';
+import * as OnlineGamePage from '../pages/OnlineGamePage';
 
 interface Route {
   render: () => string;
   afterRender?: () => void;
-  cleanup?: () => void; // Yeni opsiyonel fonksiyon
+  cleanup?: () => void;
 }
-
-let currentRoute: Route | null = null; // O anki rotayı tutmak için
+let currentRoute: Route | null = null;
 
 const routes: { [key: string]: Route } = {
   '/': { render: LoginPage.render, afterRender: LoginPage.afterRender },
   '/register': { render: RegisterPage.render, afterRender: RegisterPage.afterRender },
-  '/dashboard': { render: DashboardPage.render, afterRender: DashboardPage.afterRender, cleanup: DashboardPage.cleanup }, // cleanup eklendi
-  '/game': { render: GamePage.render, afterRender: GamePage.afterRender, cleanup: GamePage.cleanup },
+  '/dashboard': { render: DashboardPage.render, afterRender: DashboardPage.afterRender, cleanup: DashboardPage.cleanup },
+  '/lobby': { render: LobbyPage.render, afterRender: LobbyPage.afterRender },
+  '/local-game': { render: LocalGamePage.render, afterRender: LocalGamePage.afterRender, cleanup: LocalGamePage.cleanup },
+  '/online-game': { render: OnlineGamePage.render, afterRender: OnlineGamePage.afterRender, cleanup: OnlineGamePage.cleanup },
 };
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
-function handleLocation()
-{
+function handleLocation() {
   if (currentRoute && currentRoute.cleanup) {
     currentRoute.cleanup();
   }
   const path = window.location.pathname;
-
-  // KORUMALI YOL KONTROLÜNÜ GÜNCELLE
-  const protectedPaths = ['/dashboard', '/game'];
+  const protectedPaths = ['/dashboard', '/lobby', '/local-game', '/online-game'];
   const isAuthRequired = protectedPaths.includes(path);
   const token = localStorage.getItem('token');
-
   if (isAuthRequired && !token) {
     navigateTo('/');
     return;
   }
-
-  // Eğer giriş yapılmışsa ve kullanıcı anasayfaya veya kayıt sayfasına giderse, dashboard'a yönlendir.
-  if (!isAuthRequired && token) {
+  if (!isAuthRequired && token && (path === '/' || path === '/register')) {
     navigateTo('/dashboard');
     return;
   }
-  
   const route = routes[path] || routes['/'];
   app.innerHTML = route.render();
   if (route.afterRender) {
@@ -59,7 +55,6 @@ export function navigateTo(path: string) {
 
 export function initializeRouter() {
   window.addEventListener('popstate', handleLocation);
-
   document.body.addEventListener('click', (e: MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.matches('[data-link]')) {
@@ -67,6 +62,5 @@ export function initializeRouter() {
       navigateTo(target.getAttribute('href')!);
     }
   });
-
   handleLocation();
 }

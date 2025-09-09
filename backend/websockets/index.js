@@ -39,7 +39,11 @@ function initializeSocket(io) {
 
         // Handler'ları çağır
         chatHandler(io, socket, onlineUsers);
-        gameHandler(io, socket, gameState);
+
+        socket.on('joinMatchmaking', () => {
+            console.log(`${socket.user.email} eşleştirme havuzuna katıldı.`);
+            gameHandler(io, socket, gameState);
+        });
 
         // Bağlantı Kesilme Olayı
         socket.on('disconnect', () => {
@@ -63,4 +67,5 @@ function initializeSocket(io) {
         });
     });
 }
+
 module.exports = initializeSocket;

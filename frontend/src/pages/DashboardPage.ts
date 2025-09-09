@@ -1,20 +1,11 @@
 // frontend/src/pages/DashboardPage.ts
-
 import { navigateTo } from '../router';
-import { io, Socket } from "socket.io-client"; // Düzgün import
+import type { Socket } from "socket.io-client";
+import { getSocket, disconnectSocket } from '../socket'; // EKSİK IMPORT'LAR EKLENDİ
+import { jwt_decode } from '../utils'; // EKSİK IMPORT EKLENDİ
 
-// Değişkenleri dosyanın en üstünde tanımlayalım
 let socket: Socket | null = null;
 let myId: number | null = null;
-
-// JWT'yi çözen yardımcı fonksiyon
-function jwt_decode(token: string): any {
-    try {
-        return JSON.parse(atob(token.split('.')[1]));
-    } catch (e) {
-        return null;
-    }
-}
 
 export function render(): string {
   // Bu fonksiyonun içeriği doğruydu, aynı kalıyor.
@@ -23,7 +14,7 @@ export function render(): string {
       <nav class="bg-gray-800 text-white p-4 flex justify-between items-center">
         <h1 class="text-xl font-bold">Transcendence</h1>
         <div>
-          <a href="/game" data-link class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mr-4">Oyuna Git</a>
+          <a href="/lobby" data-link class="bg-green-500 ...">Oyuna Git</a>
           <button id="logout-button" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">Çıkış Yap</button>
         </div>
       </nav>
@@ -48,24 +39,24 @@ export function render(): string {
 }
 
 export function afterRender() {
-  const token = localStorage.getItem('token');
-  if (!token) {
-    navigateTo('/');
-    return;
-  }
-  myId = jwt_decode(token).userId;
-
   const logoutButton = document.getElementById('logout-button');
-  logoutButton?.addEventListener('click', () => {
-    cleanup(); // Temizlik fonksiyonunu çağır
-    localStorage.removeItem('token');
-    navigateTo('/');
-  });
+    logoutButton?.addEventListener('click', () => {
+        localStorage.removeItem('token');
+        disconnectSocket();
+        navigateTo('/');
+    });
 
-  // DÜZELTME: Hatalı 'window.io' kullanımı kaldırıldı, dosyanın başındaki 'io' kullanılıyor.
-  socket = io("http://localhost:3000", {
-    auth: { token }
-  });
+    socket = getSocket(); // getSocket() çağrısını düzelttik
+    if (!socket) {
+        console.error("Socket bağlantısı bulunamadı, login sayfasına yönlendiriliyor.");
+        navigateTo('/');
+        return;
+    }
+
+    const token = localStorage.getItem('token');
+    if (token) {
+        myId = jwt_decode(token).userId;
+    }
 
   const userList = document.getElementById('user-list') as HTMLUListElement;
   const recipientInfo = document.getElementById('recipient-info') as HTMLSpanElement;
@@ -128,9 +119,4 @@ export function afterRender() {
   });
 }
 
-export function cleanup() {
-  if (socket) {
-    socket.disconnect();
-    socket = null;
-  }
-}
+export function cleanup() {} // şimdilik boş

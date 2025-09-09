@@ -21,11 +21,13 @@ function startGameLoop(room, players, io) {
     io.to(room).emit('gameStart', { players: players.map(p => ({id: p.id, name: p.name, email: p.email, isLeft: p.isLeft})) });
     return { players, intervalId, gameState };
 }
+
 function resetBall(gameState, width, height) {
     gameState.ballX = width / 2;
     gameState.ballY = height / 2;
     gameState.ballSpeedX = -gameState.ballSpeedX;
 }
+
 function gameHandler(io, socket, state) {
     if (state.waitingPlayer && state.waitingPlayer.id !== socket.id) {
         const player1 = state.waitingPlayer;
@@ -45,10 +47,25 @@ function gameHandler(io, socket, state) {
     }
     socket.on('playerMove', (data) => {
         const game = state.gameRooms.get(socket.gameRoomId);
-        if (game) {
-            const playerState = game.gameState.players.find(p => p.id === socket.user.id);
-            if (playerState) playerState.paddleY = data.paddleY;
+        if (!game) return;
+
+        const playerState = game.gameState.players.find(p => p.id === socket.user.id);
+        if (!playerState) return;
+        
+        // Sunucu tarafında sınır kontrolü ekliyoruz
+        const canvasHeight = 600;
+        const paddleHeight = 100;
+        let newY = data.paddleY;
+
+        if (newY < 0) {
+            newY = 0;
         }
+        if (newY > canvasHeight - paddleHeight) {
+            newY = canvasHeight - paddleHeight;
+        }
+        
+        playerState.paddleY = newY;
     });
 }
+
 module.exports = gameHandler;
