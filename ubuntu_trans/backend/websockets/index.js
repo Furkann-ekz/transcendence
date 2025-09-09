@@ -1,16 +1,15 @@
-// backend/websockets/index.js (DÜZELTİLMİŞ VE BİRLEŞTİRİLMİŞ)
+// backend/websockets/index.js (NİHAİ GÜNCEL HALİ)
 const jwt = require('jsonwebtoken');
 const prisma = require('../prisma/db');
 const chatHandler = require('./chatHandler');
-// Artık gameHandler'a ihtiyacımız yok
 const JWT_SECRET = process.env.JWT_SECRET;
 
-// Paylaşılan değişkenleri en üstte tanımlıyoruz
+// Paylaşılan değişkenler (shared state) bu dosyanın en üstünde yönetiliyor.
 const onlineUsers = new Map();
 let waitingPlayer = null;
 const gameRooms = new Map();
 
-// Oyun döngüsü ve yardımcı fonksiyonlar (gameHandler.js'den buraya taşındı)
+// --- Oyun Yardımcı Fonksiyonları ---
 function startGameLoop(room, players, io) {
     const canvasWidth = 800, canvasHeight = 600, paddleHeight = 100, paddleWidth = 10;
     const gameState = {
@@ -40,8 +39,9 @@ function resetBall(gameState, width, height) {
     gameState.ballSpeedX = -gameState.ballSpeedX;
 }
 
-// Ana Fonksiyon
+// --- Ana Socket Fonksiyonu ---
 function initializeSocket(io) {
+    // Kimlik Doğrulama Middleware'i
     io.use(async (socket, next) => {
         const token = socket.handshake.auth.token;
         if (!token) return next(new Error('Authentication error'));
@@ -59,13 +59,21 @@ function initializeSocket(io) {
         }
     });
 
+    // Ana Bağlantı Olayı
     io.on('connection', (socket) => {
         console.log(`${socket.user.email} bağlandı.`);
         onlineUsers.set(socket.user.id, { id: socket.user.id, socketId: socket.id, email: socket.user.email, name: socket.user.name });
         io.emit('update user list', Array.from(onlineUsers.values()));
 
+        // Sohbet olay dinleyicilerini kur
         chatHandler(io, socket, onlineUsers);
 
+        // İstemci güncel kullanıcı listesini istediğinde gönder
+        socket.on('requestUserList', () => {
+            socket.emit('update user list', Array.from(onlineUsers.values()));
+        });
+
+        // Kullanıcı eşleştirme havuzuna katılmak istediğinde
         socket.on('joinMatchmaking', () => {
             console.log(`${socket.user.email} eşleştirme havuzuna katıldı.`);
             if (waitingPlayer && waitingPlayer.id !== socket.id) {
@@ -86,6 +94,7 @@ function initializeSocket(io) {
             }
         });
 
+        // Oyuncu raketini hareket ettirdiğinde
         socket.on('playerMove', (data) => {
             const game = gameRooms.get(socket.gameRoomId);
             if (!game) return;
@@ -98,10 +107,12 @@ function initializeSocket(io) {
             playerState.paddleY = newY;
         });
 
+        // Kullanıcı bağlantıyı kestiğinde
         socket.on('disconnect', () => {
             console.log(`${socket.user.email} ayrıldı.`);
             onlineUsers.delete(socket.user.id);
             io.emit('update user list', Array.from(onlineUsers.values()));
+            
             if (socket.gameRoomId) {
                 const game = gameRooms.get(socket.gameRoomId);
                 if (game) {
@@ -117,4 +128,5 @@ function initializeSocket(io) {
         });
     });
 }
+
 module.exports = initializeSocket;

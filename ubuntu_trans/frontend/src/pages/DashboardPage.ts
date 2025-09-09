@@ -1,32 +1,19 @@
-// frontend/src/pages/DashboardPage.ts (NİHAİ DÜZELTME)
 import { navigateTo } from '../router';
+import type { Socket } from "socket.io-client";
 import { getSocket, disconnectSocket } from '../socket';
 import { jwt_decode } from '../utils';
 
 let myId: number | null = null;
 let selectedRecipient: any = null;
 
-function selectRecipient(user: any) {
-    selectedRecipient = user;
-    const recipientInfo = document.getElementById('recipient-info') as HTMLSpanElement;
-    if (recipientInfo) {
-        recipientInfo.textContent = user.name || user.email || 'Herkese';
-    }
-    
-    document.querySelectorAll('#user-list li').forEach(li => {
-        // DÜZELTME: 'li'yi burada HTMLElement'e dönüştürüyoruz.
-        const htmlLi = li as HTMLElement;
-        htmlLi.classList.toggle('selected', htmlLi.dataset.id === (user.id?.toString() || 'all'));
-    });
-}
-
+// Dinleyici fonksiyonlarını dışarıda tanımlıyoruz ki hem ekleyip hem kaldırabilelim
 const handleUpdateUserList = (users: any[]) => {
     const userList = document.getElementById('user-list') as HTMLUListElement;
     if (!userList) return;
-    
+
     const selectedId = selectedRecipient?.id?.toString() || 'all';
     userList.innerHTML = '';
-    
+
     const allOption = document.createElement('li');
     allOption.textContent = 'Herkese';
     allOption.dataset.id = 'all';
@@ -39,7 +26,7 @@ const handleUpdateUserList = (users: any[]) => {
         item.dataset.id = user.id.toString();
         userList.appendChild(item);
     });
-    
+
     document.querySelectorAll('#user-list li').forEach(li => {
         li.addEventListener('click', () => {
              const htmlLi = li as HTMLElement;
@@ -48,7 +35,7 @@ const handleUpdateUserList = (users: any[]) => {
              selectRecipient(user);
         });
     });
-    
+
     const currentSelection = Array.from(userList.children).find(li => (li as HTMLElement).dataset.id === selectedId) as HTMLElement;
     if (currentSelection) {
         const user = users.find(u => u.id.toString() === selectedId) || {id: 'all', name: 'Herkese'};
@@ -66,6 +53,19 @@ const handleChatMessage = (msg: string) => {
     messages.appendChild(item);
     messages.scrollTop = messages.scrollHeight;
 };
+
+function selectRecipient(user: any) {
+    selectedRecipient = user;
+    const recipientInfo = document.getElementById('recipient-info') as HTMLSpanElement;
+    if (recipientInfo) {
+        recipientInfo.textContent = user.name || user.email || 'Herkese';
+    }
+
+    document.querySelectorAll('#user-list li').forEach(li => {
+        const htmlLi = li as HTMLElement;
+        htmlLi.classList.toggle('selected', htmlLi.dataset.id === (user.id?.toString() || 'all'));
+    });
+}
 
 export function render(): string {
   return `
@@ -100,20 +100,23 @@ export function render(): string {
 export function afterRender() {
     const socket = getSocket();
     if (!socket) { navigateTo('/'); return; }
-    
+
     const token = localStorage.getItem('token');
     if (token) myId = jwt_decode(token).userId;
 
     socket.on('update user list', handleUpdateUserList);
     socket.on('chat message', handleChatMessage);
-    
+
+    // Sayfa yüklendiğinde sunucudan güncel listeyi talep et
+    socket.emit('requestUserList');
+
     const logoutButton = document.getElementById('logout-button');
     logoutButton?.addEventListener('click', () => {
         localStorage.removeItem('token');
         disconnectSocket();
         navigateTo('/');
     });
-    
+
     const chatForm = document.getElementById('chat-form') as HTMLFormElement;
     const chatInput = document.getElementById('chat-input') as HTMLInputElement;
 
