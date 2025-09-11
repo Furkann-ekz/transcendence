@@ -17,5 +17,6 @@
   "recipient": "Получатель",
   "everyone": "Всем",
   "chat_placeholder": "Введите ваше сообщение...",
-  "send_button": "Отправить"
+  "send_button": "Отправить",
+  "dropdown_russian": "\u0420\u0443\u0441\u0441\u043A\u0438\u0439"
 }

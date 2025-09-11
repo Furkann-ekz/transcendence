@@ -17,5 +17,6 @@
   "recipient": "Recipient",
   "everyone": "Everyone",
   "chat_placeholder": "Type your message...",
-  "send_button": "Send"
+  "send_button": "Send",
+  "dropdown_english": "English"
 }
