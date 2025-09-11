@@ -1,5 +1,6 @@
 import './style.css';
-import { initializeRouter } from './router';
+// handleLocation'ı import etmeye artık gerek yok
+import { initializeRouter } from './router'; 
 import { setLanguage, getCurrentLanguage } from './i18n';
 
 document.addEventListener('DOMContentLoaded', () => {

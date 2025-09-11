@@ -18,5 +18,14 @@
   "everyone": "Всем",
   "chat_placeholder": "Введите ваше сообщение...",
   "send_button": "Отправить",
+  "lobby_title": "Выберите режим игры",
+  "play_local_button": "Играть локально (на одном компьютере)",
+  "play_online_button": "Играть онлайн (найти соперника)",
+  "return_to_chat": "Вернуться в чат",
+  "waiting_for_opponent": "Ожидание соперника...",
+  "leave_lobby": "Покинуть лобби",
+  "opponent_left": "Ваш соперник покинул игру!",
+  "chat_public_prefix": "(Всем)",
+  "chat_private_prefix": "(Личное)",
   "dropdown_russian": "\u0420\u0443\u0441\u0441\u043A\u0438\u0439"
 }

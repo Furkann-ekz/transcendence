@@ -2,6 +2,7 @@
 import { getSocket } from '../socket'; // Merkezi soketi import et
 import type { Socket } from 'socket.io-client';
 import { jwt_decode } from '../utils';
+import { t } from '../i18n';
 
 let socket: Socket | null = null;
 let canvas: HTMLCanvasElement;
@@ -15,6 +16,18 @@ type Player = {
   paddleY: number;
   isLeft: boolean;
 };
+
+export function render() {
+    return `
+    <div class="h-screen w-screen bg-gray-900 flex flex-col items-center justify-center">
+      <div id="game-status" class="text-3xl text-white mb-4">${t('waiting_for_opponent')}</div>
+      <canvas id="pong-canvas" width="800" height="600" class="bg-black border border-white hidden"></canvas>
+      <a href="/lobby" data-link class="mt-4 text-blue-400 hover:text-blue-300">
+        ${t('leave_lobby')}
+      </a>
+    </div>
+  `;
+}
 
 function renderGame() {
     if (!context || !gameState.players) return;
@@ -69,16 +82,6 @@ function handleKeyDown(event: KeyboardEvent) {
     }
 }
 
-export function render() {
-    return `
-    <div class="h-screen w-screen bg-gray-900 flex flex-col items-center justify-center">
-      <div id="game-status" class="text-3xl text-white mb-4">Rakip Bekleniyor...</div>
-      <canvas id="pong-canvas" width="800" height="600" class="bg-black border border-white hidden"></canvas>
-      <a href="/lobby" data-link class="mt-4 text-blue-400">Lobiden Ayrıl</a>
-    </div>
-  `;
-}
-
 export function afterRender() {
     // DÜZELTME: Yeni soket oluşturmak yerine mevcut olanı alıyoruz
     socket = getSocket()!;
@@ -112,7 +115,7 @@ export function afterRender() {
     });
 
     socket.on('opponentLeft', () => {
-        statusDiv.textContent = 'Rakibin oyundan ayrıldı!';
+        statusDiv.textContent = t('opponent_left');
         window.removeEventListener('keydown', handleKeyDown);
         cancelAnimationFrame(animationFrameId);
     });
