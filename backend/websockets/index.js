@@ -5,15 +5,16 @@ const chatHandler = require('./chatHandler');
 const gameHandler = require('./gameHandler');
 const JWT_SECRET = process.env.JWT_SECRET;
 
-// Paylaşılan değişkenler (shared state)
 const onlineUsers = new Map();
 const gameState = {
-    waitingPlayer: null,
+    waitingPlayers: {
+        '1v1': [],
+        '2v2': []
+    },
     gameRooms: new Map()
 };
 
 function initializeSocket(io) {
-    // Kimlik Doğrulama Middleware'i
     io.use(async (socket, next) => {
         const token = socket.handshake.auth.token;
         if (!token) return next(new Error('Authentication error'));
@@ -31,7 +32,6 @@ function initializeSocket(io) {
         }
     });
 
-    // Ana Bağlantı Olayı
     io.on('connection', (socket) => {
         console.log(`${socket.user.email} bağlandı.`);
         onlineUsers.set(socket.user.id, { id: socket.user.id, socketId: socket.id, email: socket.user.email, name: socket.user.name });
@@ -41,54 +41,52 @@ function initializeSocket(io) {
             socket.emit('update user list', Array.from(onlineUsers.values()));
         });
 
-        // Handler'ları çağır
         chatHandler(io, socket, onlineUsers);
 
-        socket.on('joinMatchmaking', () => {
-            console.log(`${socket.user.email} eşleştirme havuzuna katıldı.`);
-            gameHandler(io, socket, gameState);
+        socket.on('joinMatchmaking', (payload) => {
+            console.log(`${socket.user.email} eşleştirme havuzuna katıldı. Mod: ${payload.mode}`);
+            gameHandler(io, socket, gameState, payload);
         });
+
+        const cleanUpPlayer = (sock) => {
+            // Oyuncuyu tüm bekleme havuzlarından kaldır
+            Object.keys(gameState.waitingPlayers).forEach(mode => {
+                const pool = gameState.waitingPlayers[mode];
+                const newPool = pool.filter(p => p.id !== sock.id);
+                if (newPool.length < pool.length) {
+                    console.log(`${sock.user.email}, ${mode} bekleme havuzundan kaldırıldı.`);
+                    gameState.waitingPlayers[mode] = newPool;
+                    newPool.forEach(p => p.emit('updateQueue', { queueSize: newPool.length, requiredSize: mode === '1v1' ? 2 : 4 }));
+                }
+            });
+
+            // Oyuncu bir oyun odasındaysa, oyunu bitir.
+            if (sock.gameRoom) {
+                const game = gameState.gameRooms.get(sock.gameRoom.id);
+                // *** KRİTİK DÜZELTME: 'game' nesnesinin var olduğundan emin ol! ***
+                if (game) {
+                    clearInterval(game.intervalId);
+                    const otherPlayers = game.players.filter(p => p.socketId !== sock.id);
+                    otherPlayers.forEach(p => {
+                         const otherSocket = io.sockets.sockets.get(p.socketId);
+                         if(otherSocket) otherSocket.emit('opponentLeft');
+                    });
+                    gameState.gameRooms.delete(sock.gameRoom.id);
+                    console.log(`Oda ${sock.gameRoom.id} temizlendi.`);
+                }
+            }
+        };
 
         socket.on('leaveGameOrLobby', () => {
-            console.log(`${socket.user.email} oyun/lobi'den ayrıldı.`);
-            // Oyuncu bir oyun odasındaysa, oyunu bitir.
-            if (socket.gameRoomId) {
-                const game = gameState.gameRooms.get(socket.gameRoomId);
-                if (game) {
-                    clearInterval(game.intervalId);
-                    const otherPlayer = game.players.find(p => p.socketId !== socket.id);
-                    if (otherPlayer) {
-                        io.to(otherPlayer.socketId).emit('opponentLeft');
-                    }
-                    gameState.gameRooms.delete(socket.gameRoomId);
-                    console.log(`Oda ${socket.gameRoomId} temizlendi.`);
-                }
-            }
-            if (gameState.waitingPlayer && gameState.waitingPlayer.id === socket.id) {
-                gameState.waitingPlayer = null;
-                console.log('Bekleme lobisi temizlendi.');
-            }
+            console.log(`${socket.user.email} oyun/lobi'den manuel olarak ayrıldı.`);
+            cleanUpPlayer(socket);
         });
 
-        // Bağlantı Kesilme Olayı
         socket.on('disconnect', () => {
-            console.log(`${socket.user.email} ayrıldı.`);
+            console.log(`${socket.user.email} bağlantısı kesildi.`);
             onlineUsers.delete(socket.user.id);
             io.emit('update user list', Array.from(onlineUsers.values()));
-            // Oyundayken ayrılırsa...
-            if (socket.gameRoomId) {
-                const game = gameState.gameRooms.get(socket.gameRoomId);
-                if (game) {
-                    clearInterval(game.intervalId);
-                    const otherPlayer = game.players.find(p => p.socketId !== socket.id);
-                    if (otherPlayer) io.to(otherPlayer.socketId).emit('opponentLeft');
-                    gameState.gameRooms.delete(socket.gameRoomId);
-                }
-            }
-            // Bekleme odasındayken ayrılırsa...
-            if (gameState.waitingPlayer && gameState.waitingPlayer.id === socket.id) {
-                gameState.waitingPlayer = null;
-            }
+            cleanUpPlayer(socket);
         });
     });
 }

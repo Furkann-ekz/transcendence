@@ -6,6 +6,7 @@ import * as LobbyPage from '../pages/LobbyPage';
 import * as LocalGamePage from '../pages/LocalGamePage';
 import * as OnlineGamePage from '../pages/OnlineGamePage';
 import { connectSocket, getSocket } from '../socket';
+import * as OnlineLobbyPage from '../pages/OnlineLobbyPage';
 
 interface Route {
   render: () => string;
@@ -19,6 +20,7 @@ const routes: { [key: string]: Route } = {
   '/register': { render: RegisterPage.render, afterRender: RegisterPage.afterRender },
   '/dashboard': { render: DashboardPage.render, afterRender: DashboardPage.afterRender, cleanup: DashboardPage.cleanup },
   '/lobby': { render: LobbyPage.render, afterRender: LobbyPage.afterRender },
+  '/online-lobby': { render: OnlineLobbyPage.render, afterRender: OnlineLobbyPage.afterRender },
   '/local-game': { render: LocalGamePage.render, afterRender: LocalGamePage.afterRender, cleanup: LocalGamePage.cleanup },
   '/online-game': { render: OnlineGamePage.render, afterRender: OnlineGamePage.afterRender, cleanup: OnlineGamePage.cleanup },
 };

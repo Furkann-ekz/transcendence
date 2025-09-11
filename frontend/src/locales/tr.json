@@ -27,5 +27,9 @@
   "opponent_left": "Rakibin oyundan ayrıldı!",
   "chat_public_prefix": "(Herkese)",
   "chat_private_prefix": "(Özel)",
-  "dropdown_turkish": "T\u00FCrk\u00E7e"
+  "dropdown_turkish": "T\u00FCrk\u00E7e",
+  "online_lobby_title": "Online Modu Seç",
+  "play_1v1_button": "1v1 Oyna",
+  "play_2v2_button": "2v2 Oyna",
+  "back_button": "Geri"
 }

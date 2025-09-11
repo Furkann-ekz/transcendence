@@ -1,6 +1,5 @@
-// frontend/src/pages/LobbyPage.ts
-import { t } from '../i18n';
 import { navigateTo } from "../router";
+import { t } from '../i18n';
 
 export function render() {
   return `
@@ -11,7 +10,7 @@ export function render() {
           <a href="/local-game" data-link class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded">
             ${t('play_local_button')}
           </a>
-          <a href="/online-game" data-link class="bg-green-500 hover:bg-green-700 text-white font-bold py-3 px-4 rounded">
+          <a href="/online-lobby" data-link class="bg-green-500 hover:bg-green-700 text-white font-bold py-3 px-4 rounded">
             ${t('play_online_button')}
           </a>
         </div>
@@ -24,15 +23,11 @@ export function render() {
 }
 
 export function afterRender() {
-    const onlineButton = document.querySelector('a[href="/online-game"]');
+    // DEĞİŞİKLİK: Artık butonu doğru href üzerinden arıyoruz.
+    const onlineButton = document.querySelector('a[href="/online-lobby"]');
     
     onlineButton?.addEventListener('click', (e) => {
         e.preventDefault();
-        // const socket = getSocket();
-        // if (socket) {
-        //     // YENİ: Sunucuya "eşleştirme havuzuna katıl" mesajı gönder
-        //     socket.emit('joinMatchmaking');
-        // }
-        navigateTo('/online-game');
+        navigateTo('/online-lobby');
     });
 }
