@@ -27,5 +27,9 @@
   "opponent_left": "Ваш соперник покинул игру!",
   "chat_public_prefix": "(Всем)",
   "chat_private_prefix": "(Личное)",
-  "dropdown_russian": "\u0420\u0443\u0441\u0441\u043A\u0438\u0439"
+  "dropdown_russian": "\u0420\u0443\u0441\u0441\u043A\u0438\u0439",
+  "online_lobby_title": "Выберите онлайн-режим",
+  "play_1v1_button": "Играть 1 на 1",
+  "play_2v2_button": "Играть 2 на 2",
+  "back_button": "Назад"
 }

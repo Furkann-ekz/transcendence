@@ -1,5 +1,5 @@
 // frontend/src/pages/OnlineGamePage.ts
-import { getSocket } from '../socket'; // Merkezi soketi import et
+import { getSocket } from '../socket';
 import type { Socket } from 'socket.io-client';
 import { jwt_decode } from '../utils';
 import { t } from '../i18n';
@@ -8,48 +8,40 @@ let socket: Socket | null = null;
 let canvas: HTMLCanvasElement;
 let context: CanvasRenderingContext2D;
 let gameState: any = {};
-let playerIsLeft: boolean = true;
+let gameConfig: any = {};
+let myPlayer: any = null;
 let animationFrameId: number;
 
-type Player = {
-  id: number;
-  paddleY: number;
-  isLeft: boolean;
-};
-
-export function render() {
-    return `
-    <div class="h-screen w-screen bg-gray-900 flex flex-col items-center justify-center">
-      <div id="game-status" class="text-3xl text-white mb-4">${t('waiting_for_opponent')}</div>
-      <canvas id="pong-canvas" width="800" height="600" class="bg-black border border-white hidden"></canvas>
-      <a href="/lobby" data-link class="mt-4 text-blue-400 hover:text-blue-300">
-        ${t('leave_lobby')}
-      </a>
-    </div>
-  `;
-}
-
 function renderGame() {
-    if (!context || !gameState.players) return;
-    const { players, ballX, ballY, leftScore, rightScore } = gameState;
-    const PADDLE_WIDTH = 10, PADDLE_HEIGHT = 100, BALL_SIZE = 10;
-    
+    if (!context || !gameState.players || !gameConfig.canvasSize) return;
+    const { players, ballX, ballY, team1Score, team2Score } = gameState;
+    const { canvasSize, paddleSize, paddleThickness } = gameConfig;
+
+    // Arka planı çiz
     context.fillStyle = 'black';
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    
+    context.fillRect(0, 0, canvasSize, canvasSize);
+
+    // Skorları çiz
     context.fillStyle = 'white';
     context.font = "75px fantasy";
-    context.fillText(leftScore.toString(), canvas.width / 4, canvas.height / 5);
-    context.fillText(rightScore.toString(), 3 * canvas.width / 4, canvas.height / 5);
+    context.textAlign = 'center';
+    context.fillText(team1Score.toString(), canvasSize / 4, canvasSize / 5);
+    context.fillText(team2Score.toString(), 3 * canvasSize / 4, canvasSize / 5);
 
-    const leftPlayer = players.find((p: Player) => p.isLeft);
-    const rightPlayer = players.find((p: Player) => !p.isLeft);
+    // Raketleri çiz
+    players.forEach((player: any) => {
+        context.fillStyle = player.team === 1 ? '#60a5fa' : '#f87171'; // Mavi vs Kırmızı
+        if (player.position === 'left' || player.position === 'right') {
+            context.fillRect(player.x, player.y, paddleThickness, paddleSize);
+        } else { // top or bottom
+            context.fillRect(player.x, player.y, paddleSize, paddleThickness);
+        }
+    });
 
-    if (leftPlayer) context.fillRect(0, leftPlayer.paddleY, PADDLE_WIDTH, PADDLE_HEIGHT);
-    if (rightPlayer) context.fillRect(canvas.width - PADDLE_WIDTH, rightPlayer.paddleY, PADDLE_WIDTH, PADDLE_HEIGHT);
-    
+    // Topu çiz
+    context.fillStyle = 'white';
     context.beginPath();
-    context.arc(ballX, ballY, BALL_SIZE, 0, Math.PI * 2);
+    context.arc(ballX, ballY, 10, 0, Math.PI * 2);
     context.fill();
 }
 
@@ -58,35 +50,43 @@ function gameLoop() {
     animationFrameId = requestAnimationFrame(gameLoop);
 }
 
-function handleKeyDown(event: KeyboardEvent) {
-    if (!socket || !gameState.players)
-        return;
-    let newY;
-    
-    const player = gameState.players.find((p: Player) => p.isLeft === playerIsLeft);
-    if (!player) return;
+function handlePlayerMove(event: KeyboardEvent) {
+    if (!socket || !myPlayer) return;
 
-    // Sadece kendi raketimizi kontrol etmemize izin ver
-    if ((player.isLeft && (event.key === 'w' || event.key === 's')) || 
-        (!player.isLeft && (event.key === 'ArrowUp' || event.key === 'ArrowDown'))) 
-    {
-        if (event.key === 'w' || event.key === 'ArrowUp') {
-            newY = player.paddleY - 30;
-        } else if (event.key === 's' || event.key === 'ArrowDown') {
-            newY = player.paddleY + 30;
-        }
-        
-        if (newY !== undefined) {
-            socket.emit('playerMove', { paddleY: newY });
-        }
+    let currentPos, newPos;
+    
+    // Mevcut pozisyonu al
+    if (myPlayer.position === 'left' || myPlayer.position === 'right') {
+        currentPos = gameState.players.find((p:any) => p.id === myPlayer.id)?.y;
+    } else {
+        currentPos = gameState.players.find((p:any) => p.id === myPlayer.id)?.x;
+    }
+    if(currentPos === undefined) return;
+
+    // Yeni pozisyonu hesapla
+    if (event.key === 'w' || event.key === 'ArrowUp') {
+        newPos = currentPos - 20;
+    } else if (event.key === 's' || event.key === 'ArrowDown') {
+        newPos = currentPos + 20;
+    }
+
+    if (newPos !== undefined) {
+        socket.emit('playerMove', { newPosition: newPos });
     }
 }
 
-export function afterRender() {
-    // DÜZELTME: Yeni soket oluşturmak yerine mevcut olanı alıyoruz
-    socket = getSocket()!;
+export function render() {
+    return `
+    <div class="h-screen w-screen bg-gray-900 flex flex-col items-center justify-center">
+      <div id="game-status" class="text-3xl text-white mb-4">${t('waiting_for_opponent')}</div>
+      <canvas id="pong-canvas" class="bg-black border border-white hidden"></canvas>
+      <a href="/lobby" data-link class="mt-4 text-blue-400 hover:text-blue-300">${t('leave_lobby')}</a>
+    </div>
+  `;
+}
 
-    socket.emit('joinMatchmaking');
+export function afterRender() {
+    socket = getSocket()!;
     
     const statusDiv = document.getElementById('game-status')!;
     const canvasEl = document.getElementById('pong-canvas') as HTMLCanvasElement;
@@ -94,20 +94,30 @@ export function afterRender() {
     context = canvas.getContext('2d')!;
     
     const token = localStorage.getItem('token');
+    const myUserId = token ? jwt_decode(token).userId : null;
 
-    socket.on('waitingForPlayer', () => {
-        statusDiv.textContent = 'Rakip Bekleniyor...';
+    socket.on('updateQueue', ({ queueSize, requiredSize }) => {
+        statusDiv.textContent = `${t('waiting_for_opponent')} (${queueSize}/${requiredSize})`;
     });
 
-    socket.on('gameStart', ({ players }) => {
-        statusDiv.textContent = ''; // Veya skorları gösterebiliriz
+    socket.on('gameStart', (payload) => {
+        gameConfig = {
+            canvasSize: payload.canvasSize,
+            paddleSize: payload.paddleSize,
+            paddleThickness: payload.paddleThickness,
+            mode: payload.mode
+        };
+        
+        canvas.width = gameConfig.canvasSize;
+        canvas.height = gameConfig.canvasSize;
+        
+        statusDiv.textContent = '';
         canvas.classList.remove('hidden');
         
-        const myData = players.find((p: any) => p.id === jwt_decode(token!).userId);
-        if (myData) playerIsLeft = myData.isLeft;
+        myPlayer = payload.players.find((p: any) => p.id === myUserId);
 
-        window.addEventListener('keydown', handleKeyDown);
-        gameLoop(); // Oyun döngüsünü burada başlat
+        window.addEventListener('keydown', handlePlayerMove);
+        gameLoop();
     });
 
     socket.on('gameStateUpdate', (newGameState) => {
@@ -116,27 +126,20 @@ export function afterRender() {
 
     socket.on('opponentLeft', () => {
         statusDiv.textContent = t('opponent_left');
-        window.removeEventListener('keydown', handleKeyDown);
-        cancelAnimationFrame(animationFrameId);
+        window.removeEventListener('keydown', handlePlayerMove);
+        if (animationFrameId) cancelAnimationFrame(animationFrameId);
     });
 }
 
 export function cleanup() {
-    if (!socket)
-        return;
     if (socket) {
-      // --- YENİ EKLENECEK SATIR ---
-      // Sunucuya lobiden veya oyundan ayrıldığımızı bildiriyoruz.
       socket.emit('leaveGameOrLobby');
-
-      // Mevcut event dinleyicilerini temizleyelim.
-      socket.off('waitingForPlayer');
+      socket.off('updateQueue');
       socket.off('gameStart');
       socket.off('gameStateUpdate');
       socket.off('opponentLeft');
     }
-    window.removeEventListener('keydown', handleKeyDown);
-    if (animationFrameId) { // animationFrameId tanımlıysa iptal et
-        cancelAnimationFrame(animationFrameId);
-    }
+    window.removeEventListener('keydown', handlePlayerMove);
+    if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    animationFrameId = 0;
 }

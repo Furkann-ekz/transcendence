@@ -27,5 +27,9 @@
   "opponent_left": "Your opponent has left the game!",
   "chat_public_prefix": "(Everyone)",
   "chat_private_prefix": "(Private)",
-  "dropdown_english": "English"
+  "dropdown_english": "English",
+  "online_lobby_title": "Select Online Mode",
+  "play_1v1_button": "Play 1v1",
+  "play_2v2_button": "Play 2v2",
+  "back_button": "Back"
 }
