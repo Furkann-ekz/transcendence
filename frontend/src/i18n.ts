@@ -24,6 +24,10 @@ export function setLanguage(lang: string) {
   localStorage.setItem('language', lang);
 }
 
+export function getCurrentLanguage(): string {
+  return currentLanguage;
+}
+
 // Çeviri fonksiyonumuz (t kısaltmasıyla kullanılır: "translate")
 export function t(key: string): string {
   return currentTranslations[key] || key;

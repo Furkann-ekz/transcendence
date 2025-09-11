@@ -9,15 +9,19 @@ let socket: Socket | null = null;
 let myId: number | null = null;
 
 export function render(): string {
+  // Navigasyon çubuğunu sol, orta ve sağ olmak üzere üç ana bölüme ayırıyoruz.
   return `
     <div class="h-screen w-screen flex flex-col bg-gray-100">
       <nav class="bg-gray-800 text-white p-4 flex justify-between items-center w-full">
         
-        <div class="flex-shrink-0">
+        <div class="w-1/3">
+          </div>
+
+        <div class="w-1/3 text-center">
           <h1 class="text-xl font-bold">Transcendence</h1>
         </div>
 
-        <div class="flex items-center space-x-4 mr-32">
+        <div class="w-1/3 flex justify-end items-center space-x-4">
           <a href="/lobby" data-link class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">${t('go_to_game')}</a>
           <button id="logout-button" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">${t('logout')}</button>
         </div>
@@ -47,6 +51,7 @@ export function render(): string {
   `;
 }
 
+
 export function afterRender() {
   const logoutButton = document.getElementById('logout-button');
     logoutButton?.addEventListener('click', () => {
@@ -55,13 +60,7 @@ export function afterRender() {
         navigateTo('/');
     });
 
-    socket = getSocket(); 
-    if (!socket) {
-        console.error("Socket bağlantısı bulunamadı, login sayfasına yönlendiriliyor.");
-        navigateTo('/');
-        return;
-    }
-
+    socket = getSocket()!;
     socket.emit('requestUserList');
 
     const token = localStorage.getItem('token');
@@ -79,9 +78,11 @@ export function afterRender() {
 
   function selectRecipient(user: any) {
     selectedRecipient = user;
-    recipientInfo.textContent = user.name || user.email || 'Herkese';
+    // DEĞİŞİKLİK: "Herkese" yerine çeviri fonksiyonu kullanılıyor.
+    recipientInfo.textContent = user.name || user.email || t('everyone');
+    
     document.querySelectorAll('#user-list li').forEach(li => {
-        li.classList.toggle('selected', (li as HTMLElement).dataset.id == (user.id || 'all'));
+        li.classList.toggle('bg-blue-200', (li as HTMLElement).dataset.id == (user.id || 'all'));
     });
   }
 
@@ -89,9 +90,11 @@ export function afterRender() {
     userList.innerHTML = '';
     
     const allOption = document.createElement('li');
-    allOption.textContent = 'Herkese';
+    // DEĞİŞİKLİK: "Herkese" yerine çeviri fonksiyonu kullanılıyor.
+    allOption.textContent = t('everyone');
     allOption.dataset.id = 'all';
-    allOption.addEventListener('click', () => selectRecipient({ id: 'all', name: 'Herkese' }));
+    allOption.classList.add('p-2', 'hover:bg-gray-200', 'cursor-pointer', 'rounded');
+    allOption.addEventListener('click', () => selectRecipient({ id: 'all', name: t('everyone') }));
     userList.appendChild(allOption);
 
     users.forEach(user => {
@@ -99,11 +102,14 @@ export function afterRender() {
         const item = document.createElement('li');
         item.textContent = user.name || user.email;
         item.dataset.id = user.id;
+        item.classList.add('p-2', 'hover:bg-gray-200', 'cursor-pointer', 'rounded');
         item.addEventListener('click', () => selectRecipient(user));
         userList.appendChild(item);
     });
-    if (!selectedRecipient) {
-       selectRecipient({ id: 'all', name: 'Herkese' });
+
+    // DEĞİŞİKLİK: "Herkese" yerine çeviri fonksiyonu kullanılıyor ve seçili stili ekleniyor.
+    if (!selectedRecipient || selectedRecipient.id === 'all') {
+       selectRecipient({ id: 'all', name: t('everyone') });
     }
   });
 
