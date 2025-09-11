@@ -3,5 +3,19 @@
   "email_label": "Электронная почта",
   "password_label": "Пароль",
   "login_button": "Войти",
-  "register_link": "Нет аккаунта? Зарегистрируйтесь"
+  "register_link": "Нет аккаунта? Зарегистрируйтесь",
+  "register_title": "Зарегистрироваться",
+  "name_label": "Имя (необязательно)",
+  "register_button": "Зарегистрироваться",
+  "login_link": "Уже есть аккаунт? Войти",
+  "register_success_alert": "Регистрация прошла успешно! Пожалуйста, войдите.",
+  "error_invalid_credentials": "Неверные учетные данные. Пожалуйста, попробуйте еще раз.",
+  "error_email_registered": "Этот адрес электронной почты уже зарегистрирован.",
+  "go_to_game": "Перейти к игре",
+  "logout": "Выйти",
+  "online_users": "Пользователи онлайн",
+  "recipient": "Получатель",
+  "everyone": "Всем",
+  "chat_placeholder": "Введите ваше сообщение...",
+  "send_button": "Отправить"
 }

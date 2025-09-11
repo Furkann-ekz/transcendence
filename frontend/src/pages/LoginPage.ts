@@ -2,7 +2,6 @@
 import { t } from '../i18n';
 import { loginUser } from '../api/auth';
 import { navigateTo } from '../router';
-import { connectSocket } from '../socket'; // EKSİK IMPORT EKLENDİ
 
 
 export function render() {
@@ -45,8 +44,16 @@ export function afterRender() {
         const data = await loginUser(email, password);
         localStorage.setItem('token', data.token);
         navigateTo('/dashboard');
-      } catch (error: any) {
-        alert(error.message);
+      }
+      catch (error: any)
+      {
+        // Backend'den gelen mesaja göre çeviri yap
+        const errorMessage = error.message;
+        if (errorMessage.includes('Invalid credentials'))
+          alert(t('error_invalid_credentials'));
+        else
+          // Bilinmeyen diğer hatalar için genel mesaj
+          alert(errorMessage);
       }
     });
   }
