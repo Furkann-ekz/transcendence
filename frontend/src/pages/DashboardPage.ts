@@ -1,4 +1,5 @@
 // frontend/src/pages/DashboardPage.ts
+import { setLanguage } from '../i18n';
 import { navigateTo } from '../router';
 import type { Socket } from "socket.io-client";
 import { getSocket, disconnectSocket } from '../socket'; // EKSİK IMPORT'LAR EKLENDİ
@@ -8,37 +9,37 @@ let socket: Socket | null = null;
 let myId: number | null = null;
 
 export function render(): string {
-  // Bu fonksiyonun içeriği doğruydu, aynı kalıyor.
   return `
     <div class="h-screen w-screen flex flex-col">
       <nav class="bg-gray-800 text-white p-4 flex justify-between items-center">
         <h1 class="text-xl font-bold">Transcendence</h1>
+        
+        <div class="flex items-center">
+          <button data-lang="tr" class="lang-btn px-2 py-1 mx-1 text-sm rounded hover:bg-gray-700">TR</button>
+          <button data-lang="en" class="lang-btn px-2 py-1 mx-1 text-sm rounded hover:bg-gray-700">EN</button>
+          <button data-lang="ru" class="lang-btn px-2 py-1 mx-1 text-sm rounded hover:bg-gray-700">RU</button>
+        </div>
         <div>
           <a href="/lobby" data-link class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mr-4">Oyuna Git</a>
           <button id="logout-button" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">Çıkış Yap</button>
         </div>
       </nav>
-      <div class="flex flex-grow overflow-hidden">
-        <div class="w-1/4 bg-gray-200 p-4 overflow-y-auto">
-          <h2 class="text-lg font-bold mb-4">Online Kullanıcılar</h2>
-          <ul id="user-list"></ul>
-        </div>
-        <div class="w-3/4 flex flex-col">
-          <div class="p-4">
-            <strong>Gönderilecek Kişi:</strong> <span id="recipient-info">Herkese</span>
-          </div>
-          <ul id="messages" class="flex-grow p-4 overflow-y-auto bg-gray-50"></ul>
-          <form id="chat-form" class="p-4 bg-gray-200 flex">
-            <input id="chat-input" autocomplete="off" placeholder="Mesajınızı yazın..." class="border rounded-l-md p-2 flex-grow" />
-            <button type="submit" class="bg-blue-500 text-white px-4 rounded-r-md">Gönder</button>
-          </form>
-        </div>
       </div>
-    </div>
   `;
 }
 
 export function afterRender() {
+  const langButtons = document.querySelectorAll('.lang-btn');
+  langButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      const lang = button.getAttribute('data-lang');
+      if (lang) {
+        setLanguage(lang);
+        // Değişikliğin tüm arayüze yansıması için en basit yöntem sayfayı yeniden yüklemektir.
+        window.location.reload(); 
+      }
+    });
+  });
   const logoutButton = document.getElementById('logout-button');
     logoutButton?.addEventListener('click', () => {
         localStorage.removeItem('token');
