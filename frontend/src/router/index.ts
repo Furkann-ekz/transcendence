@@ -56,7 +56,7 @@ async function handleLocation() {
   }
   // Token varken login/register sayfasına girmeye çalışırsa -> dashboard'a yönlendir.
   if (!isAuthRequired && token && (path === '/' || path === '/register')) {
-    if (path !== '/dashboard') navigateTo('/dashboard');
+    navigateTo('/dashboard');
     return;
   }
 
