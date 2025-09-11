@@ -29,40 +29,60 @@ function resetBall(gameState, width, height) {
 }
 
 function gameHandler(io, socket, state) {
-    if (state.waitingPlayer && state.waitingPlayer.id !== socket.id) {
+    console.log(`[Matchmaking] ${socket.user.email} lobiye girdi. Bekleyen oyuncu: ${state.waitingPlayer ? state.waitingPlayer.user.email : 'yok'}`);
+
+    // KORUMA: Eğer bu kullanıcı zaten bekliyorsa, hiçbir şey yapma.
+    if (state.waitingPlayer && state.waitingPlayer.id === socket.id) {
+        console.log(`[Matchmaking] ${socket.user.email} zaten beklemedeydi. İşlem yapılmadı.`);
+        return;
+    }
+
+    // EŞLEŞTİRME: Lobide bekleyen biri varsa, oyunu başlat.
+    if (state.waitingPlayer) {
+        console.log(`[Matchmaking] Rakip bulundu! ${state.waitingPlayer.user.email} ve ${socket.user.email} eşleşti.`);
         const player1 = state.waitingPlayer;
-        state.waitingPlayer = null; // Hemen temizle
+        state.waitingPlayer = null; // Bekleme sırasını hemen temizle! Bu çok önemli.
         const player2 = socket;
+
         const roomName = `game_${player1.id}_${player2.id}`;
-        const players = [ { ...player1.user, socketId: player1.id, paddleY: 250, isLeft: true }, { ...player2.user, socketId: player2.id, paddleY: 250, isLeft: false } ];
+        
+        const players = [
+            { ...player1.user, socketId: player1.id, paddleY: 250, isLeft: true },
+            { ...player2.user, socketId: player2.id, paddleY: 250, isLeft: false }
+        ];
+
         player1.join(roomName);
         player2.join(roomName);
+
         player1.gameRoomId = roomName;
         player2.gameRoomId = roomName;
+
         const game = startGameLoop(roomName, players, io);
         state.gameRooms.set(roomName, game);
-    } else {
+        console.log(`[Matchmaking] Oyun odası (${roomName}) oluşturuldu ve oyun başlatıldı.`);
+    } 
+    // BEKLEMEYE AL: Lobide kimse yoksa, bu oyuncuyu beklemeye al.
+    else {
+        console.log(`[Matchmaking] ${socket.user.email} rakip beklemek üzere sıraya alındı.`);
         state.waitingPlayer = socket;
         socket.emit('waitingForPlayer');
     }
+
+    // Oyuncunun raket hareketlerini dinle.
     socket.on('playerMove', (data) => {
+        if (!socket.gameRoomId) return; // Oyunda değilse bu olayı görmezden gel.
         const game = state.gameRooms.get(socket.gameRoomId);
         if (!game) return;
 
         const playerState = game.gameState.players.find(p => p.id === socket.user.id);
         if (!playerState) return;
         
-        // Sunucu tarafında sınır kontrolü ekliyoruz
         const canvasHeight = 600;
         const paddleHeight = 100;
         let newY = data.paddleY;
 
-        if (newY < 0) {
-            newY = 0;
-        }
-        if (newY > canvasHeight - paddleHeight) {
-            newY = canvasHeight - paddleHeight;
-        }
+        if (newY < 0) newY = 0;
+        if (newY > canvasHeight - paddleHeight) newY = canvasHeight - paddleHeight;
         
         playerState.paddleY = newY;
     });

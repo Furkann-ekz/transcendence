@@ -1,7 +1,7 @@
 // frontend/src/api/auth.ts
 
 // Ortam değişkeninden API adresini alıyoruz
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = `http://${window.location.hostname}:3000`;
 
 // DÜZELTME: Parametrelere ': string' tipi eklendi
 export async function loginUser(email: string, password: string) {

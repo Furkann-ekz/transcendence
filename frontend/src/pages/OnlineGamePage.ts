@@ -82,10 +82,8 @@ export function render() {
 export function afterRender() {
     // DÜZELTME: Yeni soket oluşturmak yerine mevcut olanı alıyoruz
     socket = getSocket();
-    if (!socket) {
-        navigateTo('/');
-        return;
-    }
+
+    socket.emit('joinMatchmaking');
     
     const statusDiv = document.getElementById('game-status')!;
     const canvasEl = document.getElementById('pong-canvas') as HTMLCanvasElement;
@@ -121,15 +119,19 @@ export function afterRender() {
 }
 
 export function cleanup() {
-    // Kullanıcı bu sayfadan ayrıldığında (örn. lobiye dönerek),
-    // sunucuya bekleme listesinden veya oyundan çıkmak istediğini bildirebiliriz.
-    // Şimdilik sadece temel temizliği yapalım.
     if (socket) {
+      // --- YENİ EKLENECEK SATIR ---
+      // Sunucuya lobiden veya oyundan ayrıldığımızı bildiriyoruz.
+      socket.emit('leaveGameOrLobby');
+
+      // Mevcut event dinleyicilerini temizleyelim.
       socket.off('waitingForPlayer');
       socket.off('gameStart');
       socket.off('gameStateUpdate');
       socket.off('opponentLeft');
     }
     window.removeEventListener('keydown', handleKeyDown);
-    cancelAnimationFrame(animationFrameId);
+    if (animationFrameId) { // animationFrameId tanımlıysa iptal et
+        cancelAnimationFrame(animationFrameId);
+    }
 }

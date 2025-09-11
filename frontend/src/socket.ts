@@ -5,50 +5,44 @@ let socket: Socket | null = null;
 
 // frontend/src/socket.ts -> connectSocket fonksiyonu
 
-export function connectSocket(token: string) {
-    // Mevcut bir bağlantı varsa, eskisini kapat
-    if (socket) {
-        socket.disconnect();
-    }
+export function connectSocket(token: string): Promise<Socket> { // Artık bir Promise döndürüyor
+    return new Promise((resolve, reject) => {
+        // Eğer zaten bağlı bir soket varsa, hemen onu döndür.
+        if (socket && socket.connected) {
+            return resolve(socket);
+        }
 
-    const API_URL = import.meta.env.VITE_API_URL;
-    if (!API_URL) {
-        throw new Error("API URL is not defined!");
-    }
+        const SOCKET_URL = `http://${window.location.hostname}:3000`;
+        const newSocket = io(SOCKET_URL, {
+            auth: { token }
+        });
 
-    // YENİ: Soketi önce yerel bir sabite ata
-    const newSocket = io(API_URL, { 
-        auth: { token } 
+        newSocket.on('connect', () => {
+            console.log('Socket sunucuya başarıyla bağlandı! ID:', newSocket.id);
+            socket = newSocket;
+            resolve(newSocket); // Bağlantı başarılı olunca sözü yerine getir.
+        });
+
+        newSocket.on('disconnect', () => {
+            console.log('Socket bağlantısı kesildi. Yeniden bağlanmaya çalışılıyor...');
+            // socket değişkenini null yapmıyoruz! Kütüphane kendi halledecek.
+        });
+
+        newSocket.on('connect_error', (err) => {
+            console.error('Socket bağlantı hatası:', err.message);
+            reject(err); // Hata durumunda sözü reddet.
+        });
     });
-    
-    // Olay dinleyicilerini bu 'null' olamayan newSocket üzerinden kur
-    newSocket.on('connect', () => {
-        // 'newSocket' null olamayacağı için TypeScript burada hata vermez
-        console.log('Socket sunucuya başarıyla bağlandı! ID:', newSocket.id);
-    });
-
-    newSocket.on('disconnect', () => {
-        console.log('Socket bağlantısı kesildi.');
-        socket = null; // Kapsamdaki ana 'socket' değişkenini null yap
-    });
-
-    newSocket.on('connect_error', (err) => {
-        console.error('Socket bağlantı hatası:', err.message);
-    });
-
-    // Son olarak, yerel soketi modül kapsamındaki ana soket değişkenine ata
-    socket = newSocket;
 }
 
-// Diğer dosyalardan mevcut soket bağlantısını almak için
+// getSocket ve disconnectSocket fonksiyonları aynı kalabilir.
 export function getSocket(): Socket | null {
     return socket;
 }
 
-// Çıkış yaparken veya ihtiyaç duyulduğunda bağlantıyı manuel olarak kesmek için
 export function disconnectSocket() {
     if (socket) {
         socket.disconnect();
-        socket = null; // Bağlantıyı kapattıktan sonra değişkeni de temizleyelim.
+        socket = null;
     }
 }

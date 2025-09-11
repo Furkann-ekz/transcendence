@@ -29,11 +29,11 @@ export function afterRender() {
     
     onlineButton?.addEventListener('click', (e) => {
         e.preventDefault();
-        const socket = getSocket();
-        if (socket) {
-            // YENİ: Sunucuya "eşleştirme havuzuna katıl" mesajı gönder
-            socket.emit('joinMatchmaking');
-        }
+        // const socket = getSocket();
+        // if (socket) {
+        //     // YENİ: Sunucuya "eşleştirme havuzuna katıl" mesajı gönder
+        //     socket.emit('joinMatchmaking');
+        // }
         navigateTo('/online-game');
     });
 }

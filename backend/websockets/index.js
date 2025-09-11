@@ -37,12 +37,37 @@ function initializeSocket(io) {
         onlineUsers.set(socket.user.id, { id: socket.user.id, socketId: socket.id, email: socket.user.email, name: socket.user.name });
         io.emit('update user list', Array.from(onlineUsers.values()));
 
+        socket.on('requestUserList', () => {
+            socket.emit('update user list', Array.from(onlineUsers.values()));
+        });
+
         // Handler'ları çağır
         chatHandler(io, socket, onlineUsers);
 
         socket.on('joinMatchmaking', () => {
             console.log(`${socket.user.email} eşleştirme havuzuna katıldı.`);
             gameHandler(io, socket, gameState);
+        });
+
+        socket.on('leaveGameOrLobby', () => {
+            console.log(`${socket.user.email} oyun/lobi'den ayrıldı.`);
+            // Oyuncu bir oyun odasındaysa, oyunu bitir.
+            if (socket.gameRoomId) {
+                const game = gameState.gameRooms.get(socket.gameRoomId);
+                if (game) {
+                    clearInterval(game.intervalId);
+                    const otherPlayer = game.players.find(p => p.socketId !== socket.id);
+                    if (otherPlayer) {
+                        io.to(otherPlayer.socketId).emit('opponentLeft');
+                    }
+                    gameState.gameRooms.delete(socket.gameRoomId);
+                    console.log(`Oda ${socket.gameRoomId} temizlendi.`);
+                }
+            }
+            if (gameState.waitingPlayer && gameState.waitingPlayer.id === socket.id) {
+                gameState.waitingPlayer = null;
+                console.log('Bekleme lobisi temizlendi.');
+            }
         });
 
         // Bağlantı Kesilme Olayı
