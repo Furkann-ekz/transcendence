@@ -1,6 +1,5 @@
 // frontend/src/pages/OnlineGamePage.ts
 import { getSocket } from '../socket'; // Merkezi soketi import et
-import { navigateTo } from '../router';
 import type { Socket } from 'socket.io-client';
 import { jwt_decode } from '../utils';
 
@@ -47,7 +46,8 @@ function gameLoop() {
 }
 
 function handleKeyDown(event: KeyboardEvent) {
-    if (!socket || !gameState.players) return;
+    if (!socket || !gameState.players)
+        return;
     let newY;
     
     const player = gameState.players.find((p: Player) => p.isLeft === playerIsLeft);
@@ -81,7 +81,7 @@ export function render() {
 
 export function afterRender() {
     // DÜZELTME: Yeni soket oluşturmak yerine mevcut olanı alıyoruz
-    socket = getSocket();
+    socket = getSocket()!;
 
     socket.emit('joinMatchmaking');
     
@@ -119,6 +119,8 @@ export function afterRender() {
 }
 
 export function cleanup() {
+    if (!socket)
+        return;
     if (socket) {
       // --- YENİ EKLENECEK SATIR ---
       // Sunucuya lobiden veya oyundan ayrıldığımızı bildiriyoruz.

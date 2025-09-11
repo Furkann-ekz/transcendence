@@ -25,59 +25,74 @@ const routes: { [key: string]: Route } = {
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
-function handleLocation() {
+// frontend/src/router/index.ts
+
+async function handleLocation() {
+  const path = window.location.pathname;
   const token = localStorage.getItem('token');
 
-  if (token && (!getSocket() || !getSocket()?.connected)) {
-    try {
-      // Bağlantının kurulmasını BEKLE.
-      await connectSocket(token);
-    }
-    catch (error)
-    {
-      console.error("Soket'e bağlanılamadı, login sayfasına yönlendiriliyor.");
-      localStorage.removeItem('token'); // Başarısız olursa token'ı temizle
-      navigateTo('/');
-      return; // Fonksiyonu burada bitir.
+  // 1. ADIM: Gerekliyse soket bağlantısını kur ve bekle.
+  if (token) {
+    if (!getSocket() || !getSocket()?.connected) {
+      try {
+        await connectSocket(token);
+      } catch (error) {
+        console.error("Soket'e bağlanılamadı, çıkış yapılıyor.");
+        localStorage.removeItem('token');
+        navigateTo('/');
+        return;
+      }
     }
   }
-  if (currentRoute && currentRoute.cleanup) {
-    currentRoute.cleanup();
-  }
-  const path = window.location.pathname;
+
+  // 2. ADIM: Yönlendirme kurallarını uygula.
   const protectedPaths = ['/dashboard', '/lobby', '/local-game', '/online-game'];
   const isAuthRequired = protectedPaths.includes(path);
-  const currentToken = localStorage.getItem('token');
-  
-  if (isAuthRequired && !currentToken) {
-    navigateTo('/');
+
+  // Token yokken korumalı sayfaya girmeye çalışırsa -> login'e yönlendir.
+  if (isAuthRequired && !token) {
+    if (path !== '/') navigateTo('/');
     return;
   }
-  if (!isAuthRequired && currentToken && (path === '/' || path === '/register')) {
-    navigateTo('/dashboard');
+  // Token varken login/register sayfasına girmeye çalışırsa -> dashboard'a yönlendir.
+  if (!isAuthRequired && token && (path === '/' || path === '/register')) {
+    if (path !== '/dashboard') navigateTo('/dashboard');
     return;
   }
+
+  // 3. ADIM: Sayfayı render et.
   const route = routes[path] || routes['/'];
-  app.innerHTML = route.render();
-  if (route.afterRender) {
-    route.afterRender();
+  
+  // Sadece rota gerçekten değiştiyse render et (gereksiz döngüleri engeller).
+  if (currentRoute !== route) {
+    if (currentRoute && currentRoute.cleanup) {
+      currentRoute.cleanup();
+    }
+    
+    app.innerHTML = route.render();
+    
+    if (route.afterRender) {
+      route.afterRender();
+    }
+    currentRoute = route;
   }
-  currentRoute = route;
 }
 
-export function navigateTo(path: string) {
+
+export async function navigateTo(path: string) { // 'async' eklendi
   window.history.pushState({}, '', path);
-  handleLocation();
+  await handleLocation(); // 'await' eklendi
 }
 
-export function initializeRouter() {
-  window.addEventListener('popstate', handleLocation);
+
+export async function initializeRouter() { // 'async' eklendi
+  window.addEventListener('popstate', () => handleLocation()); // Olası "this" context hatalarını önlemek için arrow function içine aldık.
   document.body.addEventListener('click', (e: MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.matches('[data-link]')) {
       e.preventDefault();
-      navigateTo(target.getAttribute('href')!);
+      void navigateTo(target.getAttribute('href')!); // 'void' eklendi
     }
   });
-  handleLocation();
+  await handleLocation(); // 'await' eklendi
 }

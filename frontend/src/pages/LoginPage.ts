@@ -42,7 +42,6 @@ export function afterRender() {
       try {
         const data = await loginUser(email, password);
         localStorage.setItem('token', data.token);
-        connectSocket(data.token);
         navigateTo('/dashboard');
       } catch (error: any) {
         alert(error.message);

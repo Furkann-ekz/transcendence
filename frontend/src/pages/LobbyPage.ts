@@ -1,7 +1,6 @@
 // frontend/src/pages/LobbyPage.ts
 
 import { navigateTo } from "../router";
-import { getSocket } from "../socket";
 
 export function render() {
   return `
