@@ -18,5 +18,14 @@
   "everyone": "Everyone",
   "chat_placeholder": "Type your message...",
   "send_button": "Send",
+  "lobby_title": "Select Game Mode",
+  "play_local_button": "Play Local (Same Computer)",
+  "play_online_button": "Play Online (Find Opponent)",
+  "return_to_chat": "Return to Chat",
+  "waiting_for_opponent": "Waiting for Opponent...",
+  "leave_lobby": "Leave Lobby",
+  "opponent_left": "Your opponent has left the game!",
+  "chat_public_prefix": "(Everyone)",
+  "chat_private_prefix": "(Private)",
   "dropdown_english": "English"
 }

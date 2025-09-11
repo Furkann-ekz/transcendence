@@ -1,5 +1,7 @@
 // frontend/src/pages/GamePage.ts
 // Oyun ayarları
+
+import { t } from '../i18n';
 const PADDLE_WIDTH = 10;
 const PADDLE_HEIGHT = 100;
 const BALL_SIZE = 10;
@@ -20,6 +22,18 @@ let canvas: HTMLCanvasElement;
 let context: CanvasRenderingContext2D;
 let animationFrameId: number;
 const keysPressed: { [key: string]: boolean } = {};
+
+export function render() {
+  return `
+    <div class="h-screen w-screen bg-gray-900 flex flex-col items-center justify-center">
+      <h1 class="text-3xl text-white mb-4">Pong Game</h1>
+      <canvas id="pong-canvas" width="800" height="600" class="bg-black border border-white"></canvas>
+      <a href="/dashboard" data-link class="mt-4 text-blue-400 hover:text-blue-300">
+        ${t('return_to_chat')}
+      </a>
+    </div>
+  `;
+}
 
 // Çizim fonksiyonları
 function drawRect(x: number, y: number, w: number, h: number, color: string) {
@@ -112,16 +126,6 @@ function gameLoop() {
   update();
   renderGame();
   animationFrameId = requestAnimationFrame(gameLoop); // ID'yi sakla
-}
-
-export function render() {
-  return `
-    <div class="h-screen w-screen bg-gray-900 flex flex-col items-center justify-center">
-      <h1 class="text-3xl text-white mb-4">Pong Game</h1>
-      <canvas id="pong-canvas" width="800" height="600" class="bg-black border border-white"></canvas>
-      <a href="/dashboard" data-link class="mt-4 text-blue-400">Sohbete Geri Dön</a>
-    </div>
-  `;
 }
 
 export function afterRender() {

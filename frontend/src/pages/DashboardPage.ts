@@ -1,10 +1,12 @@
 // frontend/src/pages/DashboardPage.ts
-import { t } from '../i18n';
 import { navigateTo } from '../router';
+import { getSocket, disconnectSocket } from '../socket';
+import { t } from '../i18n';
+import { jwt_decode } from '../utils';
 import type { Socket } from "socket.io-client";
-import { getSocket, disconnectSocket } from '../socket'; // EKSİK IMPORT'LAR EKLENDİ
-import { jwt_decode } from '../utils'; // EKSİK IMPORT EKLENDİ
+import { addMessage, getMessages, clearMessages } from '../chatState';
 
+// Sayfa bazında değişkenleri tanımla
 let socket: Socket | null = null;
 let myId: number | null = null;
 
@@ -51,46 +53,56 @@ export function render(): string {
   `;
 }
 
-
 export function afterRender() {
   const logoutButton = document.getElementById('logout-button');
-    logoutButton?.addEventListener('click', () => {
-        localStorage.removeItem('token');
-        disconnectSocket();
-        navigateTo('/');
-    });
+  logoutButton?.addEventListener('click', () => {
+      clearMessages(); // <<< YENİ EKLENEN SATIR
+      localStorage.removeItem('token');
+      disconnectSocket();
+      navigateTo('/');
+  });
 
-    socket = getSocket()!;
-    socket.emit('requestUserList');
+  socket = getSocket()!;
+  socket.emit('requestUserList');
 
-    const token = localStorage.getItem('token');
-    if (token) {
-        myId = jwt_decode(token).userId;
-    }
+  const token = localStorage.getItem('token');
+  if (token) {
+      myId = jwt_decode(token).userId;
+  }
 
   const userList = document.getElementById('user-list') as HTMLUListElement;
   const recipientInfo = document.getElementById('recipient-info') as HTMLSpanElement;
-  const messages = document.getElementById('messages') as HTMLUListElement;
+  const messagesList = document.getElementById('messages') as HTMLUListElement;
   const chatForm = document.getElementById('chat-form') as HTMLFormElement;
   const chatInput = document.getElementById('chat-input') as HTMLInputElement;
+
+  // YENİ: SAYFA YÜKLENDİĞİNDE HAFIZADAKİ MESAJLARI EKRANA YAZDIR
+  messagesList.innerHTML = ''; // Önce listeyi temizle
+  const existingMessages = getMessages();
+  existingMessages.forEach(msg => {
+    const item = document.createElement('li');
+    item.textContent = msg;
+    messagesList.appendChild(item);
+  });
+  if (messagesList.children.length > 0) {
+      messagesList.scrollTop = messagesList.scrollHeight;
+  }
 
   let selectedRecipient: any = null;
 
   function selectRecipient(user: any) {
     selectedRecipient = user;
-    // DEĞİŞİKLİK: "Herkese" yerine çeviri fonksiyonu kullanılıyor.
     recipientInfo.textContent = user.name || user.email || t('everyone');
-    
     document.querySelectorAll('#user-list li').forEach(li => {
         li.classList.toggle('bg-blue-200', (li as HTMLElement).dataset.id == (user.id || 'all'));
     });
   }
 
   socket.on('update user list', (users: any[]) => {
+    const currentSelectedId = selectedRecipient ? selectedRecipient.id : 'all';
     userList.innerHTML = '';
     
     const allOption = document.createElement('li');
-    // DEĞİŞİKLİK: "Herkese" yerine çeviri fonksiyonu kullanılıyor.
     allOption.textContent = t('everyone');
     allOption.dataset.id = 'all';
     allOption.classList.add('p-2', 'hover:bg-gray-200', 'cursor-pointer', 'rounded');
@@ -107,17 +119,27 @@ export function afterRender() {
         userList.appendChild(item);
     });
 
-    // DEĞİŞİKLİK: "Herkese" yerine çeviri fonksiyonu kullanılıyor ve seçili stili ekleniyor.
-    if (!selectedRecipient || selectedRecipient.id === 'all') {
-       selectRecipient({ id: 'all', name: t('everyone') });
-    }
+    // Seçili kullanıcıyı koru veya varsayılana dön
+    const newSelectedUser = users.find(u => u.id === currentSelectedId);
+    selectRecipient(newSelectedUser || { id: 'all', name: t('everyone') });
   });
 
-  socket.on('chat message', (msg: string) => {
+  socket.on('chat message', (msg: any) => {
+    let prefix = '';
+    if (msg.type === 'public') {
+      prefix = t('chat_public_prefix');
+    } else if (msg.type === 'private') {
+      prefix = t('chat_private_prefix');
+    }
+
+    const fullMessage = `${prefix} ${msg.sender}: ${msg.content}`;
+
+    addMessage(fullMessage); // Hafızaya da tam mesajı ekle
+
     const item = document.createElement('li');
-    item.textContent = msg;
-    messages.appendChild(item);
-    messages.scrollTop = messages.scrollHeight;
+    item.textContent = fullMessage;
+    messagesList.appendChild(item);
+    messagesList.scrollTop = messagesList.scrollHeight;
   });
 
   chatForm.addEventListener('submit', (e) => {
@@ -136,4 +158,9 @@ export function afterRender() {
   });
 }
 
-export function cleanup() {} // şimdilik boş
+export function cleanup() {
+  console.log('Dashboard sayfasından ayrılıyor, sohbet geçmişi temizleniyor...');
+  // SADECE sohbet geçmişini temizliyoruz.
+  // Soruna neden olan socket.off() komutlarını kaldırıyoruz.
+  clearMessages();
+}

@@ -18,5 +18,14 @@
   "everyone": "Herkese",
   "chat_placeholder": "Mesajınızı yazın...",
   "send_button": "Gönder",
+  "lobby_title": "Oyun Modunu Seç",
+  "play_local_button": "Yerel Oyna (Aynı Bilgisayarda)",
+  "play_online_button": "Online Oyna (Rakip Bul)",
+  "return_to_chat": "Sohbete Geri Dön",
+  "waiting_for_opponent": "Rakip Bekleniyor...",
+  "leave_lobby": "Lobiden Ayrıl",
+  "opponent_left": "Rakibin oyundan ayrıldı!",
+  "chat_public_prefix": "(Herkese)",
+  "chat_private_prefix": "(Özel)",
   "dropdown_turkish": "T\u00FCrk\u00E7e"
 }

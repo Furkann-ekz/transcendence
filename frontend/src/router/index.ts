@@ -27,7 +27,7 @@ const app = document.querySelector<HTMLDivElement>('#app')!;
 
 // frontend/src/router/index.ts
 
-async function handleLocation() {
+export async function handleLocation() {
   const path = window.location.pathname;
   const token = localStorage.getItem('token');
 
