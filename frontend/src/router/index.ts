@@ -5,6 +5,7 @@ import * as DashboardPage from '../pages/DashboardPage';
 import * as LobbyPage from '../pages/LobbyPage';
 import * as LocalGamePage from '../pages/LocalGamePage';
 import * as OnlineGamePage from '../pages/OnlineGamePage';
+import { connectSocket, getSocket } from '../socket';
 
 interface Route {
   render: () => string;
@@ -25,18 +26,34 @@ const routes: { [key: string]: Route } = {
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
 function handleLocation() {
+  const token = localStorage.getItem('token');
+
+  if (token && (!getSocket() || !getSocket()?.connected)) {
+    try {
+      // Bağlantının kurulmasını BEKLE.
+      await connectSocket(token);
+    }
+    catch (error)
+    {
+      console.error("Soket'e bağlanılamadı, login sayfasına yönlendiriliyor.");
+      localStorage.removeItem('token'); // Başarısız olursa token'ı temizle
+      navigateTo('/');
+      return; // Fonksiyonu burada bitir.
+    }
+  }
   if (currentRoute && currentRoute.cleanup) {
     currentRoute.cleanup();
   }
   const path = window.location.pathname;
   const protectedPaths = ['/dashboard', '/lobby', '/local-game', '/online-game'];
   const isAuthRequired = protectedPaths.includes(path);
-  const token = localStorage.getItem('token');
-  if (isAuthRequired && !token) {
+  const currentToken = localStorage.getItem('token');
+  
+  if (isAuthRequired && !currentToken) {
     navigateTo('/');
     return;
   }
-  if (!isAuthRequired && token && (path === '/' || path === '/register')) {
+  if (!isAuthRequired && currentToken && (path === '/' || path === '/register')) {
     navigateTo('/dashboard');
     return;
   }

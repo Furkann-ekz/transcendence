@@ -1,21 +1,36 @@
 # Makefile for ft_transcendence project management
 
-# Projeyi arka planda başlatır ve imajları yeniden oluşturur.
-up:
-	docker compose up --build -d
+# .PHONY, bu hedeflerin birer dosya olmadığını, komut olduğunu belirtir.
+.PHONY: all up stop down clean db links start
 
-# Projeyi durdurur ve oluşturulan konteyner/ağları temizler.
-down:
-	docker compose down
+# 'make' komutu tek başına çalıştırıldığında 'up' hedefini çağırır.
+all: up
+
+# Projeyi her seferinde temiz bir şekilde yeniden kurar ve başlatır.
+# Bu hedef, önce 'clean' hedefini çalıştırarak tüm kalıntıları temizler.
+up: clean
+	@echo "Starting containers with a fresh build..."
+	docker compose up --build -d
 
 # Arka planda çalışan konteynerleri sadece durdurur (silmez).
 stop:
+	@echo "Stopping running containers..."
 	docker compose stop
 
+# Projeyi durdurur ve docker-compose tarafından yönetilen her şeyi temizler.
+down:
+	@echo "Stopping and removing project containers, networks, and volumes..."
+	docker compose down --volumes --remove-orphans
+
+# Projeyle ilgili olabilecek tüm "hayalet" konteynerleri zorla temizler.
+clean: down
+	@echo "Forcibly removing any lingering containers..."
+	@docker ps -a -q --filter "name=transcendence_backend" | xargs -r docker rm -f
+	@docker ps -a -q --filter "name=transcendence_frontend" | xargs -r docker rm -f
+
 # Veritabanını sıfırlar (tüm verileri siler).
-# --force bayrağı, "Emin misin?" sorusunu sormadan işlemi yapar.
 db:
-	docker compose exec backend npx prisma migrate reset --force
+	(cd backend && npx prisma migrate reset --force)
 
 # Ağ ve yerel erişim linklerini gösterir.
 links:
@@ -29,6 +44,3 @@ start:
 	@echo "Installing frontend dependencies..."
 	(cd frontend && npm install)
 	@echo "Setup complete! You can now run 'make up'."
-
-# .PHONY, bu hedeflerin birer dosya olmadığını, komut olduğunu belirtir.
-.PHONY: up down db links start

@@ -46,12 +46,14 @@ export function afterRender() {
         navigateTo('/');
     });
 
-    socket = getSocket(); // getSocket() çağrısını düzelttik
+    socket = getSocket(); 
     if (!socket) {
         console.error("Socket bağlantısı bulunamadı, login sayfasına yönlendiriliyor.");
         navigateTo('/');
         return;
     }
+
+    socket.emit('requestUserList');
 
     const token = localStorage.getItem('token');
     if (token) {
