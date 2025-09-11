@@ -3,5 +3,5 @@ import './style.css';
 import { initializeRouter } from './router';
 
 document.addEventListener('DOMContentLoaded', () => {
-  initializeRouter();
+  void initializeRouter(); // 'void' eklendi
 });
