@@ -1,22 +1,12 @@
-// frontend/src/main.ts
-import { t } from './i18n';
 import './style.css';
 import { initializeRouter } from './router';
-import { setLanguage, getCurrentLanguage } from './i18n'; // getCurrentLanguage'ı import et
+import { setLanguage, getCurrentLanguage } from './i18n';
 
 document.addEventListener('DOMContentLoaded', () => {
   
-  // --- DİL DEĞİŞTİRME MANTIĞINI AŞAĞIDAKİYLE GÜNCELLE ---
   const currentLangBtn = document.getElementById('current-lang-btn');
   const currentLangText = document.getElementById('current-lang-text');
   const langOptions = document.getElementById('lang-options');
-
-  document.querySelectorAll('[data-translate]').forEach(element => {
-    const key = element.getAttribute('data-translate');
-    if (key) {
-      element.textContent = t(key);
-    }
-  });
 
   // Sayfa yüklendiğinde mevcut dili butona yaz
   if (currentLangText) {
@@ -25,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Ana butona tıklayınca menüyü aç/kapat
   currentLangBtn?.addEventListener('click', (e) => {
-    e.stopPropagation(); // Sayfanın başka yerine tıklama olayını tetiklemesin
+    e.stopPropagation();
     langOptions?.classList.toggle('hidden');
   });
 
@@ -46,7 +36,6 @@ document.addEventListener('DOMContentLoaded', () => {
       langOptions?.classList.add('hidden');
     }
   });
-  // -----------------------------------------------------
 
   void initializeRouter();
 });
