@@ -3,5 +3,19 @@
   "email_label": "E-posta",
   "password_label": "Şifre",
   "login_button": "Giriş Yap",
-  "register_link": "Hesabın yok mu? Kaydol"
+  "register_link": "Hesabın yok mu? Kaydol",
+  "register_title": "Kayıt Ol",
+  "name_label": "İsim (Opsiyonel)",
+  "register_button": "Kayıt Ol",
+  "login_link": "Zaten hesabın var mı? Giriş Yap",
+  "register_success_alert": "Kayıt başarılı! Lütfen giriş yapın.",
+  "error_invalid_credentials": "Geçersiz kimlik bilgileri. Lütfen tekrar deneyin.",
+  "error_email_registered": "Bu e-posta adresi zaten kayıtlı.",
+  "go_to_game": "Oyuna Git",
+  "logout": "Çıkış Yap",
+  "online_users": "Online Kullanıcılar",
+  "recipient": "Alıcı",
+  "everyone": "Herkese",
+  "chat_placeholder": "Mesajınızı yazın...",
+  "send_button": "Gönder"
 }

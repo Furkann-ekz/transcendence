@@ -3,5 +3,19 @@
   "email_label": "Email",
   "password_label": "Password",
   "login_button": "Sign In",
-  "register_link": "Don't have an account? Sign Up"
+  "register_link": "Don't have an account? Sign Up",
+  "register_title": "Sign Up",
+  "name_label": "Name (Optional)",
+  "register_button": "Sign Up",
+  "login_link": "Already have an account? Sign In",
+  "register_success_alert": "Registration successful! Please sign in.",
+  "error_invalid_credentials": "Invalid credentials. Please try again.",
+  "error_email_registered": "This email is already registered.",
+  "go_to_game": "Go to Game",
+  "logout": "Logout",
+  "online_users": "Online Users",
+  "recipient": "Recipient",
+  "everyone": "Everyone",
+  "chat_placeholder": "Type your message...",
+  "send_button": "Send"
 }

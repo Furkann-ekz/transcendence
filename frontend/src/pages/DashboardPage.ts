@@ -1,5 +1,5 @@
 // frontend/src/pages/DashboardPage.ts
-import { setLanguage } from '../i18n';
+import { t } from '../i18n';
 import { navigateTo } from '../router';
 import type { Socket } from "socket.io-client";
 import { getSocket, disconnectSocket } from '../socket'; // EKSİK IMPORT'LAR EKLENDİ
@@ -10,36 +10,44 @@ let myId: number | null = null;
 
 export function render(): string {
   return `
-    <div class="h-screen w-screen flex flex-col">
-      <nav class="bg-gray-800 text-white p-4 flex justify-between items-center">
-        <h1 class="text-xl font-bold">Transcendence</h1>
+    <div class="h-screen w-screen flex flex-col bg-gray-100">
+      <nav class="bg-gray-800 text-white p-4 flex justify-between items-center w-full">
         
-        <div class="flex items-center">
-          <button data-lang="tr" class="lang-btn px-2 py-1 mx-1 text-sm rounded hover:bg-gray-700">TR</button>
-          <button data-lang="en" class="lang-btn px-2 py-1 mx-1 text-sm rounded hover:bg-gray-700">EN</button>
-          <button data-lang="ru" class="lang-btn px-2 py-1 mx-1 text-sm rounded hover:bg-gray-700">RU</button>
+        <div class="flex-shrink-0">
+          <h1 class="text-xl font-bold">Transcendence</h1>
         </div>
-        <div>
-          <a href="/lobby" data-link class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mr-4">Oyuna Git</a>
-          <button id="logout-button" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">Çıkış Yap</button>
+
+        <div class="flex items-center space-x-4 mr-32">
+          <a href="/lobby" data-link class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">${t('go_to_game')}</a>
+          <button id="logout-button" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">${t('logout')}</button>
         </div>
+
       </nav>
+
+      <div class="flex flex-grow overflow-hidden p-4 space-x-4">
+        
+        <div class="w-1/4 bg-white p-4 rounded-lg shadow-md overflow-y-auto">
+          <h2 class="text-lg font-bold mb-4">${t('online_users')}</h2>
+          <ul id="user-list" class="space-y-2"></ul>
+        </div>
+
+        <div class="w-3/4 flex flex-col bg-white rounded-lg shadow-md">
+          <div class="p-4 border-b">
+            <strong>${t('recipient')}:</strong> <span id="recipient-info">${t('everyone')}</span>
+          </div>
+          <ul id="messages" class="flex-grow p-4 overflow-y-auto"></ul>
+          <form id="chat-form" class="p-4 bg-gray-200 flex rounded-b-lg">
+            <input id="chat-input" autocomplete="off" placeholder="${t('chat_placeholder')}" class="border rounded-l-md p-2 flex-grow" />
+            <button type="submit" class="bg-blue-500 text-white px-4 rounded-r-md hover:bg-blue-600">${t('send_button')}</button>
+          </form>
+        </div>
+
       </div>
+    </div>
   `;
 }
 
 export function afterRender() {
-  const langButtons = document.querySelectorAll('.lang-btn');
-  langButtons.forEach(button => {
-    button.addEventListener('click', () => {
-      const lang = button.getAttribute('data-lang');
-      if (lang) {
-        setLanguage(lang);
-        // Değişikliğin tüm arayüze yansıması için en basit yöntem sayfayı yeniden yüklemektir.
-        window.location.reload(); 
-      }
-    });
-  });
   const logoutButton = document.getElementById('logout-button');
     logoutButton?.addEventListener('click', () => {
         localStorage.removeItem('token');
