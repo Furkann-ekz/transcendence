@@ -4,78 +4,91 @@ import type { Socket } from 'socket.io-client';
 import { jwt_decode } from '../utils';
 import { t } from '../i18n';
 
+// Sayfa bazında kullanılacak değişkenler
 let socket: Socket | null = null;
 let canvas: HTMLCanvasElement;
 let context: CanvasRenderingContext2D;
 let gameState: any = {};
-let gameConfig: any = {};
-let myPlayer: any = null;
+let gameConfig: any = {}; // Oyun ayarlarını (canvas boyutu, raket boyutu vb.) tutacak
+let myPlayer: any = null; // Oyuncunun kendi bilgilerini (pozisyonu, takımı vb.) tutacak
 let animationFrameId: number;
 
+// OYUNU ÇİZME FONKSİYONU
 function renderGame() {
     if (!context || !gameState.players || !gameConfig.canvasSize) return;
+
     const { players, ballX, ballY, team1Score, team2Score } = gameState;
     const { canvasSize, paddleSize, paddleThickness } = gameConfig;
 
-    // Arka planı çiz
+    // 1. Arka planı temizle
     context.fillStyle = 'black';
     context.fillRect(0, 0, canvasSize, canvasSize);
 
-    // Skorları çiz
+    // 2. Skorları çiz
     context.fillStyle = 'white';
     context.font = "75px fantasy";
     context.textAlign = 'center';
     context.fillText(team1Score.toString(), canvasSize / 4, canvasSize / 5);
-    context.fillText(team2Score.toString(), 3 * canvasSize / 4, canvasSize / 5);
+    context.fillText(team2Score.toString(), (canvasSize * 3) / 4, canvasSize / 5);
 
-    // Raketleri çiz
+    // 3. Dört raketi de pozisyonlarına ve takımlarına göre çiz
     players.forEach((player: any) => {
-        context.fillStyle = player.team === 1 ? '#60a5fa' : '#f87171'; // Mavi vs Kırmızı
+        context.fillStyle = player.team === 1 ? '#60a5fa' : '#f87171'; // Takım 1 Mavi, Takım 2 Kırmızı
+        
         if (player.position === 'left' || player.position === 'right') {
             context.fillRect(player.x, player.y, paddleThickness, paddleSize);
-        } else { // top or bottom
+        } else { // 'top' veya 'bottom'
             context.fillRect(player.x, player.y, paddleSize, paddleThickness);
         }
     });
 
-    // Topu çiz
+    // 4. Topu çiz
     context.fillStyle = 'white';
     context.beginPath();
     context.arc(ballX, ballY, 10, 0, Math.PI * 2);
     context.fill();
 }
 
+// OYUN DÖNGÜSÜ
 function gameLoop() {
     renderGame();
     animationFrameId = requestAnimationFrame(gameLoop);
 }
 
+// KONTROL MANTIĞI
 function handlePlayerMove(event: KeyboardEvent) {
-    if (!socket || !myPlayer) return;
+    if (!socket || !myPlayer || !gameState.players) return;
 
-    let currentPos, newPos;
-    
-    // Mevcut pozisyonu al
+    // Oyuncunun güncel pozisyonunu gameState'den bul
+    const playerState = gameState.players.find((p: any) => p.id === myPlayer.id);
+    if (!playerState) return;
+
+    let currentPos: number;
+    // Oyuncunun pozisyonuna göre hangi eksende hareket ettiğini belirle
     if (myPlayer.position === 'left' || myPlayer.position === 'right') {
-        currentPos = gameState.players.find((p:any) => p.id === myPlayer.id)?.y;
+        currentPos = playerState.y; // Dikey hareket
     } else {
-        currentPos = gameState.players.find((p:any) => p.id === myPlayer.id)?.x;
+        currentPos = playerState.x; // Yatay hareket
     }
-    if(currentPos === undefined) return;
 
-    // Yeni pozisyonu hesapla
+    let newPos: number | undefined;
+    // W/Yukarı Ok -> Yukarı veya Sola hareket
     if (event.key === 'w' || event.key === 'ArrowUp') {
-        newPos = currentPos - 20;
-    } else if (event.key === 's' || event.key === 'ArrowDown') {
-        newPos = currentPos + 20;
+        newPos = currentPos - 25; // Hareketi biraz hızlandıralım
+    } 
+    // S/Aşağı Ok -> Aşağı veya Sağa hareket
+    else if (event.key === 's' || event.key === 'ArrowDown') {
+        newPos = currentPos + 25;
     }
 
     if (newPos !== undefined) {
+        // Yeni pozisyonu sunucuya gönder
         socket.emit('playerMove', { newPosition: newPos });
     }
 }
 
-export function render() {
+// SAYFANIN HTML'İNİ OLUŞTURMA
+export function render(): string {
     return `
     <div class="h-screen w-screen bg-gray-900 flex flex-col items-center justify-center">
       <div id="game-status" class="text-3xl text-white mb-4">${t('waiting_for_opponent')}</div>
@@ -85,6 +98,7 @@ export function render() {
   `;
 }
 
+// SAYFA YÜKLENDİKTEN SONRA ÇALIŞAN KODLAR
 export function afterRender() {
     socket = getSocket()!;
     
@@ -96,11 +110,15 @@ export function afterRender() {
     const token = localStorage.getItem('token');
     const myUserId = token ? jwt_decode(token).userId : null;
 
+    // Sunucudan gelen "bekleme odası güncellendi" mesajını dinle
     socket.on('updateQueue', ({ queueSize, requiredSize }) => {
         statusDiv.textContent = `${t('waiting_for_opponent')} (${queueSize}/${requiredSize})`;
     });
 
+    // Sunucudan gelen "oyun başladı" mesajını dinle
     socket.on('gameStart', (payload) => {
+        console.log("Oyun başlıyor:", payload);
+        // Sunucudan gelen oyun ayarlarını kaydet
         gameConfig = {
             canvasSize: payload.canvasSize,
             paddleSize: payload.paddleSize,
@@ -108,15 +126,20 @@ export function afterRender() {
             mode: payload.mode
         };
         
+        // Canvas boyutlarını ayarla
         canvas.width = gameConfig.canvasSize;
         canvas.height = gameConfig.canvasSize;
         
-        statusDiv.textContent = '';
-        canvas.classList.remove('hidden');
+        statusDiv.textContent = ''; // "Bekleniyor..." yazısını sil
+        canvas.classList.remove('hidden'); // Canvas'ı görünür yap
         
+        // Oyuncunun kendi bilgilerini bul ve kaydet
         myPlayer = payload.players.find((p: any) => p.id === myUserId);
 
+        // Klavye dinleyicisini başlat
         window.addEventListener('keydown', handlePlayerMove);
+        // Oyun döngüsünü başlat
+        if (animationFrameId) cancelAnimationFrame(animationFrameId); // Önceki döngüyü temizle
         gameLoop();
     });
 
@@ -131,15 +154,25 @@ export function afterRender() {
     });
 }
 
+// SAYFADAN AYRILIRKEN ÇALIŞAN TEMİZLİK KODLARI
 export function cleanup() {
     if (socket) {
       socket.emit('leaveGameOrLobby');
+      // Bu sayfaya özel dinleyicileri kaldır
       socket.off('updateQueue');
       socket.off('gameStart');
       socket.off('gameStateUpdate');
       socket.off('opponentLeft');
     }
+    // Genel klavye dinleyicisini kaldır
     window.removeEventListener('keydown', handlePlayerMove);
-    if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    // Oyun döngüsünü durdur
+    if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+    }
+    // Değişkenleri sıfırla
     animationFrameId = 0;
+    myPlayer = null;
+    gameConfig = {};
+    gameState = {};
 }
