@@ -5,9 +5,8 @@ let socket: Socket | null = null;
 
 // frontend/src/socket.ts -> connectSocket fonksiyonu
 
-export function connectSocket(token: string): Promise<Socket> { // Artık bir Promise döndürüyor
+export function connectSocket(token: string): Promise<Socket> {
     return new Promise((resolve, reject) => {
-        // Eğer zaten bağlı bir soket varsa, hemen onu döndür.
         if (socket && socket.connected) {
             return resolve(socket);
         }
@@ -20,17 +19,30 @@ export function connectSocket(token: string): Promise<Socket> { // Artık bir Pr
         newSocket.on('connect', () => {
             console.log('Socket sunucuya başarıyla bağlandı! ID:', newSocket.id);
             socket = newSocket;
-            resolve(newSocket); // Bağlantı başarılı olunca sözü yerine getir.
+            resolve(newSocket);
         });
+
+        // --- YENİ EKLENECEK DİNLEYİCİ ---
+        newSocket.on('forceDisconnect', (reason) => {
+            console.log(`Sunucu tarafından bağlantı sonlandırıldı: ${reason}`);
+            alert('Başka bir konumdan giriş yapıldığı için bu oturum sonlandırıldı.');
+            
+            // Yerel durumu temizle
+            localStorage.removeItem('token');
+            // 'disconnectSocket' fonksiyonu socket'i null yapar ve bağlantıyı kapatır.
+            disconnectSocket(); 
+            // Kullanıcıyı login sayfasına yönlendir. Sayfa yenilemesi en garanti yöntemdir.
+            window.location.href = '/'; 
+        });
+        // --- YENİ BLOĞUN SONU ---
 
         newSocket.on('disconnect', () => {
             console.log('Socket bağlantısı kesildi. Yeniden bağlanmaya çalışılıyor...');
-            // socket değişkenini null yapmıyoruz! Kütüphane kendi halledecek.
         });
 
         newSocket.on('connect_error', (err) => {
             console.error('Socket bağlantı hatası:', err.message);
-            reject(err); // Hata durumunda sözü reddet.
+            reject(err);
         });
     });
 }
