@@ -112,10 +112,25 @@ export function afterRender() {
     users.forEach(user => {
         if (user.id === myId) return;
         const item = document.createElement('li');
-        item.textContent = user.name || user.email;
         item.dataset.id = user.id;
         item.classList.add('p-2', 'hover:bg-gray-200', 'cursor-pointer', 'rounded');
-        item.addEventListener('click', () => selectRecipient(user));
+
+        // --- DEĞİŞİKLİK BURADA ---
+        // İsmi bir link haline getiriyoruz
+        const userLink = document.createElement('a');
+        userLink.href = `/profile/${user.id}`;
+        userLink.setAttribute('data-link', ''); // Router'ımızın linki yakalaması için
+        userLink.textContent = user.name || user.email;
+        item.appendChild(userLink);
+        // --- DEĞİŞİKLİK SONU ---
+        
+        // Özel mesaj için tıklama olayını 'li' elementine eklemeye devam ediyoruz
+        item.addEventListener('click', (e) => {
+            // Eğer linkin kendisine tıklandıysa, özel mesaj alıcısını seçme
+            if ((e.target as HTMLElement).tagName === 'A') return;
+            selectRecipient(user);
+        });
+
         userList.appendChild(item);
     });
 
