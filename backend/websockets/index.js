@@ -5,6 +5,7 @@ const chatHandler = require('./chatHandler');
 const gameHandler = require('./gameHandler');
 const JWT_SECRET = process.env.JWT_SECRET;
 
+// Paylaşılan değişkenler (shared state)
 const onlineUsers = new Map();
 const gameState = {
     waitingPlayers: {
@@ -15,6 +16,7 @@ const gameState = {
 };
 
 function initializeSocket(io) {
+    // Kimlik Doğrulama Middleware'i
     io.use(async (socket, next) => {
         const token = socket.handshake.auth.token;
         if (!token) return next(new Error('Authentication error'));
@@ -32,8 +34,24 @@ function initializeSocket(io) {
         }
     });
 
+    // Ana Bağlantı Olayı
     io.on('connection', (socket) => {
-        console.log(`${socket.user.email} bağlandı.`);
+        // --- TEKİL OTURUM KONTROLÜ ---
+        // Bu kullanıcıya ait eski bir bağlantı var mı diye kontrol et.
+        if (onlineUsers.has(socket.user.id)) {
+            const oldSocketId = onlineUsers.get(socket.user.id).socketId;
+            const oldSocket = io.sockets.sockets.get(oldSocketId);
+            if (oldSocket) {
+                // Eski tarayıcıya "oturumu sonlandır" mesajı gönder.
+                oldSocket.emit('forceDisconnect', 'Başka bir yerden giriş yapıldı.');
+                // Eski bağlantıyı sunucudan kopar.
+                oldSocket.disconnect();
+                console.log(`Eski oturum sonlandırıldı: ${socket.user.email} (Socket ID: ${oldSocketId})`);
+            }
+        }
+        // --- KONTROL SONU ---
+
+        console.log(`${socket.user.email} bağlandı. (Socket ID: ${socket.id})`);
         onlineUsers.set(socket.user.id, { id: socket.user.id, socketId: socket.id, email: socket.user.email, name: socket.user.name });
         io.emit('update user list', Array.from(onlineUsers.values()));
 
@@ -48,6 +66,7 @@ function initializeSocket(io) {
             gameHandler(io, socket, gameState, payload);
         });
 
+        // --- GÜVENLİ TEMİZLEME FONKSİYONU ---
         const cleanUpPlayer = (sock) => {
             // Oyuncuyu tüm bekleme havuzlarından kaldır
             Object.keys(gameState.waitingPlayers).forEach(mode => {
@@ -63,7 +82,7 @@ function initializeSocket(io) {
             // Oyuncu bir oyun odasındaysa, oyunu bitir.
             if (sock.gameRoom) {
                 const game = gameState.gameRooms.get(sock.gameRoom.id);
-                // *** KRİTİK DÜZELTME: 'game' nesnesinin var olduğundan emin ol! ***
+                // KRİTİK DÜZELTME: 'game' nesnesinin var olduğundan emin ol! Bu, çökme hatasını engeller.
                 if (game) {
                     clearInterval(game.intervalId);
                     const otherPlayers = game.players.filter(p => p.socketId !== sock.id);
@@ -82,10 +101,14 @@ function initializeSocket(io) {
             cleanUpPlayer(socket);
         });
 
+        // Bağlantı Kesilme Olayı
         socket.on('disconnect', () => {
             console.log(`${socket.user.email} bağlantısı kesildi.`);
-            onlineUsers.delete(socket.user.id);
-            io.emit('update user list', Array.from(onlineUsers.values()));
+            // Sadece bu soket gerçekten listedeki son soket ise onlineUsers'dan sil
+            if (onlineUsers.has(socket.user.id) && onlineUsers.get(socket.user.id).socketId === socket.id) {
+                onlineUsers.delete(socket.user.id);
+                io.emit('update user list', Array.from(onlineUsers.values()));
+            }
             cleanUpPlayer(socket);
         });
     });

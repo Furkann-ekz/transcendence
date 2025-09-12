@@ -159,8 +159,18 @@ export function afterRender() {
 }
 
 export function cleanup() {
-  console.log('Dashboard sayfasından ayrılıyor, sohbet geçmişi temizleniyor...');
-  // SADECE sohbet geçmişini temizliyoruz.
-  // Soruna neden olan socket.off() komutlarını kaldırıyoruz.
+  console.log('Dashboard sayfasından ayrılıyor, sohbet geçmişi ve dinleyiciler temizleniyor...');
+  
+  // Önceki isteğin üzerine sohbet geçmişini temizliyoruz.
   clearMessages();
+
+  // *** SORUNU ÇÖZEN KISIM BAŞLANGICI ***
+  // Bu sayfadan ayrılırken, bu sayfada eklediğimiz dinleyicileri kaldırıyoruz.
+  // Bu, mesajların katlanarak çoğalmasını engeller.
+  const socket = getSocket();
+  if (socket) {
+    socket.off('update user list');
+    socket.off('chat message');
+  }
+  // *** SORUNU ÇÖZEN KISIM SONU ***
 }
