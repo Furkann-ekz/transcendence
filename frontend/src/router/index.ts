@@ -7,6 +7,7 @@ import * as LocalGamePage from '../pages/LocalGamePage';
 import * as OnlineGamePage from '../pages/OnlineGamePage';
 import { connectSocket, getSocket } from '../socket';
 import * as OnlineLobbyPage from '../pages/OnlineLobbyPage';
+import * as ProfilePage from '../pages/ProfilePage';
 
 interface Route {
   render: () => string;
@@ -63,9 +64,19 @@ export async function handleLocation() {
   }
 
   // 3. ADIM: Sayfayı render et.
-  const route = routes[path] || routes['/'];
+  let route: Route | null = null;
   
-  // Sadece rota gerçekten değiştiyse render et (gereksiz döngüleri engeller).
+  if (path.startsWith('/profile/')) {
+    route = ProfilePage;
+  } else {
+    route = routes[path] || routes['/'];
+  }
+  
+  if (!route) { // Eğer hiçbir rota eşleşmezse
+      app.innerHTML = '<h1>404 Not Found</h1>';
+      return;
+  }
+
   if (currentRoute !== route) {
     if (currentRoute && currentRoute.cleanup) {
       currentRoute.cleanup();
@@ -74,7 +85,8 @@ export async function handleLocation() {
     app.innerHTML = route.render();
     
     if (route.afterRender) {
-      route.afterRender();
+      // afterRender async olabileceği için void ile çağırıyoruz
+      void route.afterRender();
     }
     currentRoute = route;
   }
