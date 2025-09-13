@@ -1,0 +1,18 @@
+-- CreateTable
+CREATE TABLE "Match" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "durationInSeconds" INTEGER NOT NULL,
+    "player1Id" INTEGER NOT NULL,
+    "player2Id" INTEGER NOT NULL,
+    "player1Score" INTEGER NOT NULL,
+    "player2Score" INTEGER NOT NULL,
+    "winnerId" INTEGER NOT NULL,
+    "player1Hits" INTEGER NOT NULL DEFAULT 0,
+    "player1Misses" INTEGER NOT NULL DEFAULT 0,
+    "player2Hits" INTEGER NOT NULL DEFAULT 0,
+    "player2Misses" INTEGER NOT NULL DEFAULT 0,
+    CONSTRAINT "Match_player1Id_fkey" FOREIGN KEY ("player1Id") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "Match_player2Id_fkey" FOREIGN KEY ("player2Id") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "Match_winnerId_fkey" FOREIGN KEY ("winnerId") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);

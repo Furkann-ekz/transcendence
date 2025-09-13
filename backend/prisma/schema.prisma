@@ -1,20 +1,13 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// backend/prisma/schema.prisma
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite" // "postgresql" olan bu satırı "sqlite" olarak değiştir
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
-
-// Buradan aşağısı bizim veritabanı tablolarımızı temsil edecek.
-// İlk olarak Kullanıcı (User) modelimizi oluşturalım.
 
 model User {
   id        Int      @id @default(autoincrement())
@@ -22,8 +15,34 @@ model User {
   email     String   @unique
   name      String?
   password  String
-  
-  // --- YENİ EKLENEN ALANLAR ---
   wins      Int      @default(0)
   losses    Int      @default(0)
+
+  // --- EKSİK OLAN VE YENİ EKLENEN İLİŞKİ ALANLARI ---
+  matchesAsPlayer1 Match[] @relation("Player1Matches")
+  matchesAsPlayer2 Match[] @relation("Player2Matches")
+  wonMatches       Match[] @relation("WinnerMatches")
+  // --------------------------------------------------
+}
+
+model Match {
+  id                 Int      @id @default(autoincrement())
+  createdAt          DateTime @default(now())
+  durationInSeconds  Int
+
+  player1Id          Int
+  player2Id          Int
+  player1            User     @relation("Player1Matches", fields: [player1Id], references: [id])
+  player2            User     @relation("Player2Matches", fields: [player2Id], references: [id])
+
+  player1Score       Int
+  player2Score       Int
+
+  winnerId           Int
+  winner             User     @relation("WinnerMatches", fields: [winnerId], references: [id])
+
+  player1Hits        Int      @default(0)
+  player1Misses      Int      @default(0)
+  player2Hits        Int      @default(0)
+  player2Misses      Int      @default(0)
 }
