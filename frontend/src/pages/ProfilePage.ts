@@ -2,28 +2,17 @@ import { t } from '../i18n';
 import { getUserProfile } from '../api/users';
 
 export function render(): string {
-  // İstatistikleri göstereceğimiz yeni alanları HTML iskeletine ekliyoruz.
   return `
     <div class="min-h-screen bg-gray-100 flex flex-col items-center justify-center">
       <div id="profile-card" class="bg-white p-8 rounded-lg shadow-md w-full max-w-md text-center">
+        <!-- ... (mevcut profil kartı içeriği) ... -->
         
-        <h2 id="profile-name" class="text-3xl font-bold mb-2">Loading...</h2>
-        <p id="profile-created-at" class="text-gray-500 text-sm mb-6"></p>
-        
-        <div class="flex justify-center space-x-8 border-t border-b py-4">
-          <div>
-            <p class="text-2xl font-bold text-green-500" id="profile-wins">-</p>
-            <p class="text-sm text-gray-600">${t('profile_wins')}</p>
-          </div>
-          <div>
-            <p class="text-2xl font-bold text-red-500" id="profile-losses">-</p>
-            <p class="text-sm text-gray-600">${t('profile_losses')}</p>
-          </div>
-        </div>
-
-        <a href="/dashboard" data-link class="mt-8 inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800">
-          ${t('return_to_chat')}
+        <!-- YENİ BUTON -->
+        <a id="match-history-link" href="#" data-link class="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+          View Match History
         </a>
+
+        <a href="/dashboard" data-link ...>${t('return_to_chat')}</a>
       </div>
     </div>
   `;
@@ -35,8 +24,13 @@ export async function afterRender() {
   const winsElement = document.getElementById('profile-wins');
   const lossesElement = document.getElementById('profile-losses');
 
+  const matchHistoryLink = document.getElementById('match-history-link');
   const pathParts = window.location.pathname.split('/');
   const userId = pathParts[2];
+
+  if (matchHistoryLink && userId) {
+      matchHistoryLink.setAttribute('href', `/profile/${userId}/history`);
+  }
 
   if (!userId) {
     if (nameElement) nameElement.textContent = 'Invalid Profile';

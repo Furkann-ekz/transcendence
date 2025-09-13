@@ -8,6 +8,7 @@ import * as OnlineGamePage from '../pages/OnlineGamePage';
 import { connectSocket, getSocket } from '../socket';
 import * as OnlineLobbyPage from '../pages/OnlineLobbyPage';
 import * as ProfilePage from '../pages/ProfilePage';
+import * as MatchHistoryPage from '../pages/MatchHistoryPage';
 
 interface Route {
   render: () => string;
@@ -66,7 +67,9 @@ export async function handleLocation() {
   // 3. ADIM: Sayfayı render et.
   let route: Route | null = null;
   
-  if (path.startsWith('/profile/')) {
+  if (path.startsWith('/profile/') && path.endsWith('/history')) {
+      route = MatchHistoryPage;
+  } else if (path.startsWith('/profile/')) {
     route = ProfilePage;
   } else {
     route = routes[path] || routes['/'];
