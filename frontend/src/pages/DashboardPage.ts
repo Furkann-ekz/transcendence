@@ -56,7 +56,7 @@ export function render(): string {
 export function afterRender() {
   const logoutButton = document.getElementById('logout-button');
   logoutButton?.addEventListener('click', () => {
-      clearMessages(); // <<< YENİ EKLENEN SATIR
+      clearMessages();
       localStorage.removeItem('token');
       disconnectSocket();
       navigateTo('/');
@@ -76,12 +76,14 @@ export function afterRender() {
   const chatForm = document.getElementById('chat-form') as HTMLFormElement;
   const chatInput = document.getElementById('chat-input') as HTMLInputElement;
 
-  // YENİ: SAYFA YÜKLENDİĞİNDE HAFIZADAKİ MESAJLARI EKRANA YAZDIR
-  messagesList.innerHTML = ''; // Önce listeyi temizle
+  // Sayfa yüklendiğinde hafızadaki mesajları (sessionStorage) ekrana yazdır
+  messagesList.innerHTML = '';
   const existingMessages = getMessages();
   existingMessages.forEach(msg => {
     const item = document.createElement('li');
-    item.textContent = msg;
+    // Mesaj objesini o anki dile göre metne çeviriyoruz
+    const prefix = t(msg.type === 'public' ? 'chat_public_prefix' : 'chat_private_prefix');
+    item.textContent = `${prefix} ${msg.sender}: ${msg.content}`;
     messagesList.appendChild(item);
   });
   if (messagesList.children.length > 0) {
@@ -100,8 +102,9 @@ export function afterRender() {
 
   socket.on('update user list', (users: any[]) => {
     const currentSelectedId = selectedRecipient ? selectedRecipient.id : 'all';
-    userList.innerHTML = '';
+    userList.innerHTML = ''; // Önce mevcut listeyi tamamen temizle
     
+    // 1. ADIM: "Herkese" seçeneğini her zaman en üste ekle
     const allOption = document.createElement('li');
     allOption.textContent = t('everyone');
     allOption.dataset.id = 'all';
@@ -109,47 +112,60 @@ export function afterRender() {
     allOption.addEventListener('click', () => selectRecipient({ id: 'all', name: t('everyone') }));
     userList.appendChild(allOption);
 
-    users.forEach(user => {
-        if (user.id === myId) return;
-        const item = document.createElement('li');
-        item.dataset.id = user.id;
-        item.classList.add('p-2', 'hover:bg-gray-200', 'cursor-pointer', 'rounded');
+    // 2. ADIM: Mevcut kullanıcıyı (SEN) bul ve ikinci sıraya ekle
+    const me = users.find(user => user.id === myId);
+    if (me) {
+        const myItem = document.createElement('li');
+        myItem.dataset.id = me.id.toString();
+        myItem.classList.add('p-2', 'hover:bg-gray-200', 'cursor-pointer', 'rounded');
 
-        // --- DEĞİŞİKLİK BURADA ---
-        // İsmi bir link haline getiriyoruz
-        const userLink = document.createElement('a');
-        userLink.href = `/profile/${user.id}`;
-        userLink.setAttribute('data-link', ''); // Router'ımızın linki yakalaması için
-        userLink.textContent = user.name || user.email;
-        item.appendChild(userLink);
-        // --- DEĞİŞİKLİK SONU ---
+        const myLink = document.createElement('a');
+        myLink.href = `/profile/${me.id}`;
+        myLink.setAttribute('data-link', '');
+        myLink.textContent = `${me.name || me.email} ${t('you_suffix')}`;
+        myItem.appendChild(myLink);
         
-        // Özel mesaj için tıklama olayını 'li' elementine eklemeye devam ediyoruz
-        item.addEventListener('click', (e) => {
-            // Eğer linkin kendisine tıklandıysa, özel mesaj alıcısını seçme
+        myItem.addEventListener('click', (e) => {
             if ((e.target as HTMLElement).tagName === 'A') return;
-            selectRecipient(user);
+            // Kendine özel mesaj atma hala engelli
         });
+        userList.appendChild(myItem);
+    }
 
-        userList.appendChild(item);
+    // 3. ADIM: Diğer tüm kullanıcıları listele
+    users.forEach(user => {
+        // Eğer kullanıcı "sen" değilsen, listeye ekle
+        if (user.id !== myId) {
+            const item = document.createElement('li');
+            item.dataset.id = user.id.toString();
+            item.classList.add('p-2', 'hover:bg-gray-200', 'cursor-pointer', 'rounded');
+
+            const userLink = document.createElement('a');
+            userLink.href = `/profile/${user.id}`;
+            userLink.setAttribute('data-link', '');
+            userLink.textContent = user.name || user.email;
+            item.appendChild(userLink);
+            
+            item.addEventListener('click', (e) => {
+                if ((e.target as HTMLElement).tagName === 'A') return;
+                selectRecipient(user);
+            });
+
+            userList.appendChild(item);
+        }
     });
 
-    // Seçili kullanıcıyı koru veya varsayılana dön
+    // Sayfa yenilendiğinde seçili kullanıcıyı koru veya varsayılana dön
     const newSelectedUser = users.find(u => u.id === currentSelectedId);
     selectRecipient(newSelectedUser || { id: 'all', name: t('everyone') });
   });
 
   socket.on('chat message', (msg: any) => {
-    let prefix = '';
-    if (msg.type === 'public') {
-      prefix = t('chat_public_prefix');
-    } else if (msg.type === 'private') {
-      prefix = t('chat_private_prefix');
-    }
+    // Gelen mesaj objesini doğrudan hafızaya (sessionStorage) ekle
+    addMessage(msg);
 
+    const prefix = t(msg.type === 'public' ? 'chat_public_prefix' : 'chat_private_prefix');
     const fullMessage = `${prefix} ${msg.sender}: ${msg.content}`;
-
-    addMessage(fullMessage); // Hafızaya da tam mesajı ekle
 
     const item = document.createElement('li');
     item.textContent = fullMessage;

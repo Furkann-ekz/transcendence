@@ -20,6 +20,10 @@ model User {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
   email     String   @unique
-  name      String?  // Soru işareti, bu alanın zorunlu olmadığını belirtir.
+  name      String?
   password  String
+  
+  // --- YENİ EKLENEN ALANLAR ---
+  wins      Int      @default(0)
+  losses    Int      @default(0)
 }

@@ -31,5 +31,14 @@
   "online_lobby_title": "Online Modu Seç",
   "play_1v1_button": "1v1 Oyna",
   "play_2v2_button": "2v2 Oyna",
-  "back_button": "Geri"
+  "back_button": "Geri",
+  "profile_wins": "Galibiyet",
+  "profile_losses": "Mağlubiyet",
+  "profile_joined_on": "Katılım Tarihi",
+  "you_suffix": "(Sen)",
+  "you_win": "Kazandın!",
+  "you_lose": "Kaybettin!",
+  "rematch_question": "Lobiye dönmek ister misin?",
+  "stay_on_page": "Sayfada Kal",
+  "return_to_lobby": "Lobiye Dön"
 }
