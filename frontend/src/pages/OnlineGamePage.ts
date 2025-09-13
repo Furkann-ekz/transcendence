@@ -91,23 +91,20 @@ function handlePlayerMove(event: KeyboardEvent) {
 export function render(): string {
     return `
     <div class="h-screen w-screen bg-gray-900 flex flex-col items-center justify-center relative">
-      <div id="game-status" class="text-3xl text-white mb-4">${t('waiting_for_opponent')}</div>
-      <canvas id="pong-canvas" class="bg-black border border-white"></canvas>
-      <a href="/lobby" data-link class="mt-4 text-blue-400 hover:text-blue-300">${t('leave_lobby')}</a>
-
-      <div id="game-over-modal" class="hidden absolute inset-0 bg-black bg-opacity-75 flex flex-col items-center justify-center text-white">
+      <div id="game-over-modal" class="hidden absolute inset-0 bg-black bg-opacity-75 items-center justify-center text-white">
         <h2 id="game-over-text" class="text-6xl font-bold mb-8"></h2>
-        <div id="rematch-prompt" class="hidden flex flex-col items-center">
+        <div id="rematch-prompt" class="hidden items-center">
             <p class="text-xl mb-4">${t('rematch_question')}</p>
             <div>
-                <button id="stay-button" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded mr-4">${t('stay_on_page')}</button>
-                <a href="/lobby" data-link class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded">${t('return_to_lobby')}</a>
+                <button id="stay-button" ...>${t('stay_on_page')}</button>
+                <a href="/lobby" data-link ...>${t('return_to_lobby')}</a>
             </div>
         </div>
       </div>
     </div>
   `;
 }
+
 
 // SAYFA YÜKLENDİKTEN SONRA ÇALIŞAN KODLAR
 export function afterRender() {
@@ -166,7 +163,7 @@ export function afterRender() {
         gameState = newGameState;
     });
 
-    socket.on('gameOver', ({ winners, losers }) => {
+    socket.on('gameOver', ({ winners}) => {
         // Son skoru ekrana yansıtmak için gameState'i son bir kez daha güncelle
         // (Backend bu bilgiyi göndermiyorsa bu kısmı atlayabilir veya ekleyebiliriz)
         
