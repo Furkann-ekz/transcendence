@@ -31,5 +31,14 @@
   "online_lobby_title": "Выберите онлайн-режим",
   "play_1v1_button": "Играть 1 на 1",
   "play_2v2_button": "Играть 2 на 2",
-  "back_button": "Назад"
+  "back_button": "Назад",
+  "profile_wins": "Победы",
+  "profile_losses": "Поражения",
+  "profile_joined_on": "Присоединился",
+  "you_suffix": "(Вы)",
+  "you_win": "Вы выиграли!",
+  "you_lose": "Вы проиграли!",
+  "rematch_question": "Вернуться в лобби?",
+  "stay_on_page": "Остаться на странице",
+  "return_to_lobby": "Вернуться в лобби"
 }

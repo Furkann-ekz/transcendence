@@ -31,5 +31,14 @@
   "online_lobby_title": "Select Online Mode",
   "play_1v1_button": "Play 1v1",
   "play_2v2_button": "Play 2v2",
-  "back_button": "Back"
+  "back_button": "Back",
+  "profile_wins": "Wins",
+  "profile_losses": "Losses",
+  "profile_joined_on": "Joined on",
+  "you_suffix": "(You)",
+  "you_win": "You Win!",
+  "you_lose": "You Lose!",
+  "rematch_question": "Return to lobby?",
+  "stay_on_page": "Stay",
+  "return_to_lobby": "Return to Lobby"
 }

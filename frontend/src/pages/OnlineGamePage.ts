@@ -90,10 +90,21 @@ function handlePlayerMove(event: KeyboardEvent) {
 // SAYFANIN HTML'İNİ OLUŞTURMA
 export function render(): string {
     return `
-    <div class="h-screen w-screen bg-gray-900 flex flex-col items-center justify-center">
+    <div class="h-screen w-screen bg-gray-900 flex flex-col items-center justify-center relative">
       <div id="game-status" class="text-3xl text-white mb-4">${t('waiting_for_opponent')}</div>
-      <canvas id="pong-canvas" class="bg-black border border-white hidden"></canvas>
+      <canvas id="pong-canvas" class="bg-black border border-white"></canvas>
       <a href="/lobby" data-link class="mt-4 text-blue-400 hover:text-blue-300">${t('leave_lobby')}</a>
+
+      <div id="game-over-modal" class="hidden absolute inset-0 bg-black bg-opacity-75 flex flex-col items-center justify-center text-white">
+        <h2 id="game-over-text" class="text-6xl font-bold mb-8"></h2>
+        <div id="rematch-prompt" class="hidden flex flex-col items-center">
+            <p class="text-xl mb-4">${t('rematch_question')}</p>
+            <div>
+                <button id="stay-button" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded mr-4">${t('stay_on_page')}</button>
+                <a href="/lobby" data-link class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded">${t('return_to_lobby')}</a>
+            </div>
+        </div>
+      </div>
     </div>
   `;
 }
@@ -101,14 +112,22 @@ export function render(): string {
 // SAYFA YÜKLENDİKTEN SONRA ÇALIŞAN KODLAR
 export function afterRender() {
     socket = getSocket()!;
-    
+
     const statusDiv = document.getElementById('game-status')!;
     const canvasEl = document.getElementById('pong-canvas') as HTMLCanvasElement;
     canvas = canvasEl;
     context = canvas.getContext('2d')!;
+    const gameOverModal = document.getElementById('game-over-modal')!;
+    const gameOverText = document.getElementById('game-over-text')!;
+    const rematchPrompt = document.getElementById('rematch-prompt')!;
+    const stayButton = document.getElementById('stay-button')!;
     
     const token = localStorage.getItem('token');
     const myUserId = token ? jwt_decode(token).userId : null;
+
+    stayButton.addEventListener('click', () => {
+        gameOverModal.classList.add('hidden');
+    });
 
     // Sunucudan gelen "bekleme odası güncellendi" mesajını dinle
     socket.on('updateQueue', ({ queueSize, requiredSize }) => {
@@ -147,10 +166,22 @@ export function afterRender() {
         gameState = newGameState;
     });
 
-    socket.on('opponentLeft', () => {
-        statusDiv.textContent = t('opponent_left');
+    socket.on('gameOver', ({ winners, losers }) => {
+        // Son skoru ekrana yansıtmak için gameState'i son bir kez daha güncelle
+        // (Backend bu bilgiyi göndermiyorsa bu kısmı atlayabilir veya ekleyebiliriz)
+        
         window.removeEventListener('keydown', handlePlayerMove);
         if (animationFrameId) cancelAnimationFrame(animationFrameId);
+        
+        const isWinner = winners.some((winner: any) => winner.id === myUserId);
+        
+        gameOverText.textContent = isWinner ? t('you_win') : t('you_lose');
+        gameOverModal.classList.remove('hidden');
+
+        // 3 saniye sonra lobiye dönme seçeneğini göster
+        setTimeout(() => {
+            rematchPrompt.classList.remove('hidden');
+        }, 3000);
     });
 }
 

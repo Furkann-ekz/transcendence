@@ -1,5 +1,7 @@
 // backend/websockets/gameHandler.js
 
+const prisma = require('../prisma/db');
+
 // Bu fonksiyon, bir array'i karıştırmak için kullanılır (takım oluşturmada lazım olacak)
 function shuffleArray(array) {
     for (let i = array.length - 1; i > 0; i--) {
@@ -8,7 +10,27 @@ function shuffleArray(array) {
     }
 }
 
-function startGameLoop(room, players, io, mode, gameConfig) {
+async function updatePlayerStats(playerIds, outcome) {
+    const fieldToIncrement = outcome === 'win' ? 'wins' : 'losses';
+    try {
+        await prisma.user.updateMany({
+            where: {
+                id: { in: playerIds }
+            },
+            data: {
+                [fieldToIncrement]: {
+                    increment: 1
+                }
+            }
+        });
+        console.log(`Stats updated for players ${playerIds}. Outcome: ${outcome}`);
+    } catch (error) {
+        console.error("Failed to update player stats:", error);
+    }
+}
+
+function startGameLoop(room, players, io, mode, gameConfig)
+{
     const { canvasSize, paddleSize, paddleThickness } = gameConfig;
 
     let gameState = {
@@ -20,19 +42,20 @@ function startGameLoop(room, players, io, mode, gameConfig) {
         team2Score: 0,
         players: players.map(p => ({
             id: p.id,
-            position: p.position, // 'left', 'right', 'top', 'bottom'
-            team: p.team, // 1 veya 2
+            position: p.position,
+            team: p.team,
             x: p.x,
             y: p.y
         }))
     };
 
-    const intervalId = setInterval(() => {
-        // Top hareketi
+    const WINNING_SCORE = 5;
+
+    const intervalId = setInterval(async () => {
+        // Top hareketi ve raket çarpışmaları...
         gameState.ballX += gameState.ballSpeedX;
         gameState.ballY += gameState.ballSpeedY;
 
-        // Raketlerle çarpışma
         gameState.players.forEach(p => {
             if (p.position === 'left' && gameState.ballX <= paddleThickness && gameState.ballY > p.y && gameState.ballY < p.y + paddleSize) gameState.ballSpeedX = -gameState.ballSpeedX;
             if (p.position === 'right' && gameState.ballX >= canvasSize - paddleThickness && gameState.ballY > p.y && gameState.ballY < p.y + paddleSize) gameState.ballSpeedX = -gameState.ballSpeedX;
@@ -42,45 +65,77 @@ function startGameLoop(room, players, io, mode, gameConfig) {
 
         // Skorlama mantığı
         let scored = false;
-        let scoringTeam = null; // Hangi takımın sayı kazandığını tutar (1 veya 2)
+        let scoringTeam = null;
 
-        if (gameState.ballX < 0) { // Sol duvardan çıktı
+        if (gameState.ballX < 0) {
             const player = gameState.players.find(p => p.position === 'left');
-            scoringTeam = player.team === 1 ? 2 : 1; // Rakip takım sayı alır
+            scoringTeam = player.team === 1 ? 2 : 1;
             scored = true;
-        } else if (gameState.ballX > canvasSize) { // Sağ duvardan çıktı
+        } else if (gameState.ballX > canvasSize) {
             const player = gameState.players.find(p => p.position === 'right');
             scoringTeam = player.team === 1 ? 2 : 1;
             scored = true;
         }
         
-        // Sadece 2v2 modunda üst/alt duvarlardan çıkınca sayı olur
         if (mode === '2v2') {
-            if (gameState.ballY < 0) { // Üst duvardan çıktı
+            if (gameState.ballY < 0) {
                 const player = gameState.players.find(p => p.position === 'top');
                 scoringTeam = player.team === 1 ? 2 : 1;
                 scored = true;
-            } else if (gameState.ballY > canvasSize) { // Alt duvardan çıktı
+            } else if (gameState.ballY > canvasSize) {
                 const player = gameState.players.find(p => p.position === 'bottom');
                 scoringTeam = player.team === 1 ? 2 : 1;
                 scored = true;
             }
-        } else { // 1v1 modunda üst/alt duvarlardan seker
+        } else {
             if (gameState.ballY <= 0 || gameState.ballY >= canvasSize) {
                 gameState.ballSpeedY = -gameState.ballSpeedY;
             }
         }
         
         if (scored) {
+            // 1. ÖNCE skoru arttır.
             if(scoringTeam === 1) gameState.team1Score++;
             else gameState.team2Score++;
             
-            gameState.ballX = canvasSize / 2;
-            gameState.ballY = canvasSize / 2;
+            // 2. SONRA, final skoru içeren son durumu herkese gönder.
+            io.to(room).emit('gameStateUpdate', gameState);
+
+            // 3. ŞİMDİ oyunun bitip bitmediğini kontrol et.
+            if (gameState.team1Score >= WINNING_SCORE || gameState.team2Score >= WINNING_SCORE) {
+                clearInterval(intervalId);
+                
+                const winners = players.filter(p => p.team === scoringTeam);
+                const losers = players.filter(p => p.team !== scoringTeam);
+                const winnerIds = winners.map(p => p.id);
+                const loserIds = losers.map(p => p.id);
+
+                await updatePlayerStats(winnerIds, 'win');
+                await updatePlayerStats(loserIds, 'loss');
+
+                io.to(room).emit('gameOver', { winners, losers });
+                
+                const playerSockets = players.map(p => io.sockets.sockets.get(p.socketId)).filter(Boolean);
+                playerSockets.forEach(sock => {
+                    sock.leave(room);
+                    sock.gameRoom = null;
+                });
+                
+                // gameRooms'dan silme işlemini cleanup fonksiyonu zaten yapıyor, burada tekrar gerek yok.
+                
+                return; 
+            }
+            
+            // Oyun bitmediyse topu sıfırla.
+            gameState.ballX = gameConfig.canvasSize / 2;
+            gameState.ballY = gameConfig.canvasSize / 2;
             gameState.ballSpeedX = -gameState.ballSpeedX;
         }
         
-        io.to(room).emit('gameStateUpdate', gameState);
+        // Skor olmadıysa normal oyun durumunu gönder.
+        if (!scored) {
+            io.to(room).emit('gameStateUpdate', gameState);
+        }
     }, 1000 / 60);
 
     const gameStartPayload = {

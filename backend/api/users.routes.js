@@ -35,8 +35,10 @@ async function userRoutes(fastify, options) {
                 select: { // Sadece güvenli ve halka açık bilgileri döndür
                     id: true,
                     name: true,
-                    createdAt: true
+                    createdAt: true,
                     // Gelecekte buraya wins, losses gibi istatistikler eklenecek
+                    wins: true,
+                    losses: true
                 }
             });
 
