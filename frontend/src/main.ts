@@ -1,6 +1,5 @@
 import './style.css';
-// handleLocation'ı import etmeye artık gerek yok
-import { initializeRouter } from './router'; 
+import { initializeRouter, handleLocation } from './router';
 import { setLanguage, getCurrentLanguage } from './i18n';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -26,10 +25,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const target = e.target as HTMLElement;
     const lang = target.getAttribute('data-lang');
     if (lang) {
-      setLanguage(lang);
-      window.location.reload();
+        setLanguage(lang);
+        // Eğer oyun sayfasındaysak, sayfayı yenilemeden içeriği güncelle
+        if (window.location.pathname === '/online-game') {
+            void handleLocation(true); // Router'ı yeniden render etmeye zorla
+        } else {
+            window.location.reload(); // Diğer sayfalarda yenile
+        }
     }
-  });
+});
 
   // Menü açıkken dışarıya tıklayınca kapat
   window.addEventListener('click', () => {

@@ -31,7 +31,7 @@ const app = document.querySelector<HTMLDivElement>('#app')!;
 
 // frontend/src/router/index.ts
 
-export async function handleLocation() {
+export async function handleLocation(forceReload = false) {
   const path = window.location.pathname;
   const token = localStorage.getItem('token');
 
@@ -88,7 +88,7 @@ export async function handleLocation() {
   }
 
   // Sadece rota gerçekten değiştiyse render et
-  if (currentRoute !== routeToRender) {
+  if (currentRoute !== routeToRender || forceReload) {
     if (currentRoute && currentRoute.cleanup) {
       currentRoute.cleanup();
     }

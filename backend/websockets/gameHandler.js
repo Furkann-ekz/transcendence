@@ -32,6 +32,12 @@ async function saveMatch(game, winnerTeam, wasForfeit = false) {
     try {
         const durationInSeconds = wasForfeit ? 0 : Math.floor((Date.now() - game.startTime) / 1000);
 
+        const team1Hits = game.gameState.players
+            .filter(p => p.team === 1)
+            .reduce((sum, p) => sum + p.hits, 0);
+        const team2Hits = game.gameState.players
+            .filter(p => p.team === 2)
+            .reduce((sum, p) => sum + p.hits, 0);
         await prisma.match.create({
             data: {
                 mode: mode,
@@ -45,9 +51,9 @@ async function saveMatch(game, winnerTeam, wasForfeit = false) {
                 winnerTeam: winnerTeam,
                 winnerId: winnerTeam === 1 ? player1Id : player2Id,
                 wasForfeit: wasForfeit,
-                team1Hits: 0,
+                team1Hits: team1Hits, // << DÜZELTİLDİ
                 team1Misses: gameState.team2Score,
-                team2Hits: 0,
+                team2Hits: team2Hits, // << DÜZELTİLDİ
                 team2Misses: gameState.team1Score
             }
         });
@@ -72,7 +78,7 @@ function startGameLoop(room, players, io, mode, gameConfig) {
     let gameState = {
         ballX: canvasSize / 2, ballY: canvasSize / 2, ballSpeedX: 6, ballSpeedY: 6,
         team1Score: 0, team2Score: 0,
-        players: players.map(p => ({ ...p }))
+        players: players.map(p => ({ ...p, hits: 0 })) // Her oyuncuya vuruş sayacı eklendi
     };
     game.gameState = gameState;
 
@@ -82,19 +88,28 @@ function startGameLoop(room, players, io, mode, gameConfig) {
 
         // DÜZELTİLMİŞ ÇARPIŞMA MANTIĞI
         gameState.players.forEach(p => {
+        // Önce oyuncunun pozisyonuna göre doğru fizik grubunu seçiyoruz
             if (p.position === 'left' || p.position === 'right') {
+                // Yatay oyuncular için çarpışma kontrolü
                 const paddleEdgeX = (p.position === 'left') ? paddleThickness : canvasSize - paddleThickness;
                 const ballEdgeX = (p.position === 'left') ? gameState.ballX - BALL_RADIUS : gameState.ballX + BALL_RADIUS;
+
                 if (((p.position === 'left' && ballEdgeX <= paddleEdgeX && gameState.ballSpeedX < 0) || (p.position === 'right' && ballEdgeX >= paddleEdgeX && gameState.ballSpeedX > 0)) &&
                     (gameState.ballY > p.y && gameState.ballY < p.y + paddleSize)) {
+                    
                     gameState.ballSpeedX = -gameState.ballSpeedX;
+                    p.hits++; // << VURUŞ BURADA DOĞRU BİR ŞEKİLDE SAYILIYOR
                 }
-            } else {
+            } else { // 'top' veya 'bottom' pozisyonundaki oyuncular için
+                // Dikey oyuncular için çarpışma kontrolü
                 const paddleEdgeY = (p.position === 'top') ? paddleThickness : canvasSize - paddleThickness;
                 const ballEdgeY = (p.position === 'top') ? gameState.ballY - BALL_RADIUS : gameState.ballY + BALL_RADIUS;
+
                 if (((p.position === 'top' && ballEdgeY <= paddleEdgeY && gameState.ballSpeedY < 0) || (p.position === 'bottom' && ballEdgeY >= paddleEdgeY && gameState.ballSpeedY > 0)) &&
                     (gameState.ballX > p.x && gameState.ballX < p.x + paddleSize)) {
+                    
                     gameState.ballSpeedY = -gameState.ballSpeedY;
+                    p.hits++; // << VURUŞ BURADA DOĞRU BİR ŞEKİLDE SAYILIYOR
                 }
             }
         });

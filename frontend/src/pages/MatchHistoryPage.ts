@@ -68,11 +68,11 @@ export async function afterRender() {
             const matchElement = document.createElement('div');
             matchElement.className = `bg-white p-4 rounded-lg shadow-md flex items-center justify-between relative`;
             
-            const myTotalShots = myStats.score + myStats.misses;
-            const myAccuracy = myTotalShots > 0 ? ((myStats.score / myTotalShots) * 100).toFixed(0) : 100;
+            const myTotalShots = myStats.hits + myStats.misses;
+            const myAccuracy = myTotalShots > 0 ? ((myStats.hits / myTotalShots) * 100).toFixed(0) : 0;
 
-            const opponentTotalShots = opponentStats.score + opponentStats.misses;
-            const opponentAccuracy = opponentTotalShots > 0 ? ((opponentStats.score / opponentTotalShots) * 100).toFixed(0) : 100;
+            const opponentTotalShots = opponentStats.hits + opponentStats.misses;
+            const opponentAccuracy = opponentTotalShots > 0 ? ((opponentStats.hits / opponentTotalShots) * 100).toFixed(0) : 0;
                         
             matchElement.innerHTML = `
                 <div class="absolute left-0 top-0 bottom-0 w-2 ${iWon ? 'bg-green-500' : 'bg-red-500'} rounded-l-lg"></div>
