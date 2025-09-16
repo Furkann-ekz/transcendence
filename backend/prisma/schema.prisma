@@ -18,13 +18,13 @@ model User {
   wins      Int      @default(0)
   losses    Int      @default(0)
 
-  // --- EKSİK OLAN VE YENİ EKLENEN İLİŞKİ ALANLARI ---
+  // User ve Match arasındaki iki yönlü ilişkiyi tanımlayan alanlar
   matchesAsPlayer1 Match[] @relation("Player1Matches")
   matchesAsPlayer2 Match[] @relation("Player2Matches")
   wonMatches       Match[] @relation("WinnerMatches")
-  // --------------------------------------------------
 }
 
+// EKSİK OLAN MATCH MODELİ
 model Match {
   id                 Int      @id @default(autoincrement())
   createdAt          DateTime @default(now())

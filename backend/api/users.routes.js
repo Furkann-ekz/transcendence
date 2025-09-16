@@ -51,35 +51,6 @@ async function userRoutes(fastify, options) {
             return reply.code(500).send({ error: 'Internal Server Error' });
         }
     });
-    fastify.get('/users/:id/matches', { preHandler: [authenticate] }, async (request, reply) => {
-        const userId = parseInt(request.params.id, 10);
-        if (isNaN(userId)) {
-            return reply.code(400).send({ error: 'Invalid user ID' });
-        }
-
-        try {
-            const matches = await prisma.match.findMany({
-                where: {
-                    OR: [
-                        { player1Id: userId },
-                        { player2Id: userId }
-                    ]
-                },
-                orderBy: {
-                    createdAt: 'desc'
-                },
-                take: 10,
-                include: { // Rakip bilgilerini de almak için
-                    player1: { select: { id: true, name: true } },
-                    player2: { select: { id: true, name: true } }
-                }
-            });
-            return matches;
-        } catch (error) {
-            fastify.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
-        }
-    });
 }
 
 module.exports = userRoutes;

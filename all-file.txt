@@ -1,0 +1,4267 @@
+frontend/src/api/auth.ts:
+
+// frontend/src/api/auth.ts
+
+
+// Ortam değişkeninden API adresini alıyoruz
+
+const API_URL = `http://${window.location.hostname}:3000`;
+
+
+// DÜZELTME: Parametrelere ': string' tipi eklendi
+
+export async function loginUser(email: string, password: string) {
+
+  const response = await fetch(`${API_URL}/login`, {
+
+    method: 'POST',
+
+    headers: { 'Content-Type': 'application/json' },
+
+    body: JSON.stringify({ email, password }),
+
+  });
+
+
+  if (!response.ok) {
+
+    const errorData = await response.json();
+
+    throw new Error(errorData.error || 'Giriş başarısız oldu.');
+
+  }
+
+
+  return response.json();
+
+}
+
+
+// DÜZELTME: Parametrelere ': string' tipi eklendi
+
+export async function registerUser(email: string, password: string, name: string) {
+
+  const response = await fetch(`${API_URL}/register`, {
+
+    method: 'POST',
+
+    headers: { 'Content-Type': 'application/json' },
+
+    body: JSON.stringify({ email, password, name }),
+
+  });
+
+
+  if (!response.ok) {
+
+    const errorData = await response.json();
+
+    throw new Error(errorData.error || 'Kayıt başarısız oldu.');
+
+  }
+
+
+  return response.json();
+
+}
+
+
+
+
+
+
+frontend/src/api/users.ts:
+
+const API_URL = `http://${window.location.hostname}:3000`;
+
+
+export async function getUserProfile(userId: string) {
+
+  const token = localStorage.getItem('token');
+
+  if (!token) {
+
+    throw new Error('Not authenticated');
+
+  }
+
+
+  const response = await fetch(`${API_URL}/users/${userId}`, {
+
+    method: 'GET',
+
+    headers: {
+
+      'Authorization': `Bearer ${token}`,
+
+    },
+
+  });
+
+
+  if (!response.ok) {
+
+    const errorData = await response.json();
+
+    throw new Error(errorData.error || 'Failed to fetch user profile.');
+
+  }
+
+
+  return response.json();
+
+}
+
+
+
+
+
+
+(dil dosyalarından sadece ingilizce olanı gönderiyorum, diğerleri de aynı neticede)
+
+frontend/src/locales/en.json:
+
+{
+
+  "login_title": "Login",
+
+  "email_label": "Email",
+
+  "password_label": "Password",
+
+  "login_button": "Sign In",
+
+  "register_link": "Don't have an account? Sign Up",
+
+  "register_title": "Sign Up",
+
+  "name_label": "Name (Optional)",
+
+  "register_button": "Sign Up",
+
+  "login_link": "Already have an account? Sign In",
+
+  "register_success_alert": "Registration successful! Please sign in.",
+
+  "error_invalid_credentials": "Invalid credentials. Please try again.",
+
+  "error_email_registered": "This email is already registered.",
+
+  "go_to_game": "Go to Game",
+
+  "logout": "Logout",
+
+  "online_users": "Online Users",
+
+  "recipient": "Recipient",
+
+  "everyone": "Everyone",
+
+  "chat_placeholder": "Type your message...",
+
+  "send_button": "Send",
+
+  "lobby_title": "Select Game Mode",
+
+  "play_local_button": "Play Local (Same Computer)",
+
+  "play_online_button": "Play Online (Find Opponent)",
+
+  "return_to_chat": "Return to Chat",
+
+  "waiting_for_opponent": "Waiting for Opponent...",
+
+  "leave_lobby": "Leave Lobby",
+
+  "opponent_left": "Your opponent has left the game!",
+
+  "chat_public_prefix": "(Everyone)",
+
+  "chat_private_prefix": "(Private)",
+
+  "dropdown_english": "English",
+
+  "online_lobby_title": "Select Online Mode",
+
+  "play_1v1_button": "Play 1v1",
+
+  "play_2v2_button": "Play 2v2",
+
+  "back_button": "Back",
+
+  "profile_wins": "Wins",
+
+  "profile_losses": "Losses",
+
+  "profile_joined_on": "Joined on",
+
+  "you_suffix": "(You)",
+
+  "you_win": "You Win!",
+
+  "you_lose": "You Lose!",
+
+  "rematch_question": "Return to lobby?",
+
+  "stay_on_page": "Stay",
+
+  "return_to_lobby": "Return to Lobby"
+
+}
+
+
+
+
+
+
+frontend/src/pages/DashboardPage.ts:
+
+// frontend/src/pages/DashboardPage.ts
+
+import { navigateTo } from '../router';
+
+import { getSocket, disconnectSocket } from '../socket';
+
+import { t } from '../i18n';
+
+import { jwt_decode } from '../utils';
+
+import type { Socket } from "socket.io-client";
+
+import { addMessage, getMessages, clearMessages } from '../chatState';
+
+
+// Sayfa bazında değişkenleri tanımla
+
+let socket: Socket | null = null;
+
+let myId: number | null = null;
+
+
+export function render(): string {
+
+  // Navigasyon çubuğunu sol, orta ve sağ olmak üzere üç ana bölüme ayırıyoruz.
+
+  return `
+
+    <div class="h-screen w-screen flex flex-col bg-gray-100">
+
+      <nav class="bg-gray-800 text-white p-4 flex justify-between items-center w-full">
+
+        
+
+        <div class="w-1/3">
+
+          </div>
+
+
+        <div class="w-1/3 text-center">
+
+          <h1 class="text-xl font-bold">Transcendence</h1>
+
+        </div>
+
+
+        <div class="w-1/3 flex justify-end items-center space-x-4">
+
+          <a href="/lobby" data-link class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">${t('go_to_game')}</a>
+
+          <button id="logout-button" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">${t('logout')}</button>
+
+        </div>
+
+
+      </nav>
+
+
+      <div class="flex flex-grow overflow-hidden p-4 space-x-4">
+
+        
+
+        <div class="w-1/4 bg-white p-4 rounded-lg shadow-md overflow-y-auto">
+
+          <h2 class="text-lg font-bold mb-4">${t('online_users')}</h2>
+
+          <ul id="user-list" class="space-y-2"></ul>
+
+        </div>
+
+
+        <div class="w-3/4 flex flex-col bg-white rounded-lg shadow-md">
+
+          <div class="p-4 border-b">
+
+            <strong>${t('recipient')}:</strong> <span id="recipient-info">${t('everyone')}</span>
+
+          </div>
+
+          <ul id="messages" class="flex-grow p-4 overflow-y-auto"></ul>
+
+          <form id="chat-form" class="p-4 bg-gray-200 flex rounded-b-lg">
+
+            <input id="chat-input" autocomplete="off" placeholder="${t('chat_placeholder')}" class="border rounded-l-md p-2 flex-grow" />
+
+            <button type="submit" class="bg-blue-500 text-white px-4 rounded-r-md hover:bg-blue-600">${t('send_button')}</button>
+
+          </form>
+
+        </div>
+
+
+      </div>
+
+    </div>
+
+  `;
+
+}
+
+
+export function afterRender() {
+
+  const logoutButton = document.getElementById('logout-button');
+
+  logoutButton?.addEventListener('click', () => {
+
+      clearMessages();
+
+      localStorage.removeItem('token');
+
+      disconnectSocket();
+
+      navigateTo('/');
+
+  });
+
+
+  socket = getSocket()!;
+
+  socket.emit('requestUserList');
+
+
+  const token = localStorage.getItem('token');
+
+  if (token) {
+
+      myId = jwt_decode(token).userId;
+
+  }
+
+
+  const userList = document.getElementById('user-list') as HTMLUListElement;
+
+  const recipientInfo = document.getElementById('recipient-info') as HTMLSpanElement;
+
+  const messagesList = document.getElementById('messages') as HTMLUListElement;
+
+  const chatForm = document.getElementById('chat-form') as HTMLFormElement;
+
+  const chatInput = document.getElementById('chat-input') as HTMLInputElement;
+
+
+  // Sayfa yüklendiğinde hafızadaki mesajları (sessionStorage) ekrana yazdır
+
+  messagesList.innerHTML = '';
+
+  const existingMessages = getMessages();
+
+  existingMessages.forEach(msg => {
+
+    const item = document.createElement('li');
+
+    // Mesaj objesini o anki dile göre metne çeviriyoruz
+
+    const prefix = t(msg.type === 'public' ? 'chat_public_prefix' : 'chat_private_prefix');
+
+    item.textContent = `${prefix} ${msg.sender}: ${msg.content}`;
+
+    messagesList.appendChild(item);
+
+  });
+
+  if (messagesList.children.length > 0) {
+
+      messagesList.scrollTop = messagesList.scrollHeight;
+
+  }
+
+
+  let selectedRecipient: any = null;
+
+
+  function selectRecipient(user: any) {
+
+    selectedRecipient = user;
+
+    recipientInfo.textContent = user.name || user.email || t('everyone');
+
+    document.querySelectorAll('#user-list li').forEach(li => {
+
+        li.classList.toggle('bg-blue-200', (li as HTMLElement).dataset.id == (user.id || 'all'));
+
+    });
+
+  }
+
+
+  socket.on('update user list', (users: any[]) => {
+
+    const currentSelectedId = selectedRecipient ? selectedRecipient.id : 'all';
+
+    userList.innerHTML = ''; // Önce mevcut listeyi tamamen temizle
+
+    
+
+    // 1. ADIM: "Herkese" seçeneğini her zaman en üste ekle
+
+    const allOption = document.createElement('li');
+
+    allOption.textContent = t('everyone');
+
+    allOption.dataset.id = 'all';
+
+    allOption.classList.add('p-2', 'hover:bg-gray-200', 'cursor-pointer', 'rounded');
+
+    allOption.addEventListener('click', () => selectRecipient({ id: 'all', name: t('everyone') }));
+
+    userList.appendChild(allOption);
+
+
+    // 2. ADIM: Mevcut kullanıcıyı (SEN) bul ve ikinci sıraya ekle
+
+    const me = users.find(user => user.id === myId);
+
+    if (me) {
+
+        const myItem = document.createElement('li');
+
+        myItem.dataset.id = me.id.toString();
+
+        myItem.classList.add('p-2', 'hover:bg-gray-200', 'cursor-pointer', 'rounded');
+
+
+        const myLink = document.createElement('a');
+
+        myLink.href = `/profile/${me.id}`;
+
+        myLink.setAttribute('data-link', '');
+
+        myLink.textContent = `${me.name || me.email} ${t('you_suffix')}`;
+
+        myItem.appendChild(myLink);
+
+        
+
+        myItem.addEventListener('click', (e) => {
+
+            if ((e.target as HTMLElement).tagName === 'A') return;
+
+            // Kendine özel mesaj atma hala engelli
+
+        });
+
+        userList.appendChild(myItem);
+
+    }
+
+
+    // 3. ADIM: Diğer tüm kullanıcıları listele
+
+    users.forEach(user => {
+
+        // Eğer kullanıcı "sen" değilsen, listeye ekle
+
+        if (user.id !== myId) {
+
+            const item = document.createElement('li');
+
+            item.dataset.id = user.id.toString();
+
+            item.classList.add('p-2', 'hover:bg-gray-200', 'cursor-pointer', 'rounded');
+
+
+            const userLink = document.createElement('a');
+
+            userLink.href = `/profile/${user.id}`;
+
+            userLink.setAttribute('data-link', '');
+
+            userLink.textContent = user.name || user.email;
+
+            item.appendChild(userLink);
+
+            
+
+            item.addEventListener('click', (e) => {
+
+                if ((e.target as HTMLElement).tagName === 'A') return;
+
+                selectRecipient(user);
+
+            });
+
+
+            userList.appendChild(item);
+
+        }
+
+    });
+
+
+    // Sayfa yenilendiğinde seçili kullanıcıyı koru veya varsayılana dön
+
+    const newSelectedUser = users.find(u => u.id === currentSelectedId);
+
+    selectRecipient(newSelectedUser || { id: 'all', name: t('everyone') });
+
+  });
+
+
+  socket.on('chat message', (msg: any) => {
+
+    // Gelen mesaj objesini doğrudan hafızaya (sessionStorage) ekle
+
+    addMessage(msg);
+
+
+    const prefix = t(msg.type === 'public' ? 'chat_public_prefix' : 'chat_private_prefix');
+
+    const fullMessage = `${prefix} ${msg.sender}: ${msg.content}`;
+
+
+    const item = document.createElement('li');
+
+    item.textContent = fullMessage;
+
+    messagesList.appendChild(item);
+
+    messagesList.scrollTop = messagesList.scrollHeight;
+
+  });
+
+
+  chatForm.addEventListener('submit', (e) => {
+
+    e.preventDefault();
+
+    if (chatInput.value && socket) {
+
+      if (selectedRecipient && selectedRecipient.id !== 'all') {
+
+        socket.emit('private message', {
+
+          recipientId: selectedRecipient.id,
+
+          message: chatInput.value
+
+        });
+
+      } else {
+
+        socket.emit('chat message', chatInput.value);
+
+      }
+
+      chatInput.value = '';
+
+    }
+
+  });
+
+}
+
+
+export function cleanup() {
+
+  console.log('Dashboard sayfasından ayrılıyor, sohbet geçmişi ve dinleyiciler temizleniyor...');
+
+  
+
+  // Önceki isteğin üzerine sohbet geçmişini temizliyoruz.
+
+  clearMessages();
+
+
+  // *** SORUNU ÇÖZEN KISIM BAŞLANGICI ***
+
+  // Bu sayfadan ayrılırken, bu sayfada eklediğimiz dinleyicileri kaldırıyoruz.
+
+  // Bu, mesajların katlanarak çoğalmasını engeller.
+
+  const socket = getSocket();
+
+  if (socket) {
+
+    socket.off('update user list');
+
+    socket.off('chat message');
+
+  }
+
+  // *** SORUNU ÇÖZEN KISIM SONU ***
+
+}
+
+
+
+
+
+
+frontend/src/pages/LobbyPage.ts:
+
+import { navigateTo } from "../router";
+
+import { t } from '../i18n';
+
+
+export function render() {
+
+  return `
+
+    <div class="min-h-screen bg-gray-100 flex flex-col items-center justify-center">
+
+      <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md text-center">
+
+        <h2 class="text-2xl font-bold mb-6">${t('lobby_title')}</h2>
+
+        <div class="flex flex-col space-y-4">
+
+          <a href="/local-game" data-link class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded">
+
+            ${t('play_local_button')}
+
+          </a>
+
+          <a href="/online-lobby" data-link class="bg-green-500 hover:bg-green-700 text-white font-bold py-3 px-4 rounded">
+
+            ${t('play_online_button')}
+
+          </a>
+
+        </div>
+
+        <a href="/dashboard" data-link class="mt-8 inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800">
+
+          ${t('return_to_chat')}
+
+        </a>
+
+      </div>
+
+    </div>
+
+  `;
+
+}
+
+
+export function afterRender() {
+
+    // DEĞİŞİKLİK: Artık butonu doğru href üzerinden arıyoruz.
+
+    const onlineButton = document.querySelector('a[href="/online-lobby"]');
+
+    
+
+    onlineButton?.addEventListener('click', (e) => {
+
+        e.preventDefault();
+
+        navigateTo('/online-lobby');
+
+    });
+
+}
+
+
+
+
+
+
+frontend/src/pages/LocalGamePage.ts:
+
+// frontend/src/pages/GamePage.ts
+
+// Oyun ayarları
+
+
+import { t } from '../i18n';
+
+const PADDLE_WIDTH = 10;
+
+const PADDLE_HEIGHT = 100;
+
+const BALL_SIZE = 10;
+
+
+// Oyun durumu (state)
+
+let gameState = {
+
+  leftPaddleY: 250,
+
+  rightPaddleY: 250,
+
+  ballX: 400,
+
+  ballY: 300,
+
+  ballSpeedX: 5,
+
+  ballSpeedY: 5,
+
+  leftScore: 0,
+
+  rightScore: 0,
+
+};
+
+
+let canvas: HTMLCanvasElement;
+
+let context: CanvasRenderingContext2D;
+
+let animationFrameId: number;
+
+const keysPressed: { [key: string]: boolean } = {};
+
+
+export function render() {
+
+  return `
+
+    <div class="h-screen w-screen bg-gray-900 flex flex-col items-center justify-center">
+
+      <h1 class="text-3xl text-white mb-4">Pong Game</h1>
+
+      <canvas id="pong-canvas" width="800" height="600" class="bg-black border border-white"></canvas>
+
+      <a href="/dashboard" data-link class="mt-4 text-blue-400 hover:text-blue-300">
+
+        ${t('return_to_chat')}
+
+      </a>
+
+    </div>
+
+  `;
+
+}
+
+
+// Çizim fonksiyonları
+
+function drawRect(x: number, y: number, w: number, h: number, color: string) {
+
+  context.fillStyle = color;
+
+  context.fillRect(x, y, w, h);
+
+}
+
+
+function drawCircle(x: number, y: number, r: number, color: string) {
+
+  context.fillStyle = color;
+
+  context.beginPath();
+
+  context.arc(x, y, r, 0, Math.PI * 2, false);
+
+  context.fill();
+
+}
+
+
+function drawText(text: string, x: number, y: number, color: string) {
+
+  context.fillStyle = color;
+
+  context.font = "75px fantasy";
+
+  context.fillText(text, x, y);
+
+}
+
+
+function renderGame() {
+
+  if (!context) return;
+
+  drawRect(0, 0, canvas.width, canvas.height, "black");
+
+  drawText(gameState.leftScore.toString(), canvas.width / 4, canvas.height / 5, "white");
+
+  drawText(gameState.rightScore.toString(), 3 * canvas.width / 4, canvas.height / 5, "white");
+
+  drawRect(0, gameState.leftPaddleY, PADDLE_WIDTH, PADDLE_HEIGHT, "white");
+
+  drawRect(canvas.width - PADDLE_WIDTH, gameState.rightPaddleY, PADDLE_WIDTH, PADDLE_HEIGHT, "white");
+
+  drawCircle(gameState.ballX, gameState.ballY, BALL_SIZE, "white");
+
+}
+
+
+function resetBall() {
+
+  gameState.ballX = canvas.width / 2;
+
+  gameState.ballY = canvas.height / 2;
+
+  gameState.ballSpeedX = -gameState.ballSpeedX;
+
+  gameState.ballSpeedY = 5;
+
+}
+
+
+function update() {
+
+  if (!canvas) return;
+
+  // Paddle movements
+
+  if (keysPressed['w'] && gameState.leftPaddleY > 0) {
+
+    gameState.leftPaddleY -= 8;
+
+  }
+
+  if (keysPressed['s'] && gameState.leftPaddleY < canvas.height - PADDLE_HEIGHT) {
+
+    gameState.leftPaddleY += 8;
+
+  }
+
+  if (keysPressed['ArrowUp'] && gameState.rightPaddleY > 0) {
+
+    gameState.rightPaddleY -= 8;
+
+  }
+
+  if (keysPressed['ArrowDown'] && gameState.rightPaddleY < canvas.height - PADDLE_HEIGHT) {
+
+    gameState.rightPaddleY += 8;
+
+  }
+
+
+  // Ball movement
+
+  gameState.ballX += gameState.ballSpeedX;
+
+  gameState.ballY += gameState.ballSpeedY;
+
+
+  // Ball collision with top/bottom walls
+
+  if (gameState.ballY - BALL_SIZE < 0 || gameState.ballY + BALL_SIZE > canvas.height) {
+
+    gameState.ballSpeedY = -gameState.ballSpeedY;
+
+  }
+
+
+  // Ball collision with paddles
+
+  if (
+
+    gameState.ballX - BALL_SIZE < PADDLE_WIDTH &&
+
+    gameState.ballY > gameState.leftPaddleY &&
+
+    gameState.ballY < gameState.leftPaddleY + PADDLE_HEIGHT
+
+  ) {
+
+    gameState.ballSpeedX = -gameState.ballSpeedX;
+
+  }
+
+  if (
+
+    gameState.ballX + BALL_SIZE > canvas.width - PADDLE_WIDTH &&
+
+    gameState.ballY > gameState.rightPaddleY &&
+
+    gameState.ballY < gameState.rightPaddleY + PADDLE_HEIGHT
+
+  ) {
+
+    gameState.ballSpeedX = -gameState.ballSpeedX;
+
+  }
+
+
+  // Score and reset
+
+  if (gameState.ballX - BALL_SIZE < 0) {
+
+    gameState.rightScore++;
+
+    resetBall();
+
+  } else if (gameState.ballX + BALL_SIZE > canvas.width) {
+
+    gameState.leftScore++;
+
+    resetBall();
+
+  }
+
+}
+
+
+function gameLoop() {
+
+  update();
+
+  renderGame();
+
+  animationFrameId = requestAnimationFrame(gameLoop); // ID'yi sakla
+
+}
+
+
+export function afterRender() {
+
+  const localCanvas = document.getElementById('pong-canvas') as HTMLCanvasElement;
+
+  if (localCanvas) {
+
+    canvas = localCanvas;
+
+    context = canvas.getContext('2d')!;
+
+
+    // Dinleyicileri yeni fonksiyonlarla ekle
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    window.addEventListener('keyup', handleKeyUp);
+
+
+    gameLoop();
+
+  }
+
+}
+
+
+export function cleanup() {
+
+  cancelAnimationFrame(animationFrameId); // Oyun döngüsünü durdur
+
+  // Eklediğimiz klavye dinleyicilerini kaldır
+
+  window.removeEventListener('keydown', handleKeyDown);
+
+  window.removeEventListener('keyup', handleKeyUp);
+
+  // Oyun durumunu sıfırla
+
+  gameState = {
+
+    leftPaddleY: 250,
+
+    rightPaddleY: 250,
+
+    ballX: 400,
+
+    ballY: 300,
+
+    ballSpeedX: 5,
+
+    ballSpeedY: 5,
+
+    leftScore: 0,
+
+    rightScore: 0,
+
+  };
+
+}
+
+
+function handleKeyDown(event: KeyboardEvent) {
+
+  keysPressed[event.key] = true;
+
+}
+
+function handleKeyUp(event: KeyboardEvent) {
+
+  keysPressed[event.key] = false;
+
+}
+
+
+
+
+
+
+frontend/src/pages/LoginPage.ts:
+
+// frontend/src/pages/LoginPage.ts
+
+import { t } from '../i18n';
+
+import { loginUser } from '../api/auth';
+
+import { navigateTo } from '../router';
+
+
+
+export function render() {
+
+  return `
+
+    <div class="min-h-screen bg-gray-100 flex items-center justify-center">
+
+      <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+
+        <h2 class="text-2xl font-bold mb-6 text-center">${t('login_title')}</h2>
+
+        <form id="login-form">
+
+          <div class="mb-4">
+
+            <label for="email" class="block text-gray-700 text-sm font-bold mb-2">${t('email_label')}</label>
+
+            <input type="email" id="email" name="email" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+
+          </div>
+
+          <div class="mb-6">
+
+            <label for="password" class="block text-gray-700 text-sm font-bold mb-2">${t('password_label')}</label>
+
+            <input type="password" id="password" name="password" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:shadow-outline" required>
+
+          </div>
+
+          <div class="flex items-center justify-between">
+
+            <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+
+              ${t('login_button')}
+
+            </button>
+
+            <a href="/register" class="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800" data-link>
+
+              ${t('register_link')}
+
+            </a>
+
+          </div>
+
+        </form>
+
+      </div>
+
+    </div>
+
+  `;
+
+}
+
+
+export function afterRender() {
+
+  const form = document.querySelector<HTMLFormElement>('#login-form');
+
+  if (form) {
+
+    form.addEventListener('submit', async (e) => {
+
+      e.preventDefault();
+
+      const email = (form.querySelector('#email') as HTMLInputElement).value;
+
+      const password = (form.querySelector('#password') as HTMLInputElement).value;
+
+
+      try {
+
+        const data = await loginUser(email, password);
+
+        localStorage.setItem('token', data.token);
+
+        navigateTo('/dashboard');
+
+      }
+
+      catch (error: any)
+
+      {
+
+        // Backend'den gelen mesaja göre çeviri yap
+
+        const errorMessage = error.message;
+
+        if (errorMessage.includes('Invalid credentials'))
+
+          alert(t('error_invalid_credentials'));
+
+        else
+
+          // Bilinmeyen diğer hatalar için genel mesaj
+
+          alert(errorMessage);
+
+      }
+
+    });
+
+  }
+
+}
+
+
+
+
+
+
+frontend/src/pages/OnlineGamePage.ts:
+
+// frontend/src/pages/OnlineGamePage.ts
+
+import { getSocket } from '../socket';
+
+import type { Socket } from 'socket.io-client';
+
+import { jwt_decode } from '../utils';
+
+import { t } from '../i18n';
+
+
+// Sayfa bazında kullanılacak değişkenler
+
+let socket: Socket | null = null;
+
+let canvas: HTMLCanvasElement;
+
+let context: CanvasRenderingContext2D;
+
+let gameState: any = {};
+
+let gameConfig: any = {}; // Oyun ayarlarını (canvas boyutu, raket boyutu vb.) tutacak
+
+let myPlayer: any = null; // Oyuncunun kendi bilgilerini (pozisyonu, takımı vb.) tutacak
+
+let animationFrameId: number;
+
+
+// OYUNU ÇİZME FONKSİYONU
+
+function renderGame() {
+
+    if (!context || !gameState.players || !gameConfig.canvasSize) return;
+
+
+    const { players, ballX, ballY, team1Score, team2Score } = gameState;
+
+    const { canvasSize, paddleSize, paddleThickness } = gameConfig;
+
+
+    // 1. Arka planı temizle
+
+    context.fillStyle = 'black';
+
+    context.fillRect(0, 0, canvasSize, canvasSize);
+
+
+    // 2. Skorları çiz
+
+    context.fillStyle = 'white';
+
+    context.font = "75px fantasy";
+
+    context.textAlign = 'center';
+
+    context.fillText(team1Score.toString(), canvasSize / 4, canvasSize / 5);
+
+    context.fillText(team2Score.toString(), (canvasSize * 3) / 4, canvasSize / 5);
+
+
+    // 3. Dört raketi de pozisyonlarına ve takımlarına göre çiz
+
+    players.forEach((player: any) => {
+
+        context.fillStyle = player.team === 1 ? '#60a5fa' : '#f87171'; // Takım 1 Mavi, Takım 2 Kırmızı
+
+        
+
+        if (player.position === 'left' || player.position === 'right') {
+
+            context.fillRect(player.x, player.y, paddleThickness, paddleSize);
+
+        } else { // 'top' veya 'bottom'
+
+            context.fillRect(player.x, player.y, paddleSize, paddleThickness);
+
+        }
+
+    });
+
+
+    // 4. Topu çiz
+
+    context.fillStyle = 'white';
+
+    context.beginPath();
+
+    context.arc(ballX, ballY, 10, 0, Math.PI * 2);
+
+    context.fill();
+
+}
+
+
+// OYUN DÖNGÜSÜ
+
+function gameLoop() {
+
+    renderGame();
+
+    animationFrameId = requestAnimationFrame(gameLoop);
+
+}
+
+
+// KONTROL MANTIĞI
+
+function handlePlayerMove(event: KeyboardEvent) {
+
+    if (!socket || !myPlayer || !gameState.players) return;
+
+
+    // Oyuncunun güncel pozisyonunu gameState'den bul
+
+    const playerState = gameState.players.find((p: any) => p.id === myPlayer.id);
+
+    if (!playerState) return;
+
+
+    let currentPos: number;
+
+    // Oyuncunun pozisyonuna göre hangi eksende hareket ettiğini belirle
+
+    if (myPlayer.position === 'left' || myPlayer.position === 'right') {
+
+        currentPos = playerState.y; // Dikey hareket
+
+    } else {
+
+        currentPos = playerState.x; // Yatay hareket
+
+    }
+
+
+    let newPos: number | undefined;
+
+    // W/Yukarı Ok -> Yukarı veya Sola hareket
+
+    if (event.key === 'w' || event.key === 'ArrowUp') {
+
+        newPos = currentPos - 25; // Hareketi biraz hızlandıralım
+
+    } 
+
+    // S/Aşağı Ok -> Aşağı veya Sağa hareket
+
+    else if (event.key === 's' || event.key === 'ArrowDown') {
+
+        newPos = currentPos + 25;
+
+    }
+
+
+    if (newPos !== undefined) {
+
+        // Yeni pozisyonu sunucuya gönder
+
+        socket.emit('playerMove', { newPosition: newPos });
+
+    }
+
+}
+
+
+// SAYFANIN HTML'İNİ OLUŞTURMA
+
+export function render(): string {
+
+    return `
+
+    <div class="h-screen w-screen bg-gray-900 flex flex-col items-center justify-center relative">
+
+      <div id="game-status" class="text-3xl text-white mb-4">${t('waiting_for_opponent')}</div>
+
+      <canvas id="pong-canvas" class="bg-black border border-white"></canvas>
+
+      <a href="/lobby" data-link class="mt-4 text-blue-400 hover:text-blue-300">${t('leave_lobby')}</a>
+
+
+      <div id="game-over-modal" class="hidden absolute inset-0 bg-black bg-opacity-75 flex flex-col items-center justify-center text-white">
+
+        <h2 id="game-over-text" class="text-6xl font-bold mb-8"></h2>
+
+        <div id="rematch-prompt" class="hidden flex flex-col items-center">
+
+            <p class="text-xl mb-4">${t('rematch_question')}</p>
+
+            <div>
+
+                <button id="stay-button" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded mr-4">${t('stay_on_page')}</button>
+
+                <a href="/lobby" data-link class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded">${t('return_to_lobby')}</a>
+
+            </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  `;
+
+}
+
+
+// SAYFA YÜKLENDİKTEN SONRA ÇALIŞAN KODLAR
+
+export function afterRender() {
+
+    socket = getSocket()!;
+
+
+    const statusDiv = document.getElementById('game-status')!;
+
+    const canvasEl = document.getElementById('pong-canvas') as HTMLCanvasElement;
+
+    canvas = canvasEl;
+
+    context = canvas.getContext('2d')!;
+
+    const gameOverModal = document.getElementById('game-over-modal')!;
+
+    const gameOverText = document.getElementById('game-over-text')!;
+
+    const rematchPrompt = document.getElementById('rematch-prompt')!;
+
+    const stayButton = document.getElementById('stay-button')!;
+
+    
+
+    const token = localStorage.getItem('token');
+
+    const myUserId = token ? jwt_decode(token).userId : null;
+
+
+    stayButton.addEventListener('click', () => {
+
+        gameOverModal.classList.add('hidden');
+
+    });
+
+
+    // Sunucudan gelen "bekleme odası güncellendi" mesajını dinle
+
+    socket.on('updateQueue', ({ queueSize, requiredSize }) => {
+
+        statusDiv.textContent = `${t('waiting_for_opponent')} (${queueSize}/${requiredSize})`;
+
+    });
+
+
+    // Sunucudan gelen "oyun başladı" mesajını dinle
+
+    socket.on('gameStart', (payload) => {
+
+        console.log("Oyun başlıyor:", payload);
+
+        // Sunucudan gelen oyun ayarlarını kaydet
+
+        gameConfig = {
+
+            canvasSize: payload.canvasSize,
+
+            paddleSize: payload.paddleSize,
+
+            paddleThickness: payload.paddleThickness,
+
+            mode: payload.mode
+
+        };
+
+        
+
+        // Canvas boyutlarını ayarla
+
+        canvas.width = gameConfig.canvasSize;
+
+        canvas.height = gameConfig.canvasSize;
+
+        
+
+        statusDiv.textContent = ''; // "Bekleniyor..." yazısını sil
+
+        canvas.classList.remove('hidden'); // Canvas'ı görünür yap
+
+        
+
+        // Oyuncunun kendi bilgilerini bul ve kaydet
+
+        myPlayer = payload.players.find((p: any) => p.id === myUserId);
+
+
+        // Klavye dinleyicisini başlat
+
+        window.addEventListener('keydown', handlePlayerMove);
+
+        // Oyun döngüsünü başlat
+
+        if (animationFrameId) cancelAnimationFrame(animationFrameId); // Önceki döngüyü temizle
+
+        gameLoop();
+
+    });
+
+
+    socket.on('gameStateUpdate', (newGameState) => {
+
+        gameState = newGameState;
+
+    });
+
+
+    socket.on('gameOver', ({ winners, losers }) => {
+
+        // Son skoru ekrana yansıtmak için gameState'i son bir kez daha güncelle
+
+        // (Backend bu bilgiyi göndermiyorsa bu kısmı atlayabilir veya ekleyebiliriz)
+
+        
+
+        window.removeEventListener('keydown', handlePlayerMove);
+
+        if (animationFrameId) cancelAnimationFrame(animationFrameId);
+
+        
+
+        const isWinner = winners.some((winner: any) => winner.id === myUserId);
+
+        
+
+        gameOverText.textContent = isWinner ? t('you_win') : t('you_lose');
+
+        gameOverModal.classList.remove('hidden');
+
+
+        // 3 saniye sonra lobiye dönme seçeneğini göster
+
+        setTimeout(() => {
+
+            rematchPrompt.classList.remove('hidden');
+
+        }, 3000);
+
+    });
+
+}
+
+
+// SAYFADAN AYRILIRKEN ÇALIŞAN TEMİZLİK KODLARI
+
+export function cleanup() {
+
+    if (socket) {
+
+      socket.emit('leaveGameOrLobby');
+
+      // Bu sayfaya özel dinleyicileri kaldır
+
+      socket.off('updateQueue');
+
+      socket.off('gameStart');
+
+      socket.off('gameStateUpdate');
+
+      socket.off('opponentLeft');
+
+    }
+
+    // Genel klavye dinleyicisini kaldır
+
+    window.removeEventListener('keydown', handlePlayerMove);
+
+    // Oyun döngüsünü durdur
+
+    if (animationFrameId) {
+
+        cancelAnimationFrame(animationFrameId);
+
+    }
+
+    // Değişkenleri sıfırla
+
+    animationFrameId = 0;
+
+    myPlayer = null;
+
+    gameConfig = {};
+
+    gameState = {};
+
+}
+
+
+
+
+
+
+frontend/src/pages/ProfilePage.ts:
+
+import { t } from '../i18n';
+
+import { getUserProfile } from '../api/users';
+
+
+export function render(): string {
+
+  // İstatistikleri göstereceğimiz yeni alanları HTML iskeletine ekliyoruz.
+
+  return `
+
+    <div class="min-h-screen bg-gray-100 flex flex-col items-center justify-center">
+
+      <div id="profile-card" class="bg-white p-8 rounded-lg shadow-md w-full max-w-md text-center">
+
+        
+
+        <h2 id="profile-name" class="text-3xl font-bold mb-2">Loading...</h2>
+
+        <p id="profile-created-at" class="text-gray-500 text-sm mb-6"></p>
+
+        
+
+        <div class="flex justify-center space-x-8 border-t border-b py-4">
+
+          <div>
+
+            <p class="text-2xl font-bold text-green-500" id="profile-wins">-</p>
+
+            <p class="text-sm text-gray-600">${t('profile_wins')}</p>
+
+          </div>
+
+          <div>
+
+            <p class="text-2xl font-bold text-red-500" id="profile-losses">-</p>
+
+            <p class="text-sm text-gray-600">${t('profile_losses')}</p>
+
+          </div>
+
+        </div>
+
+
+        <a href="/dashboard" data-link class="mt-8 inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800">
+
+          ${t('return_to_chat')}
+
+        </a>
+
+      </div>
+
+    </div>
+
+  `;
+
+}
+
+
+export async function afterRender() {
+
+  const nameElement = document.getElementById('profile-name');
+
+  const createdAtElement = document.getElementById('profile-created-at');
+
+  const winsElement = document.getElementById('profile-wins');
+
+  const lossesElement = document.getElementById('profile-losses');
+
+
+  const pathParts = window.location.pathname.split('/');
+
+  const userId = pathParts[2];
+
+
+  if (!userId) {
+
+    if (nameElement) nameElement.textContent = 'Invalid Profile';
+
+    return;
+
+  }
+
+
+  try {
+
+    const userProfile = await getUserProfile(userId);
+
+    
+
+    // Gelen veriyle tüm HTML'i güncelle
+
+    if (nameElement) nameElement.textContent = userProfile.name || 'Unnamed User';
+
+    if (createdAtElement) {
+
+      const joinDate = new Date(userProfile.createdAt).toLocaleDateString();
+
+      createdAtElement.textContent = `${t('profile_joined_on')} ${joinDate}`;
+
+    }
+
+    // YENİ: İstatistikleri ekrana yazdır
+
+    if (winsElement) winsElement.textContent = userProfile.wins.toString();
+
+    if (lossesElement) lossesElement.textContent = userProfile.losses.toString();
+
+
+  } catch (error) {
+
+    if (nameElement) nameElement.textContent = 'Profile Not Found';
+
+    console.error(error);
+
+  }
+
+}
+
+
+
+
+
+
+frontend/src/pages/OnlineLobbyPage.ts:
+
+// frontend/src/pages/OnlineLobbyPage.ts
+
+import { navigateTo } from '../router';
+
+import { getSocket } from '../socket';
+
+import { t } from '../i18n';
+
+
+export function render(): string {
+
+  return `
+
+    <div class="min-h-screen bg-gray-100 flex flex-col items-center justify-center">
+
+      <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md text-center">
+
+        <h2 class="text-2xl font-bold mb-6">${t('online_lobby_title')}</h2>
+
+        <div class="flex flex-col space-y-4">
+
+          <button id="1v1-button" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded">
+
+            ${t('play_1v1_button')}
+
+          </button>
+
+          <button id="2v2-button" class="bg-green-500 hover:bg-green-700 text-white font-bold py-3 px-4 rounded">
+
+            ${t('play_2v2_button')}
+
+          </button>
+
+        </div>
+
+        <a href="/lobby" data-link class="mt-8 inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800">
+
+          ${t('back_button')}
+
+        </a>
+
+      </div>
+
+    </div>
+
+  `;
+
+}
+
+
+// afterRender fonksiyonu aynı kalıyor
+
+export function afterRender() {
+
+  const socket = getSocket();
+
+
+  document.getElementById('1v1-button')?.addEventListener('click', () => {
+
+    if (socket) {
+
+      socket.emit('joinMatchmaking', { mode: '1v1' });
+
+    }
+
+    navigateTo('/online-game');
+
+  });
+
+
+  document.getElementById('2v2-button')?.addEventListener('click', () => {
+
+    if (socket) {
+
+      socket.emit('joinMatchmaking', { mode: '2v2' });
+
+    }
+
+    navigateTo('/online-game');
+
+  });
+
+}
+
+
+
+
+
+
+frontend/src/pages/RegisterPage.ts:
+
+// frontend/src/pages/RegisterPage.ts
+
+import { registerUser } from '../api/auth';
+
+import { navigateTo } from '../router';
+
+import { t } from '../i18n'; // t fonksiyonunu import et
+
+
+export function render() {
+
+  return `
+
+    <div class="min-h-screen bg-gray-100 flex items-center justify-center">
+
+      <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+
+        <h2 class="text-2xl font-bold mb-6 text-center">${t('register_title')}</h2>
+
+        <form id="register-form">
+
+          <div class="mb-4">
+
+            <label for="name" class="block text-gray-700 text-sm font-bold mb-2">${t('name_label')}</label>
+
+            <input type="text" id="name" name="name" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+
+          </div>
+
+          <div class="mb-4">
+
+            <label for="email" class="block text-gray-700 text-sm font-bold mb-2">${t('email_label')}</label>
+
+            <input type="email" id="email" name="email" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+
+          </div>
+
+          <div class="mb-6">
+
+            <label for="password" class="block text-gray-700 text-sm font-bold mb-2">${t('password_label')}</label>
+
+            <input type="password" id="password" name="password" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:shadow-outline" required>
+
+          </div>
+
+          <div class="flex items-center justify-between">
+
+            <button type="submit" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+
+              ${t('register_button')}
+
+            </button>
+
+            <a href="/" class="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800" data-link>
+
+              ${t('login_link')}
+
+            </a>
+
+          </div>
+
+        </form>
+
+      </div>
+
+    </div>
+
+  `;
+
+}
+
+
+// afterRender fonksiyonu aynı kalıyor
+
+export function afterRender() {
+
+  const form = document.querySelector<HTMLFormElement>('#register-form');
+
+  if (form) {
+
+    form.addEventListener('submit', async (e) => {
+
+      e.preventDefault();
+
+      const name = (form.querySelector('#name') as HTMLInputElement).value;
+
+      const email = (form.querySelector('#email') as HTMLInputElement).value;
+
+      const password = (form.querySelector('#password') as HTMLInputElement).value;
+
+
+      try {
+
+        await registerUser(email, password, name);
+
+        alert(t('register_success_alert')); // Değiştirilen satır
+
+        navigateTo('/'); // Giriş sayfasına yönlendir
+
+      }
+
+      catch (error: any)
+
+      {
+
+        // Backend'den gelen mesaja göre çeviri yap
+
+        const errorMessage = error.message;
+
+        if (errorMessage.includes('This email is already registered'))
+
+          alert(t('error_email_registered'));
+
+        else
+
+          // Bilinmeyen diğer hatalar için genel mesaj
+
+          alert(errorMessage);
+
+      }
+
+    });
+
+  }
+
+}
+
+
+
+
+
+
+frontend/src/routes/index.ts:
+
+// frontend/src/router/index.ts
+
+import * as LoginPage from '../pages/LoginPage';
+
+import * as RegisterPage from '../pages/RegisterPage';
+
+import * as DashboardPage from '../pages/DashboardPage';
+
+import * as LobbyPage from '../pages/LobbyPage';
+
+import * as LocalGamePage from '../pages/LocalGamePage';
+
+import * as OnlineGamePage from '../pages/OnlineGamePage';
+
+import { connectSocket, getSocket } from '../socket';
+
+import * as OnlineLobbyPage from '../pages/OnlineLobbyPage';
+
+import * as ProfilePage from '../pages/ProfilePage';
+
+
+interface Route {
+
+  render: () => string;
+
+  afterRender?: () => void;
+
+  cleanup?: () => void;
+
+}
+
+let currentRoute: Route | null = null;
+
+
+const routes: { [key: string]: Route } = {
+
+  '/': { render: LoginPage.render, afterRender: LoginPage.afterRender },
+
+  '/register': { render: RegisterPage.render, afterRender: RegisterPage.afterRender },
+
+  '/dashboard': { render: DashboardPage.render, afterRender: DashboardPage.afterRender, cleanup: DashboardPage.cleanup },
+
+  '/lobby': { render: LobbyPage.render, afterRender: LobbyPage.afterRender },
+
+  '/online-lobby': { render: OnlineLobbyPage.render, afterRender: OnlineLobbyPage.afterRender },
+
+  '/local-game': { render: LocalGamePage.render, afterRender: LocalGamePage.afterRender, cleanup: LocalGamePage.cleanup },
+
+  '/online-game': { render: OnlineGamePage.render, afterRender: OnlineGamePage.afterRender, cleanup: OnlineGamePage.cleanup },
+
+};
+
+
+const app = document.querySelector<HTMLDivElement>('#app')!;
+
+
+// frontend/src/router/index.ts
+
+
+export async function handleLocation() {
+
+  const path = window.location.pathname;
+
+  const token = localStorage.getItem('token');
+
+
+  // 1. ADIM: Gerekliyse soket bağlantısını kur ve bekle.
+
+  if (token) {
+
+    if (!getSocket() || !getSocket()?.connected) {
+
+      try {
+
+        await connectSocket(token);
+
+      } catch (error) {
+
+        console.error("Soket'e bağlanılamadı, çıkış yapılıyor.");
+
+        localStorage.removeItem('token');
+
+        navigateTo('/');
+
+        return;
+
+      }
+
+    }
+
+  }
+
+
+  // 2. ADIM: Yönlendirme kurallarını uygula.
+
+  const protectedPaths = ['/dashboard', '/lobby', '/local-game', '/online-game'];
+
+  const isAuthRequired = protectedPaths.includes(path);
+
+
+  // Token yokken korumalı sayfaya girmeye çalışırsa -> login'e yönlendir.
+
+  if (isAuthRequired && !token) {
+
+    if (path !== '/') navigateTo('/');
+
+    return;
+
+  }
+
+  // Token varken login/register sayfasına girmeye çalışırsa -> dashboard'a yönlendir.
+
+  if (!isAuthRequired && token && (path === '/' || path === '/register')) {
+
+    navigateTo('/dashboard');
+
+    return;
+
+  }
+
+
+  // 3. ADIM: Sayfayı render et.
+
+  let route: Route | null = null;
+
+  
+
+  if (path.startsWith('/profile/')) {
+
+    route = ProfilePage;
+
+  } else {
+
+    route = routes[path] || routes['/'];
+
+  }
+
+  
+
+  if (!route) { // Eğer hiçbir rota eşleşmezse
+
+      app.innerHTML = '<h1>404 Not Found</h1>';
+
+      return;
+
+  }
+
+
+  if (currentRoute !== route) {
+
+    if (currentRoute && currentRoute.cleanup) {
+
+      currentRoute.cleanup();
+
+    }
+
+    
+
+    app.innerHTML = route.render();
+
+    
+
+    if (route.afterRender) {
+
+      // afterRender async olabileceği için void ile çağırıyoruz
+
+      void route.afterRender();
+
+    }
+
+    currentRoute = route;
+
+  }
+
+}
+
+
+
+export async function navigateTo(path: string) { // 'async' eklendi
+
+  window.history.pushState({}, '', path);
+
+  await handleLocation(); // 'await' eklendi
+
+}
+
+
+
+export async function initializeRouter() { // 'async' eklendi
+
+  window.addEventListener('popstate', () => handleLocation()); // Olası "this" context hatalarını önlemek için arrow function içine aldık.
+
+  document.body.addEventListener('click', (e: MouseEvent) => {
+
+    const target = e.target as HTMLElement;
+
+    if (target.matches('[data-link]')) {
+
+      e.preventDefault();
+
+      void navigateTo(target.getAttribute('href')!); // 'void' eklendi
+
+    }
+
+  });
+
+  await handleLocation(); // 'await' eklendi
+
+}
+
+
+
+
+
+
+frontend/src/chatState.ts:
+
+// frontend/src/chatState.ts
+
+
+interface ChatMessage {
+
+  type: 'public' | 'private';
+
+  sender: string;
+
+  content: string;
+
+}
+
+
+const STORAGE_KEY = 'chat_messages_v2'; // Veri yapısı değiştiği için anahtarı güncelleyelim
+
+
+let messages: ChatMessage[] = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '[]');
+
+
+export function addMessage(message: ChatMessage) {
+
+  messages.push(message);
+
+  sessionStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+
+}
+
+
+export function getMessages(): ChatMessage[] {
+
+  return messages;
+
+}
+
+
+export function clearMessages() {
+
+  messages = [];
+
+  sessionStorage.removeItem(STORAGE_KEY);
+
+}
+
+
+
+
+
+
+frontend/src/i18n.ts:
+
+// frontend/src/i18n.ts
+
+
+// Dil dosyalarını import ediyoruz.
+
+import en from './locales/en.json';
+
+import tr from './locales/tr.json';
+
+import ru from './locales/ru.json';
+
+
+const translations: { [key: string]: any } = { en, tr, ru };
+
+
+let currentLanguage: string;
+
+let currentTranslations: any;
+
+
+function getLanguage(): string {
+
+  // Kullanıcının daha önce seçtiği dil localStorage'da var mı diye bak.
+
+  const savedLang = localStorage.getItem('language');
+
+  // Yoksa, tarayıcının dilini al, o da desteklenmiyorsa İngilizce'ye ayarla.
+
+  const browserLang = navigator.language.split('-')[0];
+
+  return savedLang || (translations[browserLang] ? browserLang : 'en');
+
+}
+
+
+export function setLanguage(lang: string) {
+
+  currentLanguage = lang;
+
+  currentTranslations = translations[lang];
+
+  localStorage.setItem('language', lang);
+
+}
+
+
+export function getCurrentLanguage(): string {
+
+  return currentLanguage;
+
+}
+
+
+// Çeviri fonksiyonumuz (t kısaltmasıyla kullanılır: "translate")
+
+export function t(key: string): string {
+
+  return currentTranslations[key] || key;
+
+}
+
+
+// Uygulama ilk yüklendiğinde dili ayarla.
+
+setLanguage(getLanguage());
+
+
+
+
+
+
+frontend/src/main.ts:
+
+import './style.css';
+
+// handleLocation'ı import etmeye artık gerek yok
+
+import { initializeRouter } from './router'; 
+
+import { setLanguage, getCurrentLanguage } from './i18n';
+
+
+document.addEventListener('DOMContentLoaded', () => {
+
+  
+
+  const currentLangBtn = document.getElementById('current-lang-btn');
+
+  const currentLangText = document.getElementById('current-lang-text');
+
+  const langOptions = document.getElementById('lang-options');
+
+
+  // Sayfa yüklendiğinde mevcut dili butona yaz
+
+  if (currentLangText) {
+
+    currentLangText.textContent = getCurrentLanguage().toUpperCase();
+
+  }
+
+
+  // Ana butona tıklayınca menüyü aç/kapat
+
+  currentLangBtn?.addEventListener('click', (e) => {
+
+    e.stopPropagation();
+
+    langOptions?.classList.toggle('hidden');
+
+  });
+
+
+  // Seçeneklerden birine tıklayınca dili değiştir
+
+  langOptions?.addEventListener('click', (e) => {
+
+    e.preventDefault();
+
+    const target = e.target as HTMLElement;
+
+    const lang = target.getAttribute('data-lang');
+
+    if (lang) {
+
+      setLanguage(lang);
+
+      window.location.reload();
+
+    }
+
+  });
+
+
+  // Menü açıkken dışarıya tıklayınca kapat
+
+  window.addEventListener('click', () => {
+
+    if (!langOptions?.classList.contains('hidden')) {
+
+      langOptions?.classList.add('hidden');
+
+    }
+
+  });
+
+
+  void initializeRouter();
+
+});
+
+
+
+
+
+
+frontend/src/socket.ts:
+
+// frontend/src/socket.ts
+
+import { io, Socket } from "socket.io-client";
+
+
+let socket: Socket | null = null;
+
+
+// frontend/src/socket.ts -> connectSocket fonksiyonu
+
+
+export function connectSocket(token: string): Promise<Socket> {
+
+    return new Promise((resolve, reject) => {
+
+        if (socket && socket.connected) {
+
+            return resolve(socket);
+
+        }
+
+
+        const SOCKET_URL = `http://${window.location.hostname}:3000`;
+
+        const newSocket = io(SOCKET_URL, {
+
+            auth: { token }
+
+        });
+
+
+        newSocket.on('connect', () => {
+
+            console.log('Socket sunucuya başarıyla bağlandı! ID:', newSocket.id);
+
+            socket = newSocket;
+
+            resolve(newSocket);
+
+        });
+
+
+        // --- YENİ EKLENECEK DİNLEYİCİ ---
+
+        newSocket.on('forceDisconnect', (reason) => {
+
+            console.log(`Sunucu tarafından bağlantı sonlandırıldı: ${reason}`);
+
+            alert('Başka bir konumdan giriş yapıldığı için bu oturum sonlandırıldı.');
+
+            
+
+            // Yerel durumu temizle
+
+            localStorage.removeItem('token');
+
+            // 'disconnectSocket' fonksiyonu socket'i null yapar ve bağlantıyı kapatır.
+
+            disconnectSocket(); 
+
+            // Kullanıcıyı login sayfasına yönlendir. Sayfa yenilemesi en garanti yöntemdir.
+
+            window.location.href = '/'; 
+
+        });
+
+        // --- YENİ BLOĞUN SONU ---
+
+
+        newSocket.on('disconnect', () => {
+
+            console.log('Socket bağlantısı kesildi. Yeniden bağlanmaya çalışılıyor...');
+
+        });
+
+
+        newSocket.on('connect_error', (err) => {
+
+            console.error('Socket bağlantı hatası:', err.message);
+
+            reject(err);
+
+        });
+
+    });
+
+}
+
+
+// getSocket ve disconnectSocket fonksiyonları aynı kalabilir.
+
+export function getSocket(): Socket | null {
+
+    return socket;
+
+}
+
+
+export function disconnectSocket() {
+
+    if (socket) {
+
+        socket.disconnect();
+
+        socket = null;
+
+    }
+
+}
+
+
+
+
+
+
+frontend/src/style.css:
+
+/* frontend/src/style.css */
+
+@tailwind base;
+
+@tailwind components;
+
+@tailwind utilities;
+
+
+
+
+
+
+frontend/src/utils.ts:
+
+// frontend/src/utils.ts
+
+
+// JWT'yi çözen yardımcı fonksiyon
+
+export function jwt_decode(token: string): any {
+
+    try {
+
+        return JSON.parse(atob(token.split('.')[1]));
+
+    } catch (e) {
+
+        return null;
+
+    }
+
+}
+
+
+
+
+
+
+frontend/src/vite-env.d.ts:
+
+/// <reference types="vite/client" />
+
+
+
+
+
+
+frontend/.gitignore:
+
+# Logs
+
+logs
+
+*.log
+
+npm-debug.log*
+
+yarn-debug.log*
+
+yarn-error.log*
+
+pnpm-debug.log*
+
+lerna-debug.log*
+
+
+node_modules
+
+dist
+
+dist-ssr
+
+*.local
+
+
+# Editor directories and files
+
+.vscode/*
+
+!.vscode/extensions.json
+
+.idea
+
+.DS_Store
+
+*.suo
+
+*.ntvs*
+
+*.njsproj
+
+*.sln
+
+*.sw?
+
+
+
+
+
+
+frontend/Dockerfile:
+
+# frontend/Dockerfile
+
+FROM node:20
+
+
+WORKDIR /usr/src/app
+
+
+COPY package*.json ./
+
+RUN npm install
+
+
+COPY . .
+
+
+EXPOSE 5173
+
+
+CMD ["npm", "run", "dev"]
+
+
+
+
+
+
+frontend/index.html:
+
+<!DOCTYPE html>
+
+<html lang="en">
+
+  <head>
+
+    <meta charset="UTF-8" />
+
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Transcendence</title>
+
+  </head>
+
+  <body>
+
+
+    <div class="fixed top-0 left-0 p-4 z-50">
+
+      <div class="relative" id="lang-dropdown">
+
+        <button id="current-lang-btn" class="flex items-center space-x-2 bg-gray-700 text-white px-3 py-2 rounded-md hover:bg-gray-600">
+
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9V3m0 18a9 9 0 009-9m-9 9a9 9 0 00-9-9"></path></svg>
+
+          <span id="current-lang-text">EN</span>
+
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+
+        </button>
+
+        <div id="lang-options" class="hidden absolute left-0 mt-2 w-full bg-gray-700 rounded-md shadow-lg">
+
+          <a href="#" data-lang="tr" class="block px-4 py-2 text-sm text-white hover:bg-gray-600">Türkçe</a>
+
+          <a href="#" data-lang="en" class="block px-4 py-2 text-sm text-white hover:bg-gray-600">English</a>
+
+          <a href="#" data-lang="ru" class="block px-4 py-2 text-sm text-white hover:bg-gray-600">Русский</a>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    
+
+    <div id="app"></div>
+
+    <script type="module" src="/src/main.ts"></script>
+
+  </body>
+
+</html>
+
+
+
+
+
+
+frontend/package.json:
+
+{
+
+  "name": "frontend",
+
+  "private": true,
+
+  "version": "0.0.0",
+
+  "type": "module",
+
+  "scripts": {
+
+    "dev": "vite --host",
+
+    "build": "tsc && vite build",
+
+    "preview": "vite preview"
+
+  },
+
+  "devDependencies": {
+
+    "autoprefixer": "^10.4.21",
+
+    "postcss": "^8.5.6",
+
+    "tailwindcss": "^3.4.17",
+
+    "typescript": "~5.8.3",
+
+    "vite": "^7.1.2"
+
+  },
+
+  "dependencies": {
+
+    "socket.io-client": "^4.8.1"
+
+  }
+
+}
+
+
+
+
+
+
+frontend/postcss.config.js:
+
+export default {
+
+  plugins: {
+
+    tailwindcss: {},
+
+    autoprefixer: {},
+
+  },
+
+}
+
+
+
+
+
+
+frontend/tailwind.config.js:
+
+/** @type {import('tailwindcss').Config} */
+
+export default {
+
+  content: [
+
+    "./index.html",
+
+    "./src/**/*.{js,ts,jsx,tsx}",
+
+  ],
+
+  theme: {
+
+    extend: {},
+
+  },
+
+  plugins: [],
+
+}
+
+
+
+
+
+
+frontend/tsconfig.json:
+
+{
+
+  "compilerOptions": {
+
+    "target": "ES2022",
+
+    "useDefineForClassFields": true,
+
+    "module": "ESNext",
+
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+
+    "skipLibCheck": true,
+
+
+    /* Bundler mode */
+
+    "moduleResolution": "bundler",
+
+    "allowImportingTsExtensions": true,
+
+    "verbatimModuleSyntax": true,
+
+    "moduleDetection": "force",
+
+    "noEmit": true,
+
+
+    /* Linting */
+
+    "strict": true,
+
+    "noUnusedLocals": true,
+
+    "noUnusedParameters": true,
+
+    "erasableSyntaxOnly": true,
+
+    "noFallthroughCasesInSwitch": true,
+
+    "noUncheckedSideEffectImports": true
+
+  },
+
+  "include": ["src"]
+
+}
+
+
+
+
+
+
+backend/api/auth.routes.js:
+
+// backend/api/auth.routes.js
+
+const bcrypt = require('bcrypt');
+
+const jwt = require('jsonwebtoken');
+
+const prisma = require('../prisma/db');
+
+const SALT_ROUNDS = 10;
+
+const JWT_SECRET = process.env.JWT_SECRET;
+
+
+async function authRoutes(fastify, options) {
+
+    fastify.post('/register', async (request, reply) => {
+
+        const { email, name, password } = request.body;
+
+        if (!email || !password) return reply.code(400).send({ error: 'Email and password are required' });
+
+        try {
+
+            const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+
+            const user = await prisma.user.create({ data: { email, name, password: hashedPassword } });
+
+            const { password: _, ...userWithoutPassword } = user;
+
+            return reply.code(201).send(userWithoutPassword);
+
+        } catch (error) {
+
+            if (error.code === 'P2002') return reply.code(409).send({ error: 'This email is already registered' });
+
+            fastify.log.error(error);
+
+            return reply.code(500).send({ error: 'Could not register user' });
+
+        }
+
+    });
+
+
+    fastify.post('/login', async (request, reply) => {
+
+        const { email, password } = request.body;
+
+        if (!email || !password) return reply.code(400).send({ error: 'Email and password are required' });
+
+        try {
+
+            const user = await prisma.user.findUnique({ where: { email } });
+
+            const isPasswordMatch = user ? await bcrypt.compare(password, user.password) : false;
+
+            if (!user || !isPasswordMatch) return reply.code(401).send({ error: 'Invalid credentials' });
+
+            const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
+
+            return { token };
+
+        } catch (error) {
+
+            fastify.log.error(error);
+
+            return reply.code(500).send({ error: 'Internal Server Error' });
+
+        }
+
+    });
+
+}
+
+module.exports = authRoutes;
+
+
+
+
+
+
+backend/api/users.routes.js:
+
+// backend/api/users.routes.js
+
+const prisma = require('../prisma/db');
+
+const authenticate = require('../middleware/authenticate');
+
+
+async function userRoutes(fastify, options) {
+
+    // Mevcut: Sadece kendi profilini getirir.
+
+    fastify.get('/profile', { preHandler: [authenticate] }, async (request, reply) => {
+
+        const userProfile = await prisma.user.findUnique({
+
+            where: { id: request.user.userId },
+
+            select: { id: true, email: true, name: true, createdAt: true },
+
+        });
+
+        if (!userProfile) return reply.code(404).send({ error: 'User not found' });
+
+        return userProfile;
+
+    });
+
+
+    // Mevcut: Tüm kullanıcıları listeler.
+
+    fastify.get('/users', { preHandler: [authenticate] }, async (request, reply) => {
+
+        const users = await prisma.user.findMany({ 
+
+            select: { id: true, name: true } // Sadece halka açık bilgileri seçiyoruz
+
+        });
+
+        return users;
+
+    });
+
+
+    // --- YENİ EKLENECEK YOL ---
+
+    // Belirli bir kullanıcının halka açık profilini ID ile getirir.
+
+    fastify.get('/users/:id', { preHandler: [authenticate] }, async (request, reply) => {
+
+        const userId = parseInt(request.params.id, 10);
+
+        if (isNaN(userId)) {
+
+            return reply.code(400).send({ error: 'Invalid user ID' });
+
+        }
+
+
+        try {
+
+            const user = await prisma.user.findUnique({
+
+                where: { id: userId },
+
+                select: { // Sadece güvenli ve halka açık bilgileri döndür
+
+                    id: true,
+
+                    name: true,
+
+                    createdAt: true,
+
+                    // Gelecekte buraya wins, losses gibi istatistikler eklenecek
+
+                    wins: true,
+
+                    losses: true
+
+                }
+
+            });
+
+
+            if (!user) {
+
+                return reply.code(404).send({ error: 'User not found' });
+
+            }
+
+            return user;
+
+        } catch (error) {
+
+            fastify.log.error(error);
+
+            return reply.code(500).send({ error: 'Internal Server Error' });
+
+        }
+
+    });
+
+}
+
+
+module.exports = userRoutes;
+
+
+
+
+
+
+backend/middleware/authenticate.js:
+
+// backend/middleware/authenticate.js
+
+const jwt = require('jsonwebtoken');
+
+const JWT_SECRET = process.env.JWT_SECRET;
+
+
+async function authenticate(request, reply) {
+
+    try {
+
+        const authHeader = request.headers.authorization;
+
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+
+            return reply.code(401).send({ error: 'Unauthorized: No token provided' });
+
+        }
+
+        const token = authHeader.split(' ')[1];
+
+        const decoded = jwt.verify(token, JWT_SECRET);
+
+        request.user = decoded;
+
+    } catch (error) {
+
+        return reply.code(401).send({ error: 'Unauthorized: Invalid token' });
+
+    }
+
+}
+
+module.exports = authenticate;
+
+
+
+
+
+
+backend/prisma/db.js:
+
+// backend/prisma/db.js
+
+const { PrismaClient } = require('@prisma/client');
+
+const prisma = new PrismaClient();
+
+module.exports = prisma;
+
+
+
+
+
+
+backend/prisma/schema.prisma:
+
+// This is your Prisma schema file,
+
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+
+generator client {
+
+  provider = "prisma-client-js"
+
+}
+
+
+datasource db {
+
+  provider = "sqlite" // "postgresql" olan bu satırı "sqlite" olarak değiştir
+
+  url      = env("DATABASE_URL")
+
+}
+
+
+// Buradan aşağısı bizim veritabanı tablolarımızı temsil edecek.
+
+// İlk olarak Kullanıcı (User) modelimizi oluşturalım.
+
+
+model User {
+
+  id        Int      @id @default(autoincrement())
+
+  createdAt DateTime @default(now())
+
+  email     String   @unique
+
+  name      String?
+
+  password  String
+
+  
+
+  // --- YENİ EKLENEN ALANLAR ---
+
+  wins      Int      @default(0)
+
+  losses    Int      @default(0)
+
+}
+
+
+
+
+
+
+backend/websockets/chatHandler.js:
+
+// backend/websockets/chatHandler.js
+
+function chatHandler(io, socket, onlineUsers) {
+
+    socket.on('chat message', (msg) => {
+
+        const messageObject = {
+
+            type: 'public',
+
+            sender: socket.user.name || socket.user.email,
+
+            content: msg
+
+        };
+
+        io.emit('chat message', messageObject);
+
+    });
+
+    
+
+    socket.on('private message', ({ recipientId, message }) => {
+
+        const recipientSocket = io.sockets.sockets.get(onlineUsers.get(recipientId)?.socketId);
+
+        if (recipientSocket) {
+
+            const messageObject = {
+
+                type: 'private',
+
+                sender: socket.user.name || socket.user.email,
+
+                content: message
+
+            };
+
+            recipientSocket.emit('chat message', messageObject); // Alıcıya gönder
+
+            socket.emit('chat message', messageObject); // Gönderene de gönder
+
+        }
+
+    });
+
+}
+
+module.exports = chatHandler;
+
+
+
+
+
+
+backend/websockets/gameHandler.js:
+
+// backend/websockets/gameHandler.js
+
+
+const prisma = require('../prisma/db');
+
+
+// Bu fonksiyon, bir array'i karıştırmak için kullanılır (takım oluşturmada lazım olacak)
+
+function shuffleArray(array) {
+
+    for (let i = array.length - 1; i > 0; i--) {
+
+        const j = Math.floor(Math.random() * (i + 1));
+
+        [array[i], array[j]] = [array[j], array[i]];
+
+    }
+
+}
+
+
+async function updatePlayerStats(playerIds, outcome) {
+
+    const fieldToIncrement = outcome === 'win' ? 'wins' : 'losses';
+
+    try {
+
+        await prisma.user.updateMany({
+
+            where: {
+
+                id: { in: playerIds }
+
+            },
+
+            data: {
+
+                [fieldToIncrement]: {
+
+                    increment: 1
+
+                }
+
+            }
+
+        });
+
+        console.log(`Stats updated for players ${playerIds}. Outcome: ${outcome}`);
+
+    } catch (error) {
+
+        console.error("Failed to update player stats:", error);
+
+    }
+
+}
+
+
+function startGameLoop(room, players, io, mode, gameConfig)
+
+{
+
+    const { canvasSize, paddleSize, paddleThickness } = gameConfig;
+
+
+    let gameState = {
+
+        ballX: canvasSize / 2,
+
+        ballY: canvasSize / 2,
+
+        ballSpeedX: 6,
+
+        ballSpeedY: 6,
+
+        team1Score: 0,
+
+        team2Score: 0,
+
+        players: players.map(p => ({
+
+            id: p.id,
+
+            position: p.position,
+
+            team: p.team,
+
+            x: p.x,
+
+            y: p.y
+
+        }))
+
+    };
+
+
+    const WINNING_SCORE = 5;
+
+
+    const intervalId = setInterval(async () => {
+
+        // Top hareketi ve raket çarpışmaları...
+
+        gameState.ballX += gameState.ballSpeedX;
+
+        gameState.ballY += gameState.ballSpeedY;
+
+
+        gameState.players.forEach(p => {
+
+            if (p.position === 'left' && gameState.ballX <= paddleThickness && gameState.ballY > p.y && gameState.ballY < p.y + paddleSize) gameState.ballSpeedX = -gameState.ballSpeedX;
+
+            if (p.position === 'right' && gameState.ballX >= canvasSize - paddleThickness && gameState.ballY > p.y && gameState.ballY < p.y + paddleSize) gameState.ballSpeedX = -gameState.ballSpeedX;
+
+            if (p.position === 'top' && gameState.ballY <= paddleThickness && gameState.ballX > p.x && gameState.ballX < p.x + paddleSize) gameState.ballSpeedY = -gameState.ballSpeedY;
+
+            if (p.position === 'bottom' && gameState.ballY >= canvasSize - paddleThickness && gameState.ballX > p.x && gameState.ballX < p.x + paddleSize) gameState.ballSpeedY = -gameState.ballSpeedY;
+
+        });
+
+
+        // Skorlama mantığı
+
+        let scored = false;
+
+        let scoringTeam = null;
+
+
+        if (gameState.ballX < 0) {
+
+            const player = gameState.players.find(p => p.position === 'left');
+
+            scoringTeam = player.team === 1 ? 2 : 1;
+
+            scored = true;
+
+        } else if (gameState.ballX > canvasSize) {
+
+            const player = gameState.players.find(p => p.position === 'right');
+
+            scoringTeam = player.team === 1 ? 2 : 1;
+
+            scored = true;
+
+        }
+
+        
+
+        if (mode === '2v2') {
+
+            if (gameState.ballY < 0) {
+
+                const player = gameState.players.find(p => p.position === 'top');
+
+                scoringTeam = player.team === 1 ? 2 : 1;
+
+                scored = true;
+
+            } else if (gameState.ballY > canvasSize) {
+
+                const player = gameState.players.find(p => p.position === 'bottom');
+
+                scoringTeam = player.team === 1 ? 2 : 1;
+
+                scored = true;
+
+            }
+
+        } else {
+
+            if (gameState.ballY <= 0 || gameState.ballY >= canvasSize) {
+
+                gameState.ballSpeedY = -gameState.ballSpeedY;
+
+            }
+
+        }
+
+        
+
+        if (scored) {
+
+            // 1. ÖNCE skoru arttır.
+
+            if(scoringTeam === 1) gameState.team1Score++;
+
+            else gameState.team2Score++;
+
+            
+
+            // 2. SONRA, final skoru içeren son durumu herkese gönder.
+
+            io.to(room).emit('gameStateUpdate', gameState);
+
+
+            // 3. ŞİMDİ oyunun bitip bitmediğini kontrol et.
+
+            if (gameState.team1Score >= WINNING_SCORE || gameState.team2Score >= WINNING_SCORE) {
+
+                clearInterval(intervalId);
+
+                
+
+                const winners = players.filter(p => p.team === scoringTeam);
+
+                const losers = players.filter(p => p.team !== scoringTeam);
+
+                const winnerIds = winners.map(p => p.id);
+
+                const loserIds = losers.map(p => p.id);
+
+
+                await updatePlayerStats(winnerIds, 'win');
+
+                await updatePlayerStats(loserIds, 'loss');
+
+
+                io.to(room).emit('gameOver', { winners, losers });
+
+                
+
+                const playerSockets = players.map(p => io.sockets.sockets.get(p.socketId)).filter(Boolean);
+
+                playerSockets.forEach(sock => {
+
+                    sock.leave(room);
+
+                    sock.gameRoom = null;
+
+                });
+
+                
+
+                // gameRooms'dan silme işlemini cleanup fonksiyonu zaten yapıyor, burada tekrar gerek yok.
+
+                
+
+                return; 
+
+            }
+
+            
+
+            // Oyun bitmediyse topu sıfırla.
+
+            gameState.ballX = gameConfig.canvasSize / 2;
+
+            gameState.ballY = gameConfig.canvasSize / 2;
+
+            gameState.ballSpeedX = -gameState.ballSpeedX;
+
+        }
+
+        
+
+        // Skor olmadıysa normal oyun durumunu gönder.
+
+        if (!scored) {
+
+            io.to(room).emit('gameStateUpdate', gameState);
+
+        }
+
+    }, 1000 / 60);
+
+
+    const gameStartPayload = {
+
+        players: players.map(p => ({id: p.id, name: p.name, email: p.email, position: p.position, team: p.team})),
+
+        mode,
+
+        ...gameConfig
+
+    };
+
+
+    io.to(room).emit('gameStart', gameStartPayload);
+
+    return { players, intervalId, gameState };
+
+}
+
+
+
+function gameHandler(io, socket, state, payload) {
+
+    const { mode } = payload;
+
+    if (!mode || !state.waitingPlayers[mode]) return; // Geçersiz mod ise işlemi durdur
+
+
+    // Oyuncunun zaten bir havuzda olup olmadığını kontrol et
+
+    const isInAnyPool = Object.values(state.waitingPlayers).some(pool => pool.some(p => p.id === socket.id));
+
+    if (isInAnyPool) {
+
+        console.log(`[Matchmaking] ${socket.user.email} zaten bir bekleme havuzunda.`);
+
+        return;
+
+    }
+
+
+    const pool = state.waitingPlayers[mode];
+
+    pool.push(socket);
+
+    console.log(`[Matchmaking] ${socket.user.email} -> ${mode} havuzuna eklendi. (Havuzda ${pool.length} kişi var)`);
+
+    pool.forEach(p => p.emit('updateQueue', { queueSize: pool.length, requiredSize: mode === '1v1' ? 2 : 4 }));
+
+
+    let playerSockets;
+
+    let players;
+
+    const gameConfig = { canvasSize: 800, paddleSize: 100, paddleThickness: 15 };
+
+
+    // 1v1 OYUNU BAŞLATMA
+
+    if (mode === '1v1' && pool.length >= 2) {
+
+        console.log(`[Matchmaking] 1v1 için yeterli oyuncu bulundu.`);
+
+        playerSockets = pool.splice(0, 2);
+
+        const [p1, p2] = playerSockets;
+
+
+        players = [
+
+            { ...p1.user, socketId: p1.id, position: 'left', team: 1, x: 0, y: (gameConfig.canvasSize / 2) - (gameConfig.paddleSize / 2) },
+
+            { ...p2.user, socketId: p2.id, position: 'right', team: 2, x: gameConfig.canvasSize - gameConfig.paddleThickness, y: (gameConfig.canvasSize / 2) - (gameConfig.paddleSize / 2) }
+
+        ];
+
+    }
+
+
+    // 2v2 OYUNU BAŞLATMA
+
+    if (mode === '2v2' && pool.length >= 4) {
+
+        console.log(`[Matchmaking] 2v2 için yeterli oyuncu bulundu.`);
+
+        playerSockets = pool.splice(0, 4);
+
+        
+
+        shuffleArray(playerSockets);
+
+
+        const teamConfig = Math.random() < 0.5 ? 1 : 2;
+
+        console.log(`[Matchmaking] 2v2 Takım Konfigürasyonu: ${teamConfig}`);
+
+
+        if (teamConfig === 1) { // Durum 1: (Sol+Üst) vs (Sağ+Alt)
+
+            players = [
+
+                { ...playerSockets[0].user, socketId: playerSockets[0].id, position: 'left', team: 1 },
+
+                { ...playerSockets[1].user, socketId: playerSockets[1].id, position: 'top', team: 1 },
+
+                { ...playerSockets[2].user, socketId: playerSockets[2].id, position: 'right', team: 2 },
+
+                { ...playerSockets[3].user, socketId: playerSockets[3].id, position: 'bottom', team: 2 }
+
+            ];
+
+        } else { // Durum 2: (Sol+Alt) vs (Sağ+Üst)
+
+            players = [
+
+                { ...playerSockets[0].user, socketId: playerSockets[0].id, position: 'left', team: 1 },
+
+                { ...playerSockets[1].user, socketId: playerSockets[1].id, position: 'bottom', team: 1 },
+
+                { ...playerSockets[2].user, socketId: playerSockets[2].id, position: 'right', team: 2 },
+
+                { ...playerSockets[3].user, socketId: playerSockets[3].id, position: 'top', team: 2 }
+
+            ];
+
+        }
+
+
+        players.forEach(p => {
+
+            const center = (gameConfig.canvasSize / 2) - (gameConfig.paddleSize / 2);
+
+            if (p.position === 'left') { p.x = 0; p.y = center; }
+
+            if (p.position === 'right') { p.x = gameConfig.canvasSize - gameConfig.paddleThickness; p.y = center; }
+
+            if (p.position === 'top') { p.y = 0; p.x = center; }
+
+            if (p.position === 'bottom') { p.y = gameConfig.canvasSize - gameConfig.paddleThickness; p.x = center; }
+
+        });
+
+    }
+
+
+    if (players && playerSockets) {
+
+        const roomName = `game_${Date.now()}`;
+
+        playerSockets.forEach(sock => {
+
+            sock.join(roomName);
+
+            sock.gameRoom = { id: roomName, mode: mode };
+
+        });
+
+
+        const game = startGameLoop(roomName, players, io, mode, gameConfig);
+
+        state.gameRooms.set(roomName, game);
+
+        console.log(`[Matchmaking] Oda (${roomName}) oluşturuldu ve ${mode} oyunu başlatıldı.`);
+
+    }
+
+
+    socket.on('playerMove', (data) => {
+
+        if (!socket.gameRoom) return;
+
+        const game = state.gameRooms.get(socket.gameRoom.id);
+
+        if (!game) return;
+
+
+        const playerState = game.gameState.players.find(p => p.id === socket.user.id);
+
+        if (!playerState) return;
+
+        
+
+        const { newPosition } = data;
+
+        const { canvasSize, paddleSize } = gameConfig;
+
+        let finalPosition = newPosition;
+
+
+        if (finalPosition < 0) finalPosition = 0;
+
+        if (finalPosition > canvasSize - paddleSize) finalPosition = canvasSize - paddleSize;
+
+
+        if (playerState.position === 'left' || playerState.position === 'right') playerState.y = finalPosition;
+
+        if (playerState.position === 'top' || playerState.position === 'bottom') playerState.x = finalPosition;
+
+    });
+
+}
+
+
+module.exports = gameHandler;
+
+
+
+
+
+
+backend/websockets/index.js:
+
+// backend/websockets/index.js
+
+const jwt = require('jsonwebtoken');
+
+const prisma = require('../prisma/db');
+
+const chatHandler = require('./chatHandler');
+
+const gameHandler = require('./gameHandler');
+
+const JWT_SECRET = process.env.JWT_SECRET;
+
+
+// Paylaşılan değişkenler (shared state)
+
+const onlineUsers = new Map();
+
+const gameState = {
+
+    waitingPlayers: {
+
+        '1v1': [],
+
+        '2v2': []
+
+    },
+
+    gameRooms: new Map()
+
+};
+
+
+function initializeSocket(io) {
+
+    // Kimlik Doğrulama Middleware'i
+
+    io.use(async (socket, next) => {
+
+        const token = socket.handshake.auth.token;
+
+        if (!token) return next(new Error('Authentication error'));
+
+        try {
+
+            const decoded = jwt.verify(token, JWT_SECRET);
+
+            const user = await prisma.user.findUnique({
+
+                where: { id: decoded.userId },
+
+                select: { id: true, email: true, name: true }
+
+            });
+
+            if (!user) return next(new Error('User not found'));
+
+            socket.user = user;
+
+            next();
+
+        } catch (err) {
+
+            return next(new Error('Invalid token'));
+
+        }
+
+    });
+
+
+    // Ana Bağlantı Olayı
+
+    io.on('connection', (socket) => {
+
+        // --- TEKİL OTURUM KONTROLÜ ---
+
+        // Bu kullanıcıya ait eski bir bağlantı var mı diye kontrol et.
+
+        if (onlineUsers.has(socket.user.id)) {
+
+            const oldSocketId = onlineUsers.get(socket.user.id).socketId;
+
+            const oldSocket = io.sockets.sockets.get(oldSocketId);
+
+            if (oldSocket) {
+
+                // Eski tarayıcıya "oturumu sonlandır" mesajı gönder.
+
+                oldSocket.emit('forceDisconnect', 'Başka bir yerden giriş yapıldı.');
+
+                // Eski bağlantıyı sunucudan kopar.
+
+                oldSocket.disconnect();
+
+                console.log(`Eski oturum sonlandırıldı: ${socket.user.email} (Socket ID: ${oldSocketId})`);
+
+            }
+
+        }
+
+        // --- KONTROL SONU ---
+
+
+        console.log(`${socket.user.email} bağlandı. (Socket ID: ${socket.id})`);
+
+        onlineUsers.set(socket.user.id, { id: socket.user.id, socketId: socket.id, email: socket.user.email, name: socket.user.name });
+
+        io.emit('update user list', Array.from(onlineUsers.values()));
+
+
+        socket.on('requestUserList', () => {
+
+            socket.emit('update user list', Array.from(onlineUsers.values()));
+
+        });
+
+
+        chatHandler(io, socket, onlineUsers);
+
+
+        socket.on('joinMatchmaking', (payload) => {
+
+            console.log(`${socket.user.email} eşleştirme havuzuna katıldı. Mod: ${payload.mode}`);
+
+            gameHandler(io, socket, gameState, payload);
+
+        });
+
+
+        // --- GÜVENLİ TEMİZLEME FONKSİYONU ---
+
+        const cleanUpPlayer = (sock) => {
+
+            // Oyuncuyu tüm bekleme havuzlarından kaldır
+
+            Object.keys(gameState.waitingPlayers).forEach(mode => {
+
+                const pool = gameState.waitingPlayers[mode];
+
+                const newPool = pool.filter(p => p.id !== sock.id);
+
+                if (newPool.length < pool.length) {
+
+                    console.log(`${sock.user.email}, ${mode} bekleme havuzundan kaldırıldı.`);
+
+                    gameState.waitingPlayers[mode] = newPool;
+
+                    newPool.forEach(p => p.emit('updateQueue', { queueSize: newPool.length, requiredSize: mode === '1v1' ? 2 : 4 }));
+
+                }
+
+            });
+
+
+            // Oyuncu bir oyun odasındaysa, oyunu bitir.
+
+            if (sock.gameRoom) {
+
+                const game = gameState.gameRooms.get(sock.gameRoom.id);
+
+                // KRİTİK DÜZELTME: 'game' nesnesinin var olduğundan emin ol! Bu, çökme hatasını engeller.
+
+                if (game) {
+
+                    clearInterval(game.intervalId);
+
+                    const otherPlayers = game.players.filter(p => p.socketId !== sock.id);
+
+                    otherPlayers.forEach(p => {
+
+                         const otherSocket = io.sockets.sockets.get(p.socketId);
+
+                         if(otherSocket) otherSocket.emit('opponentLeft');
+
+                    });
+
+                    gameState.gameRooms.delete(sock.gameRoom.id);
+
+                    console.log(`Oda ${sock.gameRoom.id} temizlendi.`);
+
+                }
+
+            }
+
+        };
+
+
+        socket.on('leaveGameOrLobby', () => {
+
+            console.log(`${socket.user.email} oyun/lobi'den manuel olarak ayrıldı.`);
+
+            cleanUpPlayer(socket);
+
+        });
+
+
+        // Bağlantı Kesilme Olayı
+
+        socket.on('disconnect', () => {
+
+            console.log(`${socket.user.email} bağlantısı kesildi.`);
+
+            // Sadece bu soket gerçekten listedeki son soket ise onlineUsers'dan sil
+
+            if (onlineUsers.has(socket.user.id) && onlineUsers.get(socket.user.id).socketId === socket.id) {
+
+                onlineUsers.delete(socket.user.id);
+
+                io.emit('update user list', Array.from(onlineUsers.values()));
+
+            }
+
+            cleanUpPlayer(socket);
+
+        });
+
+    });
+
+}
+
+
+module.exports = initializeSocket;
+
+
+
+
+
+
+backend/.env:
+
+DATABASE_URL="file:./prisma/dev.db"
+
+JWT_SECRET="YourSecretKeyGoesHere"
+
+
+
+
+
+
+backend/.eslintrc.json:
+
+{
+
+    "env": {
+
+        "commonjs": true,
+
+        "es2021": true,
+
+        "node": true
+
+    },
+
+    "extends": ["eslint:recommended", "plugin:prettier/recommended"],
+
+    "parserOptions": {
+
+        "ecmaVersion": "latest"
+
+    },
+
+    "rules": {}
+
+}
+
+
+
+
+
+
+backend/.gitignore:
+
+node_modules
+
+# Keep environment variables out of version control
+
+.env
+
+
+/generated/prisma
+
+
+
+
+
+
+backend/.prettierrc.json:
+
+{
+
+    "tabWidth": 4,
+
+    "useTabs": false,
+
+    "semi": true,
+
+    "singleQuote": true,
+
+    "trailingComma": "es5",
+
+    "bracketSpacing": true,
+
+    "bracketSameLine": false
+
+}
+
+
+
+
+
+
+backend/Dockerfile:
+
+# Istenildiği gibi Node.js'in 20 versiyonunu temel alıyoruz.
+
+FROM node:20
+
+
+# Konteyner içinde çalışacağımız dizini belirliyoruz.
+
+WORKDIR /usr/src/app
+
+
+# package.json ve package-lock.json dosyalarını kopyalıyoruz.
+
+# Bu, sadece bağımlılıklar değiştiğinde "npm install" komutunun tekrar çalışmasını sağlar,
+
+# her kod değişikliğinde değil. Bu da build süresini hızlandırır.
+
+COPY package*.json ./
+
+
+# Proje bağımlılıklarını kuruyoruz.
+
+RUN npm install
+
+
+# Proje kaynak kodunu konteynere kopyalıyoruz.
+
+COPY . .
+
+
+# Uygulamayı başlatacak olan komutu belirtiyoruz.
+
+# "npm run dev" komutu ile nodemon'u çalıştıracağız.
+
+CMD ["npm", "run", "dev"]
+
+
+
+
+
+
+backend/package.json:
+
+{
+
+  "name": "backend",
+
+  "version": "1.0.0",
+
+  "description": "",
+
+  "main": "server.js",
+
+  "scripts": {
+
+    "start": "node server.js",
+
+    "dev": "nodemon server.js",
+
+    "lint": "eslint .",
+
+    "format": "prettier --write .",
+
+    "test": "echo \"Error: no test specified\" && exit 1"
+
+  },
+
+  "keywords": [],
+
+  "author": "",
+
+  "license": "ISC",
+
+  "dependencies": {
+
+    "@fastify/cors": "^11.1.0",
+
+    "@prisma/client": "^6.15.0",
+
+    "bcrypt": "^6.0.0",
+
+    "dotenv": "^17.2.2",
+
+    "fastify": "^5.6.0",
+
+    "jsonwebtoken": "^9.0.2",
+
+    "socket.io": "^4.8.1"
+
+  },
+
+  "devDependencies": {
+
+    "eslint": "^9.35.0",
+
+    "eslint-config-prettier": "^10.1.8",
+
+    "eslint-plugin-prettier": "^5.5.4",
+
+    "nodemon": "^3.1.10",
+
+    "prettier": "^3.6.2",
+
+    "prisma": "^6.15.0"
+
+  }
+
+}
+
+
+
+
+
+
+backend/server.js:
+
+// backend/server.js
+
+require('dotenv').config();
+
+
+const fastify = require('fastify')({ logger: true });
+
+const { Server } = require('socket.io');
+
+const cors = require('@fastify/cors');
+
+const initializeSocket = require('./websockets');
+
+
+// Eklentileri Kaydet
+
+fastify.register(cors, { origin: "*" });
+
+
+// HTTP Yollarını Kaydet
+
+fastify.register(require('./api/auth.routes'));
+
+fastify.register(require('./api/users.routes'));
+
+
+// Socket.io Sunucusunu Başlat
+
+const io = new Server(fastify.server, {
+
+    cors: { origin: "*", methods: ["GET", "POST"] }
+
+});
+
+initializeSocket(io);
+
+
+// Ana Durum Yolu
+
+fastify.get('/', (request, reply) => {
+
+    reply.send({ status: 'Server is running - Refactored!' });
+
+});
+
+
+// Sunucuyu Başlatma Fonksiyonu
+
+const start = async () => {
+
+    try {
+
+        await fastify.listen({ port: 3000, host: '0.0.0.0' });
+
+    } catch (err) {
+
+        fastify.log.error(err);
+
+        process.exit(1);
+
+    }
+
+};
+
+
+start();
+
+
+
+
+
+
+Makefile:
+
+# Makefile for ft_transcendence project management
+
+
+# .PHONY, bu hedeflerin birer dosya olmadığını, komut olduğunu belirtir.
+
+.PHONY: all up stop down clean db links start
+
+
+# 'make' komutu tek başına çalıştırıldığında 'up' hedefini çağırır.
+
+all: up
+
+
+# Projeyi her seferinde temiz bir şekilde yeniden kurar ve başlatır.
+
+# Bu hedef, önce 'clean' hedefini çalıştırarak tüm kalıntıları temizler.
+
+up: clean
+
+    @echo "Starting containers with a fresh build..."
+
+    docker compose up --build -d
+
+
+# Arka planda çalışan konteynerleri sadece durdurur (silmez).
+
+stop:
+
+    @echo "Stopping running containers..."
+
+    docker compose stop
+
+
+# Projeyi durdurur ve docker-compose tarafından yönetilen her şeyi temizler.
+
+down:
+
+    @echo "Stopping and removing project containers, networks, and volumes..."
+
+    docker compose down --volumes --remove-orphans
+
+
+# Projeyle ilgili olabilecek tüm "hayalet" konteynerleri zorla temizler.
+
+clean: down
+
+    @echo "Forcibly removing any lingering containers..."
+
+    @docker ps -a -q --filter "name=transcendence_backend" | xargs -r docker rm -f
+
+    @docker ps -a -q --filter "name=transcendence_frontend" | xargs -r docker rm -f
+
+
+# Veritabanını sıfırlar (tüm verileri siler).
+
+db:
+
+    (cd backend && npx prisma migrate reset --force)
+
+
+# Ağ ve yerel erişim linklerini gösterir.
+
+links:
+
+    @echo "for network: http://$$(hostname -I | awk '{print $$1}'):5173"
+
+    @echo "for local:   http://localhost:5173"
+
+
+# Projeyi ilk kez kurmak için frontend ve backend bağımlılıklarını yükler.
+
+start:
+
+    @echo "Installing backend dependencies..."
+
+    (cd backend && npm install)
+
+    @echo "Installing frontend dependencies..."
+
+    (cd frontend && npm install)
+
+    @echo "Setup complete! You can now run 'make up'."
+
+
+
+
+
+
+docker-compose.yml:
+
+services:
+
+  backend:
+
+    build:
+
+      context: ./backend
+
+      dockerfile: Dockerfile
+
+    container_name: transcendence_backend
+
+    ports:
+
+      - "3000:3000"
+
+    volumes:
+
+      - ./backend:/usr/src/app
+
+      - /usr/src/app/node_modules
+
+    networks:
+
+      - transcendence_network
+
+
+  frontend:
+
+    build:
+
+      context: ./frontend
+
+      dockerfile: Dockerfile
+
+    container_name: transcendence_frontend
+
+    ports:
+
+      - "5173:5173"
+
+    volumes:
+
+      - ./frontend:/usr/src/app
+
+      - /usr/src/app/node_modules
+
+    depends_on:
+
+      - backend
+
+    networks:
+
+      - transcendence_network
+
+
+networks:
+
+  transcendence_network:
+
+    driver: bridge

@@ -88,16 +88,21 @@ function handlePlayerMove(event: KeyboardEvent) {
 }
 
 // SAYFANIN HTML'İNİ OLUŞTURMA
+
 export function render(): string {
     return `
     <div class="h-screen w-screen bg-gray-900 flex flex-col items-center justify-center relative">
+      <div id="game-status" class="text-3xl text-white mb-4">${t('waiting_for_opponent')}</div>
+      <canvas id="pong-canvas" width="800" height="800" class="bg-black border border-white"></canvas>
+      <a href="/lobby" data-link class="mt-4 text-blue-400 hover:text-blue-300">${t('leave_lobby')}</a>
+
       <div id="game-over-modal" class="hidden absolute inset-0 bg-black bg-opacity-75 items-center justify-center text-white">
         <h2 id="game-over-text" class="text-6xl font-bold mb-8"></h2>
         <div id="rematch-prompt" class="hidden items-center">
             <p class="text-xl mb-4">${t('rematch_question')}</p>
-            <div>
-                <button id="stay-button" ...>${t('stay_on_page')}</button>
-                <a href="/lobby" data-link ...>${t('return_to_lobby')}</a>
+            <div class="flex space-x-4">
+                <button id="stay-button" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded">${t('stay_on_page')}</button>
+                <a href="/lobby" data-link class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded">${t('return_to_lobby')}</a>
             </div>
         </div>
       </div>
@@ -163,21 +168,22 @@ export function afterRender() {
         gameState = newGameState;
     });
 
-    socket.on('gameOver', ({ winners}) => {
-        // Son skoru ekrana yansıtmak için gameState'i son bir kez daha güncelle
-        // (Backend bu bilgiyi göndermiyorsa bu kısmı atlayabilir veya ekleyebiliriz)
-        
+    socket.on('gameOver', ({ winners }) => {
         window.removeEventListener('keydown', handlePlayerMove);
         if (animationFrameId) cancelAnimationFrame(animationFrameId);
         
         const isWinner = winners.some((winner: any) => winner.id === myUserId);
         
         gameOverText.textContent = isWinner ? t('you_win') : t('you_lose');
+        
+        // Görünür yaparken flex class'larını ekliyoruz
         gameOverModal.classList.remove('hidden');
+        gameOverModal.classList.add('flex', 'flex-col');
 
-        // 3 saniye sonra lobiye dönme seçeneğini göster
         setTimeout(() => {
+            // Görünür yaparken flex class'larını ekliyoruz
             rematchPrompt.classList.remove('hidden');
+            rematchPrompt.classList.add('flex', 'flex-col');
         }, 3000);
     });
 }
