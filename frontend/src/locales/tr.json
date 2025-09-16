@@ -41,5 +41,15 @@
   "rematch_question": "Lobiye dönmek ister misin?",
   "stay_on_page": "Sayfada Kal",
   "return_to_lobby": "Lobiye Dön",
-  "view_match_history": "Maç Geçmişini Görüntüle"
+  "view_match_history": "Maç Geçmişini Görüntüle",
+  "match_history_title": "Maç Geçmişi",
+  "loading_history": "Geçmiş yükleniyor...",
+  "no_matches_found": "Hiç maç bulunamadı.",
+  "history_load_error": "Maç geçmişi yüklenemedi.",
+  "stat_accuracy": "İsabet Oranı",
+  "stat_missed": "Iska",
+  "outcome_win": "GALİBİYET",
+  "outcome_lose": "MAĞLUBİYET",
+  "stat_duration": "Süre",
+  "match_history_for_user": "{name} Adlı Oyuncunun Maç Geçmişi"
 }

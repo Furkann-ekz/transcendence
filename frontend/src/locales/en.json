@@ -41,5 +41,15 @@
   "rematch_question": "Return to lobby?",
   "stay_on_page": "Stay",
   "return_to_lobby": "Return to Lobby",
-  "view_match_history": "View Match History"
+  "view_match_history": "View Match History",
+  "match_history_title": "Match History",
+  "loading_history": "Loading history...",
+  "no_matches_found": "No matches found.",
+  "history_load_error": "Failed to load match history.",
+  "stat_accuracy": "Accuracy",
+  "stat_missed": "Missed",
+  "outcome_win": "WIN",
+  "outcome_lose": "LOSE",
+  "stat_duration": "Duration",
+  "match_history_for_user": "Match History of Player Named {name}"
 }

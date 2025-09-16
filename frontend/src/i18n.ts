@@ -30,7 +30,10 @@ export function getCurrentLanguage(): string {
 
 // Çeviri fonksiyonumuz (t kısaltmasıyla kullanılır: "translate")
 export function t(key: string): string {
-  return currentTranslations[key] || key;
+  if (Object.prototype.hasOwnProperty.call(currentTranslations, key)) {
+    return currentTranslations[key];
+  }
+  return key;
 }
 
 // Uygulama ilk yüklendiğinde dili ayarla.

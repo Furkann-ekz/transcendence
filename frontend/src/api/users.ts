@@ -41,3 +41,4 @@ export async function getMatchHistory(userId: string) {
 
   return response.json();
 }
+

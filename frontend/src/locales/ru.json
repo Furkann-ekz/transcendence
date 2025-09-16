@@ -41,5 +41,15 @@
   "rematch_question": "Вернуться в лобби?",
   "stay_on_page": "Остаться на странице",
   "return_to_lobby": "Вернуться в лобби",
-  "view_match_history": "Посмотреть историю матчей"
+  "view_match_history": "Посмотреть историю матчей",
+  "match_history_title": "История матчей",
+  "loading_history": "Загрузка истории...",
+  "no_matches_found": "Матчи не найдены.",
+  "history_load_error": "Не удалось загрузить историю матчей.",
+  "stat_accuracy": "Точность",
+  "stat_missed": "Промахи",
+  "outcome_win": "ПОБЕДА",
+  "outcome_lose": "ПОРАЖЕНИЕ",
+  "stat_duration": "Длительность",
+  "match_history_for_user": "История матчей игрока {name}"
 }

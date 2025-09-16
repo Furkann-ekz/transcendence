@@ -32,9 +32,8 @@ const app = document.querySelector<HTMLDivElement>('#app')!;
 // frontend/src/router/index.ts
 
 export async function handleLocation() {
-  const token = localStorage.getItem('token');
   const path = window.location.pathname;
-  let routeToRender: Route | null = null;
+  const token = localStorage.getItem('token');
 
   // 1. ADIM: Gerekliyse soket bağlantısını kur ve bekle.
   if (token) {
@@ -51,22 +50,23 @@ export async function handleLocation() {
   }
 
   // 2. ADIM: Yönlendirme kurallarını uygula.
-  const protectedPaths = ['/dashboard', '/lobby', '/local-game', '/online-game'];
+  const protectedPaths = ['/dashboard', '/lobby', '/online-lobby', '/local-game', '/online-game'];
   const isAuthRequired = protectedPaths.includes(path);
 
-  // Token yokken korumalı sayfaya girmeye çalışırsa -> login'e yönlendir.
   if (isAuthRequired && !token) {
     if (path !== '/') navigateTo('/');
     return;
   }
-  // Token varken login/register sayfasına girmeye çalışırsa -> dashboard'a yönlendir.
   if (!isAuthRequired && token && (path === '/' || path === '/register')) {
     navigateTo('/dashboard');
     return;
   }
 
+  // 3. ADIM: Sayfayı render et.
+  let routeToRender: Route | null = null;
+  
   if (path.startsWith('/profile/') && path.endsWith('/history')) {
-      routeToRender = MatchHistoryPage;
+    routeToRender = MatchHistoryPage;
   } else if (path.startsWith('/profile/')) {
     routeToRender = ProfilePage;
   } else {
@@ -78,6 +78,7 @@ export async function handleLocation() {
       return;
   }
 
+  // Sadece rota gerçekten değiştiyse render et
   if (currentRoute !== routeToRender) {
     if (currentRoute && currentRoute.cleanup) {
       currentRoute.cleanup();
@@ -89,34 +90,6 @@ export async function handleLocation() {
       void routeToRender.afterRender();
     }
     currentRoute = routeToRender;
-  }
-
-  // 3. ADIM: Sayfayı render et.
-  let route: Route | null = null;
-  
-  if (path.startsWith('/profile/')) {
-    route = ProfilePage;
-  } else {
-    route = routes[path] || routes['/'];
-  }
-  
-  if (!route) { // Eğer hiçbir rota eşleşmezse
-      app.innerHTML = '<h1>404 Not Found</h1>';
-      return;
-  }
-
-  if (currentRoute !== route) {
-    if (currentRoute && currentRoute.cleanup) {
-      currentRoute.cleanup();
-    }
-    
-    app.innerHTML = route.render();
-    
-    if (route.afterRender) {
-      // afterRender async olabileceği için void ile çağırıyoruz
-      void route.afterRender();
-    }
-    currentRoute = route;
   }
 }
 
