@@ -28,14 +28,26 @@ async function saveMatch(game, winnerTeam, wasForfeit = false) {
     const player1Id = team1[0].id;
     const player2Id = team2[0].id;
 
-    // SÜRE HESAPLAMASI ARTIK DOĞRU ÇALIŞACAK
-    const durationInSeconds = wasForfeit ? 0 : Math.floor((Date.now() - game.startTime) / 1000);
+    // --- HATA AYIKLAMA LOGLARI BAŞLANGICI ---
+    console.log('--- Debugging saveMatch ---');
+    console.log('wasForfeit:', wasForfeit);
+    const endTime = Date.now();
+    console.log('End Time (Date.now()):', endTime);
+    console.log('game.startTime:', game.startTime);
+    
+    const durationMs = endTime - game.startTime;
+    console.log('Calculated duration (milliseconds):', durationMs);
+
+    const durationInSeconds = Math.floor(durationMs / 1000);
+    console.log('Final durationInSeconds to be saved:', durationInSeconds);
+    console.log('---------------------------');
+    // --- HATA AYIKLAMA LOGLARI SONU ---
 
     try {
         await prisma.match.create({
             data: {
                 mode: mode,
-                durationInSeconds: durationInSeconds,
+                durationInSeconds: durationInSeconds, // Değişkeni kullan
                 player1Id: player1Id,
                 player3Id: team1[1]?.id,
                 player2Id: player2Id,
@@ -45,8 +57,6 @@ async function saveMatch(game, winnerTeam, wasForfeit = false) {
                 winnerTeam: winnerTeam,
                 winnerId: winnerTeam === 1 ? player1Id : player2Id,
                 wasForfeit: wasForfeit,
-
-                // İSTATİSTİK ALANLARI TEMİZLENDİ
                 team1Hits: 0,
                 team1Misses: gameState.team2Score,
                 team2Hits: 0,
@@ -58,7 +68,6 @@ async function saveMatch(game, winnerTeam, wasForfeit = false) {
         console.error("Maç kaydedilemedi:", error); 
     }
 }
-
 
 // --- ANA OYUN DÖNGÜSÜ ---
 

@@ -26,12 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const lang = target.getAttribute('data-lang');
     if (lang) {
         setLanguage(lang);
-        // Eğer oyun sayfasındaysak, sayfayı yenilemek yerine özel bir olay tetikle
-        if (window.location.pathname === '/online-game') {
-            document.dispatchEvent(new CustomEvent('languageChange'));
-        } else {
-            window.location.reload(); // Diğer sayfalarda yenilemeye devam et
-        }
+        window.location.reload(); // Her zaman sayfayı yenile
     }
 });
 
