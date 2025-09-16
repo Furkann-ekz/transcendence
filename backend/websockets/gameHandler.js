@@ -25,19 +25,13 @@ async function saveMatch(game, winnerTeam, wasForfeit = false) {
     const team1 = players.filter(p => p.team === 1);
     const team2 = players.filter(p => p.team === 2);
     
-    // 1v1 ve 2v2 modları için temsili oyuncu ID'lerini al
     const player1Id = team1[0].id;
     const player2Id = team2[0].id;
 
-    try {
-        const durationInSeconds = wasForfeit ? 0 : Math.floor((Date.now() - game.startTime) / 1000);
+    // SÜRE HESAPLAMASI ARTIK DOĞRU ÇALIŞACAK
+    const durationInSeconds = wasForfeit ? 0 : Math.floor((Date.now() - game.startTime) / 1000);
 
-        const team1Hits = game.gameState.players
-            .filter(p => p.team === 1)
-            .reduce((sum, p) => sum + p.hits, 0);
-        const team2Hits = game.gameState.players
-            .filter(p => p.team === 2)
-            .reduce((sum, p) => sum + p.hits, 0);
+    try {
         await prisma.match.create({
             data: {
                 mode: mode,
@@ -51,19 +45,20 @@ async function saveMatch(game, winnerTeam, wasForfeit = false) {
                 winnerTeam: winnerTeam,
                 winnerId: winnerTeam === 1 ? player1Id : player2Id,
                 wasForfeit: wasForfeit,
-                team1Hits: team1Hits, // << DÜZELTİLDİ
+
+                // İSTATİSTİK ALANLARI TEMİZLENDİ
+                team1Hits: 0,
                 team1Misses: gameState.team2Score,
-                team2Hits: team2Hits, // << DÜZELTİLDİ
+                team2Hits: 0,
                 team2Misses: gameState.team1Score
             }
         });
         console.log("Maç başarıyla kaydedildi.");
-    }
-    catch (error)
-    { 
+    } catch (error) { 
         console.error("Maç kaydedilemedi:", error); 
     }
 }
+
 
 // --- ANA OYUN DÖNGÜSÜ ---
 
@@ -73,7 +68,7 @@ function startGameLoop(room, players, io, mode, gameConfig) {
     const WINNING_SCORE = 5;
     const BALL_RADIUS = 10;
     
-    const game = { players, mode, gameState: {}, intervalId: null };
+    const game = { players, mode, gameState: {}, intervalId: null, startTime: startTime };
 
     let gameState = {
         ballX: canvasSize / 2, ballY: canvasSize / 2, ballSpeedX: 6, ballSpeedY: 6,

@@ -1,5 +1,5 @@
 import './style.css';
-import { initializeRouter, handleLocation } from './router';
+import { initializeRouter } from './router';
 import { setLanguage, getCurrentLanguage } from './i18n';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -26,11 +26,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const lang = target.getAttribute('data-lang');
     if (lang) {
         setLanguage(lang);
-        // Eğer oyun sayfasındaysak, sayfayı yenilemeden içeriği güncelle
+        // Eğer oyun sayfasındaysak, sayfayı yenilemek yerine özel bir olay tetikle
         if (window.location.pathname === '/online-game') {
-            void handleLocation(true); // Router'ı yeniden render etmeye zorla
+            document.dispatchEvent(new CustomEvent('languageChange'));
         } else {
-            window.location.reload(); // Diğer sayfalarda yenile
+            window.location.reload(); // Diğer sayfalarda yenilemeye devam et
         }
     }
 });

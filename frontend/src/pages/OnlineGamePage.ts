@@ -110,6 +110,31 @@ export function render(): string {
   `;
 }
 
+function updateUIText() {
+    const statusDiv = document.getElementById('game-status');
+    const leaveLobbyLink = document.querySelector('a[href="/lobby"]');
+    const gameOverText = document.getElementById('game-over-text');
+    const rematchPromptText = document.querySelector('#rematch-prompt p');
+    const stayButton = document.getElementById('stay-button');
+    const returnToLobbyLink = document.querySelector('#rematch-prompt a');
+
+    // Bu elemanlar o an ekranda varsa, metinlerini t() fonksiyonu ile güncelle
+    if (statusDiv && statusDiv.textContent?.includes('/')) {
+         // Queue text'ini korumak için özel kontrol
+        const queueText = statusDiv.textContent;
+        statusDiv.textContent = `${t('waiting_for_opponent')} (${queueText.match(/\(([^)]+)\)/)?.[1]})`;
+    } else if (statusDiv && statusDiv.textContent !== '') {
+        statusDiv.textContent = t('waiting_for_opponent');
+    }
+
+    if (leaveLobbyLink) leaveLobbyLink.textContent = t('leave_lobby');
+    if (gameOverText && gameOverText.textContent) {
+        gameOverText.textContent = gameOverText.textContent === 'YOU WIN!' || gameOverText.textContent === 'KAZANDIN!' ? t('you_win') : t('you_lose');
+    }
+    if (rematchPromptText) rematchPromptText.textContent = t('rematch_question');
+    if (stayButton) stayButton.textContent = t('stay_on_page');
+    if (returnToLobbyLink) returnToLobbyLink.textContent = t('return_to_lobby');
+}
 
 // SAYFA YÜKLENDİKTEN SONRA ÇALIŞAN KODLAR
 export function afterRender() {
@@ -186,6 +211,7 @@ export function afterRender() {
             rematchPrompt.classList.add('flex', 'flex-col');
         }, 3000);
     });
+    document.addEventListener('languageChange', updateUIText);
 }
 
 // SAYFADAN AYRILIRKEN ÇALIŞAN TEMİZLİK KODLARI
@@ -209,4 +235,5 @@ export function cleanup() {
     myPlayer = null;
     gameConfig = {};
     gameState = {};
+    document.removeEventListener('languageChange', updateUIText);
 }

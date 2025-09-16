@@ -13,7 +13,7 @@ export function render(): string {
   return `
     <div class="min-h-screen bg-gray-100 p-4 sm:p-8">
       <h1 id="history-title" class="text-3xl font-bold mb-6 text-center text-gray-800">${t('match_history_title')}</h1>
-      <div id="match-history-list" class="space-y-4 max-w-4xl mx-auto">
+      <div id="match-history-list" class="space-y-4 max-w-4xl mx-auto max-h-[70vh] overflow-y-auto p-2">
         <p class="text-center text-gray-500">${t('loading_history')}</p>
       </div>
        <div class="text-center mt-8">
@@ -67,23 +67,14 @@ export async function afterRender() {
         
             const matchElement = document.createElement('div');
             matchElement.className = `bg-white p-4 rounded-lg shadow-md flex items-center justify-between relative`;
-            
-            const myTotalShots = myStats.hits + myStats.misses;
-            const myAccuracy = myTotalShots > 0 ? ((myStats.hits / myTotalShots) * 100).toFixed(0) : 0;
 
-            const opponentTotalShots = opponentStats.hits + opponentStats.misses;
-            const opponentAccuracy = opponentTotalShots > 0 ? ((opponentStats.hits / opponentTotalShots) * 100).toFixed(0) : 0;
-                        
             matchElement.innerHTML = `
                 <div class="absolute left-0 top-0 bottom-0 w-2 ${iWon ? 'bg-green-500' : 'bg-red-500'} rounded-l-lg"></div>
                 <div class="absolute right-0 top-0 bottom-0 w-2 ${!iWon ? 'bg-green-500' : 'bg-red-500'} rounded-r-lg"></div>
 
                 <div class="flex-1 text-center">
-                    <p class="font-bold text-lg">${myData.name} ${t('you_suffix')}</p>
+                    <p class="font-bold text-lg">${myData.name} ${iWon ? `(${t('you_suffix')})` : ''}</p>
                     <p class="text-sm ${iWon ? 'text-green-600' : 'text-red-600'} font-bold">${iWon ? t('outcome_win') : t('outcome_lose')}</p>
-                    <div class="mt-2 text-xs text-gray-500">
-                        <p>${t('stat_accuracy')}: ${myAccuracy}%</p>
-                    </div>
                 </div>
 
                 <div class="text-center border-l border-r px-4 mx-4">
@@ -97,9 +88,6 @@ export async function afterRender() {
                 <div class="flex-1 text-center">
                     <p class="font-bold text-lg">${opponentData.name}</p>
                     <p class="text-sm ${!iWon ? 'text-green-600' : 'text-red-600'} font-bold">${!iWon ? t('outcome_win') : t('outcome_lose')}</p>
-                    <div class="mt-2 text-xs text-gray-500">
-                        <p>${t('stat_accuracy')}: ${opponentAccuracy}%</p>
-                    </div>
                 </div>
             `;
             listContainer.appendChild(matchElement);
