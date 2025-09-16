@@ -19,17 +19,21 @@ async function userRoutes(fastify, options) {
         if (isNaN(userId)) {
             return reply.code(400).send({ error: 'Invalid user ID' });
         }
+
         try {
             const user = await prisma.user.findUnique({
                 where: { id: userId },
-                select: {
+                select: { // Sadece güvenli ve halka açık bilgileri döndür
                     id: true,
                     name: true,
                     createdAt: true,
+                    // --- YENİ EKLENEN ALANLAR ---
                     wins: true,
                     losses: true
+                    // -------------------------
                 }
             });
+
             if (!user) {
                 return reply.code(404).send({ error: 'User not found' });
             }
