@@ -8,6 +8,7 @@ import * as OnlineGamePage from '../pages/OnlineGamePage';
 import { connectSocket, getSocket } from '../socket';
 import * as OnlineLobbyPage from '../pages/OnlineLobbyPage';
 import * as ProfilePage from '../pages/ProfilePage';
+import * as MatchHistoryPage from '../pages/MatchHistoryPage';
 
 interface Route {
   render: () => string;
@@ -31,8 +32,9 @@ const app = document.querySelector<HTMLDivElement>('#app')!;
 // frontend/src/router/index.ts
 
 export async function handleLocation() {
-  const path = window.location.pathname;
   const token = localStorage.getItem('token');
+  const path = window.location.pathname;
+  let routeToRender: Route | null = null;
 
   // 1. ADIM: Gerekliyse soket bağlantısını kur ve bekle.
   if (token) {
@@ -61,6 +63,32 @@ export async function handleLocation() {
   if (!isAuthRequired && token && (path === '/' || path === '/register')) {
     navigateTo('/dashboard');
     return;
+  }
+
+  if (path.startsWith('/profile/') && path.endsWith('/history')) {
+      routeToRender = MatchHistoryPage;
+  } else if (path.startsWith('/profile/')) {
+    routeToRender = ProfilePage;
+  } else {
+    routeToRender = routes[path] || routes['/'];
+  }
+  
+  if (!routeToRender) {
+      app.innerHTML = '<h1>404 Not Found</h1>';
+      return;
+  }
+
+  if (currentRoute !== routeToRender) {
+    if (currentRoute && currentRoute.cleanup) {
+      currentRoute.cleanup();
+    }
+    
+    app.innerHTML = routeToRender.render();
+    
+    if (routeToRender.afterRender) {
+      void routeToRender.afterRender();
+    }
+    currentRoute = routeToRender;
   }
 
   // 3. ADIM: Sayfayı render et.

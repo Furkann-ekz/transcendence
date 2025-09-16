@@ -23,7 +23,7 @@ export function render(): string {
         </div>
 
         <a id="match-history-link" href="#" data-link class="mt-6 bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded block">
-          View Match History
+          ${t('view_match_history')}
         </a>
 
         <a href="/dashboard" data-link class="mt-4 inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800">
@@ -39,7 +39,7 @@ export async function afterRender() {
   const createdAtElement = document.getElementById('profile-created-at');
   const winsElement = document.getElementById('profile-wins');
   const lossesElement = document.getElementById('profile-losses');
-  const matchHistoryLink = document.getElementById('match-history-link'); // Maç geçmişi butonunu seç
+  const matchHistoryLink = document.getElementById('match-history-link');
 
   const pathParts = window.location.pathname.split('/');
   const userId = pathParts[2];
@@ -49,7 +49,6 @@ export async function afterRender() {
     return;
   }
   
-  // Maç geçmişi butonunun linkini, görüntülenen kullanıcının ID'sine göre ayarla
   if (matchHistoryLink) {
     matchHistoryLink.setAttribute('href', `/profile/${userId}/history`);
   }
@@ -57,7 +56,6 @@ export async function afterRender() {
   try {
     const userProfile = await getUserProfile(userId);
     
-    // Gelen veriyle tüm HTML'i güncelle
     if (nameElement) nameElement.textContent = userProfile.name || 'Unnamed User';
     if (createdAtElement) {
       const joinDate = new Date(userProfile.createdAt).toLocaleDateString();

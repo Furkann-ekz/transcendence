@@ -40,5 +40,6 @@
   "you_lose": "You Lose!",
   "rematch_question": "Return to lobby?",
   "stay_on_page": "Stay",
-  "return_to_lobby": "Return to Lobby"
+  "return_to_lobby": "Return to Lobby",
+  "view_match_history": "View Match History"
 }

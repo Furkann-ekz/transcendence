@@ -40,5 +40,6 @@
   "you_lose": "Вы проиграли!",
   "rematch_question": "Вернуться в лобби?",
   "stay_on_page": "Остаться на странице",
-  "return_to_lobby": "Вернуться в лобби"
+  "return_to_lobby": "Вернуться в лобби",
+  "view_match_history": "Посмотреть историю матчей"
 }
