@@ -1,7 +1,5 @@
-// backend/websockets/gameHandler.js
 const prisma = require('../prisma/db');
 
-// Bu fonksiyon, bir array'i karıştırmak için kullanılır
 function shuffleArray(array) {
     for (let i = array.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -9,19 +7,12 @@ function shuffleArray(array) {
     }
 }
 
-// YENİ YARDIMCI FONKSİYON: Oyuncuların istatistiklerini günceller
 async function updatePlayerStats(playerIds, outcome) {
     const fieldToIncrement = outcome === 'win' ? 'wins' : 'losses';
     try {
         await prisma.user.updateMany({
-            where: {
-                id: { in: playerIds }
-            },
-            data: {
-                [fieldToIncrement]: {
-                    increment: 1
-                }
-            }
+            where: { id: { in: playerIds } },
+            data: { [fieldToIncrement]: { increment: 1 } }
         });
         console.log(`Stats updated for players ${playerIds}. Outcome: ${outcome}`);
     } catch (error) {
@@ -29,100 +20,133 @@ async function updatePlayerStats(playerIds, outcome) {
     }
 }
 
+async function saveMatch(game, winnerTeam, wasForfeit = false) {
+    const { players, gameState, mode } = game;
+    const team1 = players.filter(p => p.team === 1);
+    const team2 = players.filter(p => p.team === 2);
+    
+    // 1v1 ve 2v2 modları için temsili oyuncu ID'lerini al
+    const player1Id = team1[0].id;
+    const player2Id = team2[0].id;
+
+    try {
+        await prisma.match.create({
+            data: {
+                mode: mode,
+                durationInSeconds: 0, // Bu özelliği şimdilik basitleştirelim
+                player1Id: player1Id,
+                player3Id: team1[1]?.id, // 2v2 ise ikinci oyuncu, değilse null
+                player2Id: player2Id,
+                player4Id: team2[1]?.id, // 2v2 ise ikinci oyuncu, değilse null
+
+                // Alan isimleri şema ile eşleştirildi
+                team1Score: gameState.team1Score,
+                team2Score: gameState.team2Score,
+                winnerTeam: winnerTeam, // Kazanan takım bilgisini de ekliyoruz
+                winnerId: winnerTeam === 1 ? team1[0].id : team2[0].id, // Kazanan oyuncu ID'si
+
+                wasForfeit: wasForfeit,
+
+                // hit/miss istatistikleri şimdilik eklenmedi, basit tutuyoruz
+                team1Hits: 0,
+                team1Misses: 0,
+                team2Hits: 0,
+                team2Misses: 0
+            }
+        });
+        console.log("Maç başarıyla kaydedildi.");
+    } catch (error) { 
+        console.error("Maç kaydedilemedi:", error); 
+    }
+}
+
+// --- ANA OYUN DÖNGÜSÜ ---
+
 function startGameLoop(room, players, io, mode, gameConfig) {
     const { canvasSize, paddleSize, paddleThickness } = gameConfig;
-    const WINNING_SCORE = 5; // Kazanma skoru
+    const WINNING_SCORE = 5;
+    const BALL_RADIUS = 10;
+    
+    const game = { players, mode, gameState: {}, intervalId: null };
 
     let gameState = {
-        ballX: canvasSize / 2,
-        ballY: canvasSize / 2,
-        ballSpeedX: 6,
-        ballSpeedY: 6,
-        team1Score: 0,
-        team2Score: 0,
-        players: players.map(p => ({
-            id: p.id,
-            position: p.position,
-            team: p.team,
-            x: p.x,
-            y: p.y
-        }))
+        ballX: canvasSize / 2, ballY: canvasSize / 2, ballSpeedX: 6, ballSpeedY: 6,
+        team1Score: 0, team2Score: 0,
+        players: players.map(p => ({ ...p }))
     };
+    game.gameState = gameState;
 
-    const intervalId = setInterval(async () => { // Fonksiyonu 'async' yapıyoruz
+    const intervalId = setInterval(async () => {
         gameState.ballX += gameState.ballSpeedX;
         gameState.ballY += gameState.ballSpeedY;
 
-        // Raketlerle çarpışma
+        // DÜZELTİLMİŞ ÇARPIŞMA MANTIĞI
         gameState.players.forEach(p => {
-            if (p.position === 'left' && gameState.ballX <= paddleThickness && gameState.ballY > p.y && gameState.ballY < p.y + paddleSize) gameState.ballSpeedX = -gameState.ballSpeedX;
-            if (p.position === 'right' && gameState.ballX >= canvasSize - paddleThickness && gameState.ballY > p.y && gameState.ballY < p.y + paddleSize) gameState.ballSpeedX = -gameState.ballSpeedX;
-            if (p.position === 'top' && gameState.ballY <= paddleThickness && gameState.ballX > p.x && gameState.ballX < p.x + paddleSize) gameState.ballSpeedY = -gameState.ballSpeedY;
-            if (p.position === 'bottom' && gameState.ballY >= canvasSize - paddleThickness && gameState.ballX > p.x && gameState.ballX < p.x + paddleSize) gameState.ballSpeedY = -gameState.ballSpeedY;
+            if (p.position === 'left' || p.position === 'right') {
+                const paddleEdgeX = (p.position === 'left') ? paddleThickness : canvasSize - paddleThickness;
+                const ballEdgeX = (p.position === 'left') ? gameState.ballX - BALL_RADIUS : gameState.ballX + BALL_RADIUS;
+                if (((p.position === 'left' && ballEdgeX <= paddleEdgeX && gameState.ballSpeedX < 0) || (p.position === 'right' && ballEdgeX >= paddleEdgeX && gameState.ballSpeedX > 0)) &&
+                    (gameState.ballY > p.y && gameState.ballY < p.y + paddleSize)) {
+                    gameState.ballSpeedX = -gameState.ballSpeedX;
+                }
+            } else {
+                const paddleEdgeY = (p.position === 'top') ? paddleThickness : canvasSize - paddleThickness;
+                const ballEdgeY = (p.position === 'top') ? gameState.ballY - BALL_RADIUS : gameState.ballY + BALL_RADIUS;
+                if (((p.position === 'top' && ballEdgeY <= paddleEdgeY && gameState.ballSpeedY < 0) || (p.position === 'bottom' && ballEdgeY >= paddleEdgeY && gameState.ballSpeedY > 0)) &&
+                    (gameState.ballX > p.x && gameState.ballX < p.x + paddleSize)) {
+                    gameState.ballSpeedY = -gameState.ballSpeedY;
+                }
+            }
         });
 
         // Skorlama mantığı
         let scored = false;
         let scoringTeam = null;
-
-        if (gameState.ballX < 0) { const player = gameState.players.find(p => p.position === 'left'); scoringTeam = player.team === 1 ? 2 : 1; scored = true; }
-        else if (gameState.ballX > canvasSize) { const player = gameState.players.find(p => p.position === 'right'); scoringTeam = player.team === 1 ? 2 : 1; scored = true; }
+        if (gameState.ballX - BALL_RADIUS < 0) { const player = gameState.players.find(p => p.position === 'left'); scoringTeam = player.team === 1 ? 2 : 1; scored = true; } 
+        else if (gameState.ballX + BALL_RADIUS > canvasSize) { const player = gameState.players.find(p => p.position === 'right'); scoringTeam = player.team === 1 ? 2 : 1; scored = true; }
         if (mode === '2v2') {
-            if (gameState.ballY < 0) { const player = gameState.players.find(p => p.position === 'top'); scoringTeam = player.team === 1 ? 2 : 1; scored = true; } 
-            else if (gameState.ballY > canvasSize) { const player = gameState.players.find(p => p.position === 'bottom'); scoringTeam = player.team === 1 ? 2 : 1; scored = true; }
-        } else { if (gameState.ballY <= 0 || gameState.ballY >= canvasSize) { gameState.ballSpeedY = -gameState.ballSpeedY; } }
+            if (gameState.ballY - BALL_RADIUS < 0) { const player = gameState.players.find(p => p.position === 'top'); scoringTeam = player.team === 1 ? 2 : 1; scored = true; } 
+            else if (gameState.ballY + BALL_RADIUS > canvasSize) { const player = gameState.players.find(p => p.position === 'bottom'); scoringTeam = player.team === 1 ? 2 : 1; scored = true; }
+        } else { if (gameState.ballY - BALL_RADIUS <= 0 || gameState.ballY + BALL_RADIUS >= canvasSize) { gameState.ballSpeedY = -gameState.ballSpeedY; } }
         
         if (scored) {
-            if (scoringTeam === 1) gameState.team1Score++;
-            else gameState.team2Score++;
-            
+            if(scoringTeam === 1) gameState.team1Score++; else gameState.team2Score++;
             io.to(room).emit('gameStateUpdate', gameState);
 
-            // --- OYUN BİTİŞ KONTROLÜ VE VERİTABANI GÜNCELLEMESİ ---
             if (gameState.team1Score >= WINNING_SCORE || gameState.team2Score >= WINNING_SCORE) {
-                clearInterval(intervalId); // Oyun döngüsünü durdur
-                
+                clearInterval(intervalId);
                 const winners = players.filter(p => p.team === scoringTeam);
                 const losers = players.filter(p => p.team !== scoringTeam);
-                const winnerIds = winners.map(p => p.id);
-                const loserIds = losers.map(p => p.id);
-
-                // Veritabanını güncelle
-                await updatePlayerStats(winnerIds, 'win');
-                await updatePlayerStats(loserIds, 'loss');
-
-                // Frontend'e oyunun bittiğini bildir
-                io.to(room).emit('gameOver', { winners, losers });
                 
+                await updatePlayerStats(winners.map(p => p.id), 'win');
+                await updatePlayerStats(losers.map(p => p.id), 'loss');
+                await saveMatch(game, scoringTeam, false);
+
+                io.to(room).emit('gameOver', { winners, losers, reason: 'score' });
                 const playerSockets = players.map(p => io.sockets.sockets.get(p.socketId)).filter(Boolean);
-                playerSockets.forEach(sock => {
-                    sock.leave(room);
-                    sock.gameRoom = null;
-                });
-                
+                playerSockets.forEach(sock => { sock.leave(room); sock.gameRoom = null; });
                 return; 
             }
             
-            // Oyun bitmediyse topu sıfırla
             gameState.ballX = gameConfig.canvasSize / 2;
             gameState.ballY = gameConfig.canvasSize / 2;
             gameState.ballSpeedX = -gameState.ballSpeedX;
         }
         
-        // Skor olmadıysa normal oyun durumunu gönder
         if (!scored) {
             io.to(room).emit('gameStateUpdate', gameState);
         }
     }, 1000 / 60);
+
+    game.intervalId = intervalId;
 
     const gameStartPayload = {
         players: players.map(p => ({id: p.id, name: p.name, email: p.email, position: p.position, team: p.team})),
         mode,
         ...gameConfig
     };
-
     io.to(room).emit('gameStart', gameStartPayload);
-    return { players, intervalId, gameState };
+    return game;
 }
 
 function gameHandler(io, socket, state, payload) {

@@ -1,3 +1,1655 @@
+Her dosya ile yenisinin arasında 6 satır boşluk olacak. Ardından "<dosya_adı>:" ve bir boşluk daha geliyor ve dosya içeriği yer alıyor. Bu şekilde göndereceğim.
+
+Makefile:
+
+# Makefile for ft_transcendence project management
+
+
+# .PHONY, bu hedeflerin birer dosya olmadığını, komut olduğunu belirtir.
+
+.PHONY: all up stop down clean db links start check-env
+
+
+# 'make' komutu tek başına çalıştırıldığında 'up' hedefini çağırır.
+
+all: up
+
+
+# YENİ VE GELİŞMİŞ "UP" KOMUTU
+
+# Projeyi sıfırdan kurar, başlatır ve veritabanını sıfırlar.
+
+up: check-env clean
+
+    @echo "--- Starting containers with a fresh build... ---"
+
+    docker compose up --build -d
+
+    @echo "--- Waiting for containers to initialize... ---"
+
+    @sleep 3 # Konteynerlerin tam olarak başlaması için 3 saniye bekle
+
+    @echo "--- Initializing database... ---"
+
+
+# Arka planda çalışan konteynerleri sadece durdurur (silmez).
+
+stop:
+
+    @echo "--- Stopping running containers... ---"
+
+    docker compose stop
+
+
+# Projeyi durdurur ve docker-compose tarafından yönetilen her şeyi temizler.
+
+down:
+
+    @echo "--- Stopping and removing containers, networks, and volumes... ---"
+
+    docker compose down --volumes --remove-orphans
+
+
+# Projeyle ilgili olabilecek tüm "hayalet" konteynerleri zorla temizler.
+
+clean: down
+
+    @echo "--- Forcibly removing any lingering containers... ---"
+
+    @docker ps -a -q --filter "name=transcendence_backend" | xargs -r docker rm -f || true
+
+    @docker ps -a -q --filter "name=transcendence_frontend" | xargs -r docker rm -f || true
+
+
+# Veritabanını sıfırlar (tüm verileri siler).
+
+db:
+
+    @echo "--- Resetting database inside the container... ---"
+
+    docker compose exec backend npx prisma migrate reset --force
+
+
+migrate:
+
+    @echo "--- Applying new migrations inside the container... ---"
+
+    docker compose exec backend npx prisma migrate dev
+
+
+# Ağ ve yerel erişim linklerini gösterir.
+
+links:
+
+    @echo "for network: http://$$(hostname -I | awk '{print $$1}'):5173"
+
+    @echo "for local:   http://localhost:5173"
+
+
+# YENİ YARDIMCI HEDEF: .env dosyasını kontrol eder ve gerekirse oluşturur.
+
+check-env:
+
+    @if [ ! -f backend/.env ]; then \
+
+        echo "--- .env file not found. Creating from .env.example... ---"; \
+
+        cp backend/.env.example backend/.env; \
+
+    fi
+
+
+# Projeyi ilk kez kurmak için host makinedeki bağımlılıkları yükler (IDE desteği için).
+
+start:
+
+    @echo "Installing backend dependencies on host..."
+
+    (cd backend && npm install)
+
+    @echo "Installing frontend dependencies on host..."
+
+    (cd frontend && npm install)
+
+    @echo "Host setup complete! You can now run 'make up'."
+
+
+
+
+
+
+docker-compose.yml:
+
+services:
+
+  backend:
+
+    build:
+
+      context: ./backend
+
+      dockerfile: Dockerfile
+
+    container_name: transcendence_backend
+
+    ports:
+
+      - "3000:3000"
+
+    volumes:
+
+      - ./backend:/usr/src/app
+
+      - /usr/src/app/node_modules
+
+    networks:
+
+      - transcendence_network
+
+
+  frontend:
+
+    build:
+
+      context: ./frontend
+
+      dockerfile: Dockerfile
+
+    container_name: transcendence_frontend
+
+    ports:
+
+      - "5173:5173"
+
+    volumes:
+
+      - ./frontend:/usr/src/app
+
+      - /usr/src/app/node_modules
+
+    depends_on:
+
+      - backend
+
+    networks:
+
+      - transcendence_network
+
+
+networks:
+
+  transcendence_network:
+
+    driver: bridge
+
+
+
+
+
+
+backend/api/auth.routes.js:
+
+// backend/api/auth.routes.js
+
+const bcrypt = require('bcrypt');
+
+const jwt = require('jsonwebtoken');
+
+const prisma = require('../prisma/db');
+
+const SALT_ROUNDS = 10;
+
+const JWT_SECRET = process.env.JWT_SECRET;
+
+
+async function authRoutes(fastify, options) {
+
+    fastify.post('/register', async (request, reply) => {
+
+        const { email, name, password } = request.body;
+
+        if (!email || !password) return reply.code(400).send({ error: 'Email and password are required' });
+
+        try {
+
+            const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+
+            const user = await prisma.user.create({ data: { email, name, password: hashedPassword } });
+
+            const { password: _, ...userWithoutPassword } = user;
+
+            return reply.code(201).send(userWithoutPassword);
+
+        } catch (error) {
+
+            if (error.code === 'P2002') return reply.code(409).send({ error: 'This email is already registered' });
+
+            fastify.log.error(error);
+
+            return reply.code(500).send({ error: 'Could not register user' });
+
+        }
+
+    });
+
+
+    fastify.post('/login', async (request, reply) => {
+
+        const { email, password } = request.body;
+
+        if (!email || !password) return reply.code(400).send({ error: 'Email and password are required' });
+
+        try {
+
+            const user = await prisma.user.findUnique({ where: { email } });
+
+            const isPasswordMatch = user ? await bcrypt.compare(password, user.password) : false;
+
+            if (!user || !isPasswordMatch) return reply.code(401).send({ error: 'Invalid credentials' });
+
+            const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
+
+            return { token };
+
+        } catch (error) {
+
+            fastify.log.error(error);
+
+            return reply.code(500).send({ error: 'Internal Server Error' });
+
+        }
+
+    });
+
+}
+
+module.exports = authRoutes;
+
+
+
+
+
+
+backend/api/users.routes.js:
+
+// backend/api/users.routes.js
+
+const prisma = require('../prisma/db');
+
+const authenticate = require('../middleware/authenticate');
+
+
+async function userRoutes(fastify, options) {
+
+    // Mevcut: Sadece kendi profilini getirir.
+
+    fastify.get('/profile', { preHandler: [authenticate] }, async (request, reply) => {
+
+        const userProfile = await prisma.user.findUnique({
+
+            where: { id: request.user.userId },
+
+            select: { id: true, email: true, name: true, createdAt: true, wins: true, losses: true },
+
+        });
+
+        if (!userProfile) return reply.code(404).send({ error: 'User not found' });
+
+        return userProfile;
+
+    });
+
+
+    // Mevcut: Belirli bir kullanıcının halka açık profilini ID ile getirir.
+
+    fastify.get('/users/:id', { preHandler: [authenticate] }, async (request, reply) => {
+
+        const userId = parseInt(request.params.id, 10);
+
+        if (isNaN(userId)) {
+
+            return reply.code(400).send({ error: 'Invalid user ID' });
+
+        }
+
+
+        try {
+
+            const user = await prisma.user.findUnique({
+
+                where: { id: userId },
+
+                select: { // Sadece güvenli ve halka açık bilgileri döndür
+
+                    id: true,
+
+                    name: true,
+
+                    createdAt: true,
+
+                    // --- YENİ EKLENEN ALANLAR ---
+
+                    wins: true,
+
+                    losses: true
+
+                    // -------------------------
+
+                }
+
+            });
+
+
+            if (!user) {
+
+                return reply.code(404).send({ error: 'User not found' });
+
+            }
+
+            return user;
+
+        } catch (error) {
+
+            fastify.log.error(error);
+
+            return reply.code(500).send({ error: 'Internal Server Error' });
+
+        }
+
+    });
+
+
+    // --- YENİ EKLENEN YOL ---
+
+    // Belirli bir kullanıcının son 10 maçını getirir.
+
+    fastify.get('/users/:id/matches', { preHandler: [authenticate] }, async (request, reply) => {
+
+        const userId = parseInt(request.params.id, 10);
+
+        if (isNaN(userId)) {
+
+            return reply.code(400).send({ error: 'Invalid user ID' });
+
+        }
+
+        try {
+
+            const matches = await prisma.match.findMany({
+
+                where: {
+
+                    OR: [
+
+                        { player1Id: userId },
+
+                        { player2Id: userId }
+
+                    ]
+
+                },
+
+                orderBy: {
+
+                    createdAt: 'desc'
+
+                },
+
+                take: 10,
+
+                include: { // Rakip bilgilerini de almak için
+
+                    player1: { select: { id: true, name: true } },
+
+                    player2: { select: { id: true, name: true } }
+
+                }
+
+            });
+
+            return matches;
+
+        } catch (error) {
+
+            fastify.log.error(error);
+
+            return reply.code(500).send({ error: 'Internal Server Error' });
+
+        }
+
+    });
+
+}
+
+
+module.exports = userRoutes;
+
+
+
+
+
+
+backend/middleware/authenticate.js:
+
+// backend/middleware/authenticate.js
+
+const jwt = require('jsonwebtoken');
+
+const JWT_SECRET = process.env.JWT_SECRET;
+
+
+async function authenticate(request, reply) {
+
+    try {
+
+        const authHeader = request.headers.authorization;
+
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+
+            return reply.code(401).send({ error: 'Unauthorized: No token provided' });
+
+        }
+
+        const token = authHeader.split(' ')[1];
+
+        const decoded = jwt.verify(token, JWT_SECRET);
+
+        request.user = decoded;
+
+    } catch (error) {
+
+        return reply.code(401).send({ error: 'Unauthorized: Invalid token' });
+
+    }
+
+}
+
+module.exports = authenticate;
+
+
+
+
+
+
+backend/prisma/db.js:
+
+// backend/prisma/db.js
+
+const { PrismaClient } = require('@prisma/client');
+
+const prisma = new PrismaClient();
+
+module.exports = prisma;
+
+
+
+
+
+
+backend/prisma/schema.prisma:
+
+// backend/prisma/schema.prisma
+
+
+generator client {
+
+  provider = "prisma-client-js"
+
+}
+
+
+datasource db {
+
+  provider = "sqlite"
+
+  url      = env("DATABASE_URL")
+
+}
+
+
+model User {
+
+  id               Int      @id @default(autoincrement())
+
+  createdAt        DateTime @default(now())
+
+  email            String   @unique
+
+  name             String?
+
+  password         String
+
+  wins             Int      @default(0)
+
+  losses           Int      @default(0)
+
+  matchesAsPlayer1 Match[]  @relation("Player1Matches")
+
+  matchesAsPlayer2 Match[]  @relation("Player2Matches")
+
+  matchesAsPlayer3 Match[]  @relation("Player3Matches")
+
+  matchesAsPlayer4 Match[]  @relation("Player4Matches")
+
+  // Bu alan, aşağıdaki Match.winner ile eşleşir
+
+  wonMatches       Match[]  @relation("WinnerMatches")
+
+}
+
+
+model Match {
+
+  id                 Int      @id @default(autoincrement())
+
+  createdAt          DateTime @default(now())
+
+  durationInSeconds  Int
+
+  mode               String
+
+  player1Id          Int
+
+  player3Id          Int?
+
+  player2Id          Int
+
+  player4Id          Int?
+
+  player1            User     @relation("Player1Matches", fields: [player1Id], references: [id])
+
+  player3            User?    @relation("Player3Matches", fields: [player3Id], references: [id])
+
+  player2            User     @relation("Player2Matches", fields: [player2Id], references: [id])
+
+  player4            User?    @relation("Player4Matches", fields: [player4Id], references: [id])
+
+  team1Score         Int
+
+  team2Score         Int
+
+  winnerTeam         Int
+
+  wasForfeit         Boolean  @default(false)
+
+  
+
+  winnerId           Int
+
+  // DÜZELTME: Bu alana, User.wonMatches ile aynı olan ilişki adı eklendi
+
+  winner             User     @relation("WinnerMatches", fields: [winnerId], references: [id])
+
+
+  team1Hits          Int      @default(0)
+
+  team1Misses        Int      @default(0)
+
+  team2Hits          Int      @default(0)
+
+  team2Misses        Int      @default(0)
+
+}
+
+
+
+
+
+
+backend/websockets/chatHandler.js:
+
+// backend/websockets/chatHandler.js
+
+function chatHandler(io, socket, onlineUsers) {
+
+    socket.on('chat message', (msg) => {
+
+        const messageObject = {
+
+            type: 'public',
+
+            sender: socket.user.name || socket.user.email,
+
+            content: msg
+
+        };
+
+        io.emit('chat message', messageObject);
+
+    });
+
+    
+
+    socket.on('private message', ({ recipientId, message }) => {
+
+        const recipientSocket = io.sockets.sockets.get(onlineUsers.get(recipientId)?.socketId);
+
+        if (recipientSocket) {
+
+            const messageObject = {
+
+                type: 'private',
+
+                sender: socket.user.name || socket.user.email,
+
+                content: message
+
+            };
+
+            recipientSocket.emit('chat message', messageObject); // Alıcıya gönder
+
+            socket.emit('chat message', messageObject); // Gönderene de gönder
+
+        }
+
+    });
+
+}
+
+module.exports = chatHandler;
+
+
+
+
+
+
+backend/websockets/gameHandler.js:
+
+const prisma = require('../prisma/db');
+
+
+function shuffleArray(array) {
+
+    for (let i = array.length - 1; i > 0; i--) {
+
+        const j = Math.floor(Math.random() * (i + 1));
+
+        [array[i], array[j]] = [array[j], array[i]];
+
+    }
+
+}
+
+
+async function updatePlayerStats(playerIds, outcome) {
+
+    const fieldToIncrement = outcome === 'win' ? 'wins' : 'losses';
+
+    try {
+
+        await prisma.user.updateMany({
+
+            where: { id: { in: playerIds } },
+
+            data: { [fieldToIncrement]: { increment: 1 } }
+
+        });
+
+        console.log(`Stats updated for players ${playerIds}. Outcome: ${outcome}`);
+
+    } catch (error) {
+
+        console.error("Failed to update player stats:", error);
+
+    }
+
+}
+
+
+async function saveMatch(game, winnerTeam, wasForfeit = false) {
+
+    const { players, gameState, mode } = game;
+
+    const team1 = players.filter(p => p.team === 1);
+
+    const team2 = players.filter(p => p.team === 2);
+
+    
+
+    // 1v1 ve 2v2 modları için temsili oyuncu ID'lerini al
+
+    const player1Id = team1[0].id;
+
+    const player2Id = team2[0].id;
+
+
+    try {
+
+        await prisma.match.create({
+
+            data: {
+
+                mode: mode,
+
+                durationInSeconds: 0, // Bu özelliği şimdilik basitleştirelim
+
+                player1Id: player1Id,
+
+                player3Id: team1[1]?.id, // 2v2 ise ikinci oyuncu, değilse null
+
+                player2Id: player2Id,
+
+                player4Id: team2[1]?.id, // 2v2 ise ikinci oyuncu, değilse null
+
+
+                // --- DÜZELTME: Alan isimleri şema ile eşleştirildi ---
+
+                player1Score: gameState.team1Score,
+
+                player2Score: gameState.team2Score,
+
+                winnerId: winnerTeam === 1 ? player1Id : player2Id,
+
+                // ----------------------------------------------------
+
+
+                wasForfeit: wasForfeit,
+
+
+                // hit/miss istatistikleri şimdilik eklenmedi, basit tutuyoruz
+
+                team1Hits: 0,
+
+                team1Misses: 0,
+
+                team2Hits: 0,
+
+                team2Misses: 0
+
+            }
+
+        });
+
+        console.log("Maç başarıyla kaydedildi.");
+
+    } catch (error) { 
+
+        console.error("Maç kaydedilemedi:", error); 
+
+    }
+
+}
+
+
+// --- ANA OYUN DÖNGÜSÜ ---
+
+
+function startGameLoop(room, players, io, mode, gameConfig) {
+
+    const { canvasSize, paddleSize, paddleThickness } = gameConfig;
+
+    const WINNING_SCORE = 5;
+
+    const BALL_RADIUS = 10;
+
+    
+
+    const game = { players, mode, gameState: {}, intervalId: null };
+
+
+    let gameState = {
+
+        ballX: canvasSize / 2, ballY: canvasSize / 2, ballSpeedX: 6, ballSpeedY: 6,
+
+        team1Score: 0, team2Score: 0,
+
+        players: players.map(p => ({ ...p }))
+
+    };
+
+    game.gameState = gameState;
+
+
+    const intervalId = setInterval(async () => {
+
+        gameState.ballX += gameState.ballSpeedX;
+
+        gameState.ballY += gameState.ballSpeedY;
+
+
+        // DÜZELTİLMİŞ ÇARPIŞMA MANTIĞI
+
+        gameState.players.forEach(p => {
+
+            if (p.position === 'left' || p.position === 'right') {
+
+                const paddleEdgeX = (p.position === 'left') ? paddleThickness : canvasSize - paddleThickness;
+
+                const ballEdgeX = (p.position === 'left') ? gameState.ballX - BALL_RADIUS : gameState.ballX + BALL_RADIUS;
+
+                if (((p.position === 'left' && ballEdgeX <= paddleEdgeX && gameState.ballSpeedX < 0) || (p.position === 'right' && ballEdgeX >= paddleEdgeX && gameState.ballSpeedX > 0)) &&
+
+                    (gameState.ballY > p.y && gameState.ballY < p.y + paddleSize)) {
+
+                    gameState.ballSpeedX = -gameState.ballSpeedX;
+
+                }
+
+            } else {
+
+                const paddleEdgeY = (p.position === 'top') ? paddleThickness : canvasSize - paddleThickness;
+
+                const ballEdgeY = (p.position === 'top') ? gameState.ballY - BALL_RADIUS : gameState.ballY + BALL_RADIUS;
+
+                if (((p.position === 'top' && ballEdgeY <= paddleEdgeY && gameState.ballSpeedY < 0) || (p.position === 'bottom' && ballEdgeY >= paddleEdgeY && gameState.ballSpeedY > 0)) &&
+
+                    (gameState.ballX > p.x && gameState.ballX < p.x + paddleSize)) {
+
+                    gameState.ballSpeedY = -gameState.ballSpeedY;
+
+                }
+
+            }
+
+        });
+
+
+        // Skorlama mantığı
+
+        let scored = false;
+
+        let scoringTeam = null;
+
+        if (gameState.ballX - BALL_RADIUS < 0) { const player = gameState.players.find(p => p.position === 'left'); scoringTeam = player.team === 1 ? 2 : 1; scored = true; } 
+
+        else if (gameState.ballX + BALL_RADIUS > canvasSize) { const player = gameState.players.find(p => p.position === 'right'); scoringTeam = player.team === 1 ? 2 : 1; scored = true; }
+
+        if (mode === '2v2') {
+
+            if (gameState.ballY - BALL_RADIUS < 0) { const player = gameState.players.find(p => p.position === 'top'); scoringTeam = player.team === 1 ? 2 : 1; scored = true; } 
+
+            else if (gameState.ballY + BALL_RADIUS > canvasSize) { const player = gameState.players.find(p => p.position === 'bottom'); scoringTeam = player.team === 1 ? 2 : 1; scored = true; }
+
+        } else { if (gameState.ballY - BALL_RADIUS <= 0 || gameState.ballY + BALL_RADIUS >= canvasSize) { gameState.ballSpeedY = -gameState.ballSpeedY; } }
+
+        
+
+        if (scored) {
+
+            if(scoringTeam === 1) gameState.team1Score++; else gameState.team2Score++;
+
+            io.to(room).emit('gameStateUpdate', gameState);
+
+
+            if (gameState.team1Score >= WINNING_SCORE || gameState.team2Score >= WINNING_SCORE) {
+
+                clearInterval(intervalId);
+
+                const winners = players.filter(p => p.team === scoringTeam);
+
+                const losers = players.filter(p => p.team !== scoringTeam);
+
+                
+
+                await updatePlayerStats(winners.map(p => p.id), 'win');
+
+                await updatePlayerStats(losers.map(p => p.id), 'loss');
+
+                await saveMatch(game, scoringTeam, false);
+
+
+                io.to(room).emit('gameOver', { winners, losers, reason: 'score' });
+
+                const playerSockets = players.map(p => io.sockets.sockets.get(p.socketId)).filter(Boolean);
+
+                playerSockets.forEach(sock => { sock.leave(room); sock.gameRoom = null; });
+
+                return; 
+
+            }
+
+            
+
+            gameState.ballX = gameConfig.canvasSize / 2;
+
+            gameState.ballY = gameConfig.canvasSize / 2;
+
+            gameState.ballSpeedX = -gameState.ballSpeedX;
+
+        }
+
+        
+
+        if (!scored) {
+
+            io.to(room).emit('gameStateUpdate', gameState);
+
+        }
+
+    }, 1000 / 60);
+
+
+    game.intervalId = intervalId;
+
+
+    const gameStartPayload = {
+
+        players: players.map(p => ({id: p.id, name: p.name, email: p.email, position: p.position, team: p.team})),
+
+        mode,
+
+        ...gameConfig
+
+    };
+
+    io.to(room).emit('gameStart', gameStartPayload);
+
+    return game;
+
+}
+
+
+function gameHandler(io, socket, state, payload) {
+
+    const { mode } = payload;
+
+    if (!mode || !state.waitingPlayers[mode]) return;
+
+
+    const isInAnyPool = Object.values(state.waitingPlayers).some(pool => pool.some(p => p.id === socket.id));
+
+    if (isInAnyPool) {
+
+        console.log(`[Matchmaking] ${socket.user.email} zaten bir bekleme havuzunda.`);
+
+        return;
+
+    }
+
+
+    const pool = state.waitingPlayers[mode];
+
+    pool.push(socket);
+
+    console.log(`[Matchmaking] ${socket.user.email} -> ${mode} havuzuna eklendi. (Havuzda ${pool.length} kişi var)`);
+
+    pool.forEach(p => p.emit('updateQueue', { queueSize: pool.length, requiredSize: mode === '1v1' ? 2 : 4 }));
+
+
+    let playerSockets;
+
+    let players;
+
+    const gameConfig = { canvasSize: 800, paddleSize: 100, paddleThickness: 15 };
+
+
+    if (mode === '1v1' && pool.length >= 2) {
+
+        playerSockets = pool.splice(0, 2);
+
+        const [p1, p2] = playerSockets;
+
+        players = [
+
+            { ...p1.user, socketId: p1.id, position: 'left', team: 1, x: 0, y: (gameConfig.canvasSize / 2) - (gameConfig.paddleSize / 2) },
+
+            { ...p2.user, socketId: p2.id, position: 'right', team: 2, x: gameConfig.canvasSize - gameConfig.paddleThickness, y: (gameConfig.canvasSize / 2) - (gameConfig.paddleSize / 2) }
+
+        ];
+
+    }
+
+
+    if (mode === '2v2' && pool.length >= 4) {
+
+        playerSockets = pool.splice(0, 4);
+
+        shuffleArray(playerSockets);
+
+        const teamConfig = Math.random() < 0.5 ? 1 : 2;
+
+
+        if (teamConfig === 1) {
+
+            players = [
+
+                { ...playerSockets[0].user, socketId: playerSockets[0].id, position: 'left', team: 1 },
+
+                { ...playerSockets[1].user, socketId: playerSockets[1].id, position: 'top', team: 1 },
+
+                { ...playerSockets[2].user, socketId: playerSockets[2].id, position: 'right', team: 2 },
+
+                { ...playerSockets[3].user, socketId: playerSockets[3].id, position: 'bottom', team: 2 }
+
+            ];
+
+        } else {
+
+            players = [
+
+                { ...playerSockets[0].user, socketId: playerSockets[0].id, position: 'left', team: 1 },
+
+                { ...playerSockets[1].user, socketId: playerSockets[1].id, position: 'bottom', team: 1 },
+
+                { ...playerSockets[2].user, socketId: playerSockets[2].id, position: 'right', team: 2 },
+
+                { ...playerSockets[3].user, socketId: playerSockets[3].id, position: 'top', team: 2 }
+
+            ];
+
+        }
+
+        players.forEach(p => {
+
+            const center = (gameConfig.canvasSize / 2) - (gameConfig.paddleSize / 2);
+
+            if (p.position === 'left') { p.x = 0; p.y = center; }
+
+            if (p.position === 'right') { p.x = gameConfig.canvasSize - gameConfig.paddleThickness; p.y = center; }
+
+            if (p.position === 'top') { p.y = 0; p.x = center; }
+
+            if (p.position === 'bottom') { p.y = gameConfig.canvasSize - gameConfig.paddleThickness; p.x = center; }
+
+        });
+
+    }
+
+
+    if (players && playerSockets) {
+
+        const roomName = `game_${Date.now()}`;
+
+        playerSockets.forEach(sock => {
+
+            sock.join(roomName);
+
+            sock.gameRoom = { id: roomName, mode: mode };
+
+        });
+
+        const game = startGameLoop(roomName, players, io, mode, gameConfig);
+
+        state.gameRooms.set(roomName, game);
+
+    }
+
+
+    socket.on('playerMove', (data) => {
+
+        if (!socket.gameRoom) return;
+
+        const game = state.gameRooms.get(socket.gameRoom.id);
+
+        if (!game) return;
+
+        const playerState = game.gameState.players.find(p => p.id === socket.user.id);
+
+        if (!playerState) return;
+
+        const { newPosition } = data;
+
+        const { canvasSize, paddleSize } = gameConfig;
+
+        let finalPosition = newPosition;
+
+        if (finalPosition < 0) finalPosition = 0;
+
+        if (finalPosition > canvasSize - paddleSize) finalPosition = canvasSize - paddleSize;
+
+        if (playerState.position === 'left' || playerState.position === 'right') playerState.y = finalPosition;
+
+        if (playerState.position === 'top' || playerState.position === 'bottom') playerState.x = finalPosition;
+
+    });
+
+}
+
+
+module.exports = gameHandler;
+
+
+
+
+
+
+backend/websockets/index.js:
+
+// backend/websockets/index.js
+
+const jwt = require('jsonwebtoken');
+
+const prisma = require('../prisma/db');
+
+const chatHandler = require('./chatHandler');
+
+const gameHandler = require('./gameHandler');
+
+const JWT_SECRET = process.env.JWT_SECRET;
+
+
+// Paylaşılan değişkenler (shared state)
+
+const onlineUsers = new Map();
+
+const gameState = {
+
+    waitingPlayers: {
+
+        '1v1': [],
+
+        '2v2': []
+
+    },
+
+    gameRooms: new Map()
+
+};
+
+
+function initializeSocket(io) {
+
+    // Kimlik Doğrulama Middleware'i
+
+    io.use(async (socket, next) => {
+
+        const token = socket.handshake.auth.token;
+
+        if (!token) return next(new Error('Authentication error'));
+
+        try {
+
+            const decoded = jwt.verify(token, JWT_SECRET);
+
+            const user = await prisma.user.findUnique({
+
+                where: { id: decoded.userId },
+
+                select: { id: true, email: true, name: true }
+
+            });
+
+            if (!user) return next(new Error('User not found'));
+
+            socket.user = user;
+
+            next();
+
+        } catch (err) {
+
+            return next(new Error('Invalid token'));
+
+        }
+
+    });
+
+
+    // Ana Bağlantı Olayı
+
+    io.on('connection', (socket) => {
+
+        // --- TEKİL OTURUM KONTROLÜ ---
+
+        // Bu kullanıcıya ait eski bir bağlantı var mı diye kontrol et.
+
+        if (onlineUsers.has(socket.user.id)) {
+
+            const oldSocketId = onlineUsers.get(socket.user.id).socketId;
+
+            const oldSocket = io.sockets.sockets.get(oldSocketId);
+
+            if (oldSocket) {
+
+                // Eski tarayıcıya "oturumu sonlandır" mesajı gönder.
+
+                oldSocket.emit('forceDisconnect', 'Başka bir yerden giriş yapıldı.');
+
+                // Eski bağlantıyı sunucudan kopar.
+
+                oldSocket.disconnect();
+
+                console.log(`Eski oturum sonlandırıldı: ${socket.user.email} (Socket ID: ${oldSocketId})`);
+
+            }
+
+        }
+
+        // --- KONTROL SONU ---
+
+
+        console.log(`${socket.user.email} bağlandı. (Socket ID: ${socket.id})`);
+
+        onlineUsers.set(socket.user.id, { id: socket.user.id, socketId: socket.id, email: socket.user.email, name: socket.user.name });
+
+        io.emit('update user list', Array.from(onlineUsers.values()));
+
+
+        socket.on('requestUserList', () => {
+
+            socket.emit('update user list', Array.from(onlineUsers.values()));
+
+        });
+
+
+        chatHandler(io, socket, onlineUsers);
+
+
+        socket.on('joinMatchmaking', (payload) => {
+
+            console.log(`${socket.user.email} eşleştirme havuzuna katıldı. Mod: ${payload.mode}`);
+
+            gameHandler(io, socket, gameState, payload);
+
+        });
+
+
+        // --- GÜVENLİ TEMİZLEME FONKSİYONU ---
+
+        const cleanUpPlayer = async (sock) => {
+
+            // Oyuncuyu tüm bekleme havuzlarından kaldır
+
+            Object.keys(gameState.waitingPlayers).forEach(mode => {
+
+                const pool = gameState.waitingPlayers[mode];
+
+                const newPool = pool.filter(p => p.id !== sock.id);
+
+                if (newPool.length < pool.length) {
+
+                    console.log(`${sock.user.email}, ${mode} bekleme havuzundan kaldırıldı.`);
+
+                    gameState.waitingPlayers[mode] = newPool;
+
+                    newPool.forEach(p => p.emit('updateQueue', { queueSize: newPool.length, requiredSize: mode === '1v1' ? 2 : 4 }));
+
+                }
+
+            });
+
+
+            // Oyuncu bir oyun odasındaysa, oyunu bitir.
+
+            if (sock.gameRoom) {
+
+                const game = gameState.gameRooms.get(sock.gameRoom.id);
+
+                if (game) {
+
+                    clearInterval(game.intervalId);
+
+
+                    // Oyundan düşen oyuncunun takımı kaybeder
+
+                    const leavingPlayer = game.players.find(p => p.socketId === sock.id);
+
+                    if (leavingPlayer) {
+
+                        const losingTeam = leavingPlayer.team;
+
+                        const winningTeam = losingTeam === 1 ? 2 : 1;
+
+                        
+
+                        const winners = game.players.filter(p => p.team === winningTeam);
+
+                        const losers = game.players.filter(p => p.team === losingTeam);
+
+
+                        // İstatistikleri güncelle ve maçı "forfeit" olarak kaydet
+
+                        await updatePlayerStats(winners.map(p => p.id), 'win');
+
+                        await updatePlayerStats(losers.map(p => p.id), 'loss');
+
+                        await saveMatch(game, winningTeam, true); // saveMatch'i birazdan oluşturacağız
+
+
+                        // Kalan oyunculara haber ver
+
+                        winners.forEach(p => {
+
+                            const otherSocket = io.sockets.sockets.get(p.socketId);
+
+                            if(otherSocket) otherSocket.emit('gameOver', { 
+
+                                winners, 
+
+                                losers, 
+
+                                reason: 'forfeit' // YENİ: Ayrılma nedenini de gönderiyoruz
+
+                            });
+
+                        });
+
+                    }
+
+                    gameState.gameRooms.delete(sock.gameRoom.id);
+
+                    console.log(`Oda ${sock.gameRoom.id} (terk edildi) temizlendi.`);
+
+                }
+
+            }
+
+        };
+
+
+        socket.on('leaveGameOrLobby', () => {
+
+            console.log(`${socket.user.email} oyun/lobi'den manuel olarak ayrıldı.`);
+
+            cleanUpPlayer(socket);
+
+        });
+
+
+        // Bağlantı Kesilme Olayı
+
+        socket.on('disconnect', () => {
+
+            console.log(`${socket.user.email} bağlantısı kesildi.`);
+
+            // Sadece bu soket gerçekten listedeki son soket ise onlineUsers'dan sil
+
+            if (onlineUsers.has(socket.user.id) && onlineUsers.get(socket.user.id).socketId === socket.id) {
+
+                onlineUsers.delete(socket.user.id);
+
+                io.emit('update user list', Array.from(onlineUsers.values()));
+
+            }
+
+            cleanUpPlayer(socket);
+
+        });
+
+    });
+
+}
+
+
+module.exports = initializeSocket;
+
+
+
+
+
+
+backend/.env:
+
+DATABASE_URL="file:./prisma/dev.db"
+
+JWT_SECRET="YourSecretKeyGoesHere"
+
+
+
+
+
+
+backend/.esnlintrc.json:
+
+{
+
+    "env": {
+
+        "commonjs": true,
+
+        "es2021": true,
+
+        "node": true
+
+    },
+
+    "extends": ["eslint:recommended", "plugin:prettier/recommended"],
+
+    "parserOptions": {
+
+        "ecmaVersion": "latest"
+
+    },
+
+    "rules": {}
+
+}
+
+
+
+
+
+
+backend/.gitignore:
+
+node_modules
+
+# Keep environment variables out of version control
+
+.env
+
+
+/generated/prisma
+
+
+
+
+
+
+backend/.prettierrc.json:
+
+{
+
+    "tabWidth": 4,
+
+    "useTabs": false,
+
+    "semi": true,
+
+    "singleQuote": true,
+
+    "trailingComma": "es5",
+
+    "bracketSpacing": true,
+
+    "bracketSameLine": false
+
+}
+
+
+
+
+
+
+backend/Dockerfile:
+
+# backend/Dockerfile
+
+
+# Istenildiği gibi Node.js'in 20 versiyonunu temel alıyoruz.
+
+FROM node:20
+
+
+# Konteyner içinde çalışacağımız dizini belirliyoruz.
+
+WORKDIR /usr/src/app
+
+
+# Sadece bağımlılıkları yüklemek için package.json dosyasını kopyala
+
+COPY package*.json ./
+
+
+# Proje bağımlılıklarını kuruyoruz.
+
+RUN npm install
+
+
+# --- YENİ VE KRİTİK ADIM ---
+
+# Prisma şemasını kopyala
+
+COPY ./prisma ./prisma/
+
+
+# "Terziyi çağır": Prisma Client'ı şemaya göre oluştur.
+
+RUN npx prisma generate
+
+# -----------------------------
+
+
+# Proje kaynak kodunun geri kalanını konteynere kopyalıyoruz.
+
+COPY . .
+
+
+# Uygulamayı başlatacak olan komutu belirtiyoruz.
+
+CMD ["npm", "run", "dev"]
+
+
+
+
+
+
+backend/package.json:
+
+{
+
+  "name": "backend",
+
+  "version": "1.0.0",
+
+  "description": "",
+
+  "main": "server.js",
+
+  "scripts": {
+
+    "start": "node server.js",
+
+    "dev": "nodemon server.js",
+
+    "lint": "eslint .",
+
+    "format": "prettier --write .",
+
+    "test": "echo \"Error: no test specified\" && exit 1"
+
+  },
+
+  "keywords": [],
+
+  "author": "",
+
+  "license": "ISC",
+
+  "dependencies": {
+
+    "@fastify/cors": "^11.1.0",
+
+    "@prisma/client": "^6.15.0",
+
+    "bcrypt": "^6.0.0",
+
+    "dotenv": "^17.2.2",
+
+    "fastify": "^5.6.0",
+
+    "jsonwebtoken": "^9.0.2",
+
+    "socket.io": "^4.8.1"
+
+  },
+
+  "devDependencies": {
+
+    "eslint": "^9.35.0",
+
+    "eslint-config-prettier": "^10.1.8",
+
+    "eslint-plugin-prettier": "^5.5.4",
+
+    "nodemon": "^3.1.10",
+
+    "prettier": "^3.6.2",
+
+    "prisma": "^6.15.0"
+
+  }
+
+}
+
+
+
+
+
+
+backend/server.js:
+
+// backend/server.js
+
+require('dotenv').config();
+
+
+const fastify = require('fastify')({ logger: true });
+
+const { Server } = require('socket.io');
+
+const cors = require('@fastify/cors');
+
+const initializeSocket = require('./websockets');
+
+
+// Eklentileri Kaydet
+
+fastify.register(cors, { origin: "*" });
+
+
+// HTTP Yollarını Kaydet
+
+fastify.register(require('./api/auth.routes'));
+
+fastify.register(require('./api/users.routes'));
+
+
+// Socket.io Sunucusunu Başlat
+
+const io = new Server(fastify.server, {
+
+    cors: { origin: "*", methods: ["GET", "POST"] }
+
+});
+
+initializeSocket(io);
+
+
+// Ana Durum Yolu
+
+fastify.get('/', (request, reply) => {
+
+    reply.send({ status: 'Server is running - Refactored!' });
+
+});
+
+
+// Sunucuyu Başlatma Fonksiyonu
+
+const start = async () => {
+
+    try {
+
+        await fastify.listen({ port: 3000, host: '0.0.0.0' });
+
+    } catch (err) {
+
+        fastify.log.error(err);
+
+        process.exit(1);
+
+    }
+
+};
+
+
+start();
+
+
+
+
+
+
 frontend/src/api/auth.ts:
 
 // frontend/src/api/auth.ts
@@ -113,99 +1765,40 @@ export async function getUserProfile(userId: string) {
 }
 
 
+export async function getMatchHistory(userId: string) {
+
+  const token = localStorage.getItem('token');
+
+  if (!token) {
+
+    throw new Error('Not authenticated');
+
+  }
 
 
+  const response = await fetch(`${API_URL}/users/${userId}/matches`, {
+
+    method: 'GET',
+
+    headers: {
+
+      'Authorization': `Bearer ${token}`,
+
+    },
+
+  });
 
 
-(dil dosyalarından sadece ingilizce olanı gönderiyorum, diğerleri de aynı neticede)
+  if (!response.ok) {
 
-frontend/src/locales/en.json:
+    const errorData = await response.json();
 
-{
+    throw new Error(errorData.error || 'Failed to fetch match history.');
 
-  "login_title": "Login",
+  }
 
-  "email_label": "Email",
 
-  "password_label": "Password",
-
-  "login_button": "Sign In",
-
-  "register_link": "Don't have an account? Sign Up",
-
-  "register_title": "Sign Up",
-
-  "name_label": "Name (Optional)",
-
-  "register_button": "Sign Up",
-
-  "login_link": "Already have an account? Sign In",
-
-  "register_success_alert": "Registration successful! Please sign in.",
-
-  "error_invalid_credentials": "Invalid credentials. Please try again.",
-
-  "error_email_registered": "This email is already registered.",
-
-  "go_to_game": "Go to Game",
-
-  "logout": "Logout",
-
-  "online_users": "Online Users",
-
-  "recipient": "Recipient",
-
-  "everyone": "Everyone",
-
-  "chat_placeholder": "Type your message...",
-
-  "send_button": "Send",
-
-  "lobby_title": "Select Game Mode",
-
-  "play_local_button": "Play Local (Same Computer)",
-
-  "play_online_button": "Play Online (Find Opponent)",
-
-  "return_to_chat": "Return to Chat",
-
-  "waiting_for_opponent": "Waiting for Opponent...",
-
-  "leave_lobby": "Leave Lobby",
-
-  "opponent_left": "Your opponent has left the game!",
-
-  "chat_public_prefix": "(Everyone)",
-
-  "chat_private_prefix": "(Private)",
-
-  "dropdown_english": "English",
-
-  "online_lobby_title": "Select Online Mode",
-
-  "play_1v1_button": "Play 1v1",
-
-  "play_2v2_button": "Play 2v2",
-
-  "back_button": "Back",
-
-  "profile_wins": "Wins",
-
-  "profile_losses": "Losses",
-
-  "profile_joined_on": "Joined on",
-
-  "you_suffix": "(You)",
-
-  "you_win": "You Win!",
-
-  "you_lose": "You Lose!",
-
-  "rematch_question": "Return to lobby?",
-
-  "stay_on_page": "Stay",
-
-  "return_to_lobby": "Return to Lobby"
+  return response.json();
 
 }
 
@@ -597,8 +2190,6 @@ export function cleanup() {
     socket.off('chat message');
 
   }
-
-  // *** SORUNU ÇÖZEN KISIM SONU ***
 
 }
 
@@ -1124,6 +2715,220 @@ export function afterRender() {
 
 
 
+frontend/src/pages/MatchHistoryPage.ts:
+
+import { t } from '../i18n';
+
+import { getMatchHistory } from '../api/users';
+
+import { getUserProfile } from '../api/users'; // Kullanıcı adını almak için bunu da import ediyoruz
+
+
+// Yardımcı fonksiyon: Saniyeyi "dakika:saniye" formatına çevirir
+
+function formatDuration(seconds: number): string {
+
+    const minutes = Math.floor(seconds / 60);
+
+    const remainingSeconds = seconds % 60;
+
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+
+}
+
+
+export function render(): string {
+
+  return `
+
+    <div class="min-h-screen bg-gray-100 p-4 sm:p-8">
+
+      <h1 id="history-title" class="text-3xl font-bold mb-6 text-center text-gray-800">${t('match_history_title')}</h1>
+
+      <div id="match-history-list" class="space-y-4 max-w-4xl mx-auto">
+
+        <p class="text-center text-gray-500">${t('loading_history')}</p>
+
+      </div>
+
+       <div class="text-center mt-8">
+
+         <a id="back-to-profile-link" href="#" data-link class="text-blue-500 hover:text-blue-800">${t('back_button')}</a>
+
+      </div>
+
+    </div>
+
+  `;
+
+}
+
+
+export async function afterRender() {
+
+    const listContainer = document.getElementById('match-history-list');
+
+    const titleElement = document.getElementById('history-title');
+
+    const backLink = document.getElementById('back-to-profile-link');
+
+
+    const pathParts = window.location.pathname.split('/');
+
+    const userId = pathParts[2];
+
+
+    if (!listContainer || !userId || !titleElement || !backLink) return;
+
+    
+
+    backLink.setAttribute('href', `/profile/${userId}`);
+
+
+    try {
+
+        const userProfile = await getUserProfile(userId);
+
+        if (titleElement) {
+
+            const userName = userProfile.name || 'User';
+
+            titleElement.textContent = t('match_history_for_user').replace('{name}', userName);
+
+        }
+
+        const matches = await getMatchHistory(userId);
+
+        listContainer.innerHTML = '';
+
+
+        if (matches.length === 0) {
+
+            listContainer.innerHTML = `<p class="text-center text-gray-500">${t('no_matches_found')}</p>`;
+
+            return;
+
+        }
+
+
+        const profileOwnerId = parseInt(userId, 10);
+
+
+        matches.forEach((match: any) => {
+
+            const isPlayer1 = match.player1Id === profileOwnerId;
+
+            const myData = isPlayer1 ? match.player1 : match.player2;
+
+            const opponentData = isPlayer1 ? match.player2 : match.player1;
+
+            
+
+            const myStats = isPlayer1 
+
+                ? { score: match.player1Score, hits: match.player1Hits, misses: match.player1Misses }
+
+                : { score: match.player2Score, hits: match.player2Hits, misses: match.player2Misses };
+
+            const opponentStats = isPlayer1
+
+                ? { score: match.player2Score, hits: match.player2Hits, misses: match.player2Misses }
+
+                : { score: match.player1Score, hits: match.player1Hits, misses: match.player1Misses };
+
+
+            const iWon = match.winnerId === profileOwnerId;
+
+
+            const myTotalShots = myStats.hits + myStats.misses;
+
+            const myAccuracy = myTotalShots > 0 ? ((myStats.hits / myTotalShots) * 100).toFixed(0) : 0;
+
+            
+
+            const opponentTotalShots = opponentStats.hits + opponentStats.misses;
+
+            const opponentAccuracy = opponentTotalShots > 0 ? ((opponentStats.hits / opponentTotalShots) * 100).toFixed(0) : 0;
+
+
+            const matchElement = document.createElement('div');
+
+            matchElement.className = `bg-white p-4 rounded-lg shadow-md flex items-center justify-between border-l-8 ${iWon ? 'border-green-500' : 'border-red-500'}`;
+
+            
+
+            matchElement.innerHTML = `
+
+                <div class="flex-1 text-center">
+
+                    <p class="font-bold text-lg">${myData.name} ${iWon ? `(${t('you_suffix')})` : ''}</p>
+
+                    <p class="text-sm ${iWon ? 'text-green-600' : 'text-red-600'} font-bold">${iWon ? t('outcome_win') : t('outcome_lose')}</p>
+
+                    <div class="mt-2 text-xs text-gray-500">
+
+                        <p>${t('stat_accuracy')}: ${myAccuracy}%</p>
+
+                        <p>${t('stat_missed')}: ${myStats.misses}</p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="text-center border-l border-r px-4 mx-4">
+
+                    <p class="text-4xl font-bold">
+
+                        <span>${myStats.score}</span> - <span>${opponentStats.score}</span>
+
+                    </p>
+
+                    <p class="text-xs text-gray-400 mt-2">${new Date(match.createdAt).toLocaleString()}</p>
+
+                    <p class="text-xs text-gray-400">${t('stat_duration')}: ${formatDuration(match.durationInSeconds)}</p>
+
+                </div>
+
+
+                <div class="flex-1 text-center">
+
+                    <p class="font-bold text-lg">${opponentData.name}</p>
+
+                    <p class="text-sm ${!iWon ? 'text-green-600' : 'text-red-600'} font-bold">${!iWon ? t('outcome_win') : t('outcome_lose')}</p>
+
+                     <div class="mt-2 text-xs text-gray-500">
+
+                        <p>${t('stat_accuracy')}: ${opponentAccuracy}%</p>
+
+                        <p>${t('stat_missed')}: ${opponentStats.misses}</p>
+
+                    </div>
+
+                </div>
+
+            `;
+
+            listContainer.appendChild(matchElement);
+
+        });
+
+
+    } catch (error) {
+
+        console.error(error);
+
+        listContainer.innerHTML = `<p class="text-center text-red-500">${t('history_load_error')}</p>`;
+
+    }
+
+}
+
+
+
+
+
+
 frontend/src/pages/OnlineGamePage.ts:
 
 // frontend/src/pages/OnlineGamePage.ts
@@ -1292,6 +3097,7 @@ function handlePlayerMove(event: KeyboardEvent) {
 
 // SAYFANIN HTML'İNİ OLUŞTURMA
 
+
 export function render(): string {
 
     return `
@@ -1300,24 +3106,24 @@ export function render(): string {
 
       <div id="game-status" class="text-3xl text-white mb-4">${t('waiting_for_opponent')}</div>
 
-      <canvas id="pong-canvas" class="bg-black border border-white"></canvas>
+      <canvas id="pong-canvas" width="800" height="800" class="bg-black border border-white"></canvas>
 
       <a href="/lobby" data-link class="mt-4 text-blue-400 hover:text-blue-300">${t('leave_lobby')}</a>
 
 
-      <div id="game-over-modal" class="hidden absolute inset-0 bg-black bg-opacity-75 flex flex-col items-center justify-center text-white">
+      <div id="game-over-modal" class="hidden absolute inset-0 bg-black bg-opacity-75 items-center justify-center text-white">
 
         <h2 id="game-over-text" class="text-6xl font-bold mb-8"></h2>
 
-        <div id="rematch-prompt" class="hidden flex flex-col items-center">
+        <div id="rematch-prompt" class="hidden items-center">
 
             <p class="text-xl mb-4">${t('rematch_question')}</p>
 
-            <div>
+            <div class="flex space-x-4">
 
-                <button id="stay-button" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded mr-4">${t('stay_on_page')}</button>
+                <button id="stay-button" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded">${t('stay_on_page')}</button>
 
-                <a href="/lobby" data-link class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded">${t('return_to_lobby')}</a>
+                <a href="/lobby" data-link class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded">${t('return_to_lobby')}</a>
 
             </div>
 
@@ -1330,6 +3136,7 @@ export function render(): string {
   `;
 
 }
+
 
 
 // SAYFA YÜKLENDİKTEN SONRA ÇALIŞAN KODLAR
@@ -1439,13 +3246,7 @@ export function afterRender() {
     });
 
 
-    socket.on('gameOver', ({ winners, losers }) => {
-
-        // Son skoru ekrana yansıtmak için gameState'i son bir kez daha güncelle
-
-        // (Backend bu bilgiyi göndermiyorsa bu kısmı atlayabilir veya ekleyebiliriz)
-
-        
+    socket.on('gameOver', ({ winners }) => {
 
         window.removeEventListener('keydown', handlePlayerMove);
 
@@ -1459,14 +3260,22 @@ export function afterRender() {
 
         gameOverText.textContent = isWinner ? t('you_win') : t('you_lose');
 
+        
+
+        // Görünür yaparken flex class'larını ekliyoruz
+
         gameOverModal.classList.remove('hidden');
 
+        gameOverModal.classList.add('flex', 'flex-col');
 
-        // 3 saniye sonra lobiye dönme seçeneğini göster
 
         setTimeout(() => {
 
+            // Görünür yaparken flex class'larını ekliyoruz
+
             rematchPrompt.classList.remove('hidden');
+
+            rematchPrompt.classList.add('flex', 'flex-col');
 
         }, 3000);
 
@@ -1516,132 +3325,6 @@ export function cleanup() {
     gameConfig = {};
 
     gameState = {};
-
-}
-
-
-
-
-
-
-frontend/src/pages/ProfilePage.ts:
-
-import { t } from '../i18n';
-
-import { getUserProfile } from '../api/users';
-
-
-export function render(): string {
-
-  // İstatistikleri göstereceğimiz yeni alanları HTML iskeletine ekliyoruz.
-
-  return `
-
-    <div class="min-h-screen bg-gray-100 flex flex-col items-center justify-center">
-
-      <div id="profile-card" class="bg-white p-8 rounded-lg shadow-md w-full max-w-md text-center">
-
-        
-
-        <h2 id="profile-name" class="text-3xl font-bold mb-2">Loading...</h2>
-
-        <p id="profile-created-at" class="text-gray-500 text-sm mb-6"></p>
-
-        
-
-        <div class="flex justify-center space-x-8 border-t border-b py-4">
-
-          <div>
-
-            <p class="text-2xl font-bold text-green-500" id="profile-wins">-</p>
-
-            <p class="text-sm text-gray-600">${t('profile_wins')}</p>
-
-          </div>
-
-          <div>
-
-            <p class="text-2xl font-bold text-red-500" id="profile-losses">-</p>
-
-            <p class="text-sm text-gray-600">${t('profile_losses')}</p>
-
-          </div>
-
-        </div>
-
-
-        <a href="/dashboard" data-link class="mt-8 inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800">
-
-          ${t('return_to_chat')}
-
-        </a>
-
-      </div>
-
-    </div>
-
-  `;
-
-}
-
-
-export async function afterRender() {
-
-  const nameElement = document.getElementById('profile-name');
-
-  const createdAtElement = document.getElementById('profile-created-at');
-
-  const winsElement = document.getElementById('profile-wins');
-
-  const lossesElement = document.getElementById('profile-losses');
-
-
-  const pathParts = window.location.pathname.split('/');
-
-  const userId = pathParts[2];
-
-
-  if (!userId) {
-
-    if (nameElement) nameElement.textContent = 'Invalid Profile';
-
-    return;
-
-  }
-
-
-  try {
-
-    const userProfile = await getUserProfile(userId);
-
-    
-
-    // Gelen veriyle tüm HTML'i güncelle
-
-    if (nameElement) nameElement.textContent = userProfile.name || 'Unnamed User';
-
-    if (createdAtElement) {
-
-      const joinDate = new Date(userProfile.createdAt).toLocaleDateString();
-
-      createdAtElement.textContent = `${t('profile_joined_on')} ${joinDate}`;
-
-    }
-
-    // YENİ: İstatistikleri ekrana yazdır
-
-    if (winsElement) winsElement.textContent = userProfile.wins.toString();
-
-    if (lossesElement) lossesElement.textContent = userProfile.losses.toString();
-
-
-  } catch (error) {
-
-    if (nameElement) nameElement.textContent = 'Profile Not Found';
-
-    console.error(error);
-
-  }
 
 }
 
@@ -1733,6 +3416,147 @@ export function afterRender() {
     navigateTo('/online-game');
 
   });
+
+}
+
+
+
+
+
+
+frontend/src/pages/ProfilePage.ts:
+
+// frontend/src/pages/ProfilePage.ts
+
+import { t } from '../i18n';
+
+import { getUserProfile } from '../api/users';
+
+
+export function render(): string {
+
+  return `
+
+    <div class="min-h-screen bg-gray-100 flex flex-col items-center justify-center">
+
+      <div id="profile-card" class="bg-white p-8 rounded-lg shadow-md w-full max-w-md text-center">
+
+        
+
+        <h2 id="profile-name" class="text-3xl font-bold mb-2">Loading...</h2>
+
+        <p id="profile-created-at" class="text-gray-500 text-sm mb-6"></p>
+
+        
+
+        <div class="flex justify-center space-x-8 border-t border-b py-4">
+
+          <div>
+
+            <p class="text-2xl font-bold text-green-500" id="profile-wins">-</p>
+
+            <p class="text-sm text-gray-600">${t('profile_wins')}</p>
+
+          </div>
+
+          <div>
+
+            <p class="text-2xl font-bold text-red-500" id="profile-losses">-</p>
+
+            <p class="text-sm text-gray-600">${t('profile_losses')}</p>
+
+          </div>
+
+        </div>
+
+
+        <a id="match-history-link" href="#" data-link class="mt-6 bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded block">
+
+          ${t('view_match_history')}
+
+        </a>
+
+
+        <a href="/dashboard" data-link class="mt-4 inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800">
+
+          ${t('return_to_chat')}
+
+        </a>
+
+      </div>
+
+    </div>
+
+  `;
+
+}
+
+
+export async function afterRender() {
+
+  const nameElement = document.getElementById('profile-name');
+
+  const createdAtElement = document.getElementById('profile-created-at');
+
+  const winsElement = document.getElementById('profile-wins');
+
+  const lossesElement = document.getElementById('profile-losses');
+
+  const matchHistoryLink = document.getElementById('match-history-link'); // Yeni butonu seç
+
+
+  const pathParts = window.location.pathname.split('/');
+
+  const userId = pathParts[2];
+
+
+  if (!userId) {
+
+    if (nameElement) nameElement.textContent = 'Invalid Profile';
+
+    return;
+
+  }
+
+  
+
+  // Yeni butonun linkini, görüntülenen kullanıcının ID'sine göre dinamik olarak ayarla
+
+  if (matchHistoryLink) {
+
+    matchHistoryLink.setAttribute('href', `/profile/${userId}/history`);
+
+  }
+
+
+  try {
+
+    const userProfile = await getUserProfile(userId);
+
+    
+
+    if (nameElement) nameElement.textContent = userProfile.name || 'Unnamed User';
+
+    if (createdAtElement) {
+
+      const joinDate = new Date(userProfile.createdAt).toLocaleDateString();
+
+      createdAtElement.textContent = `${t('profile_joined_on')} ${joinDate}`;
+
+    }
+
+    if (winsElement) winsElement.textContent = userProfile.wins.toString();
+
+    if (lossesElement) lossesElement.textContent = userProfile.losses.toString();
+
+
+  } catch (error) {
+
+    if (nameElement) nameElement.textContent = 'Profile Not Found';
+
+    console.error(error);
+
+  }
 
 }
 
@@ -1875,7 +3699,7 @@ export function afterRender() {
 
 
 
-frontend/src/routes/index.ts:
+frontend/src/pages/router/index.ts:
 
 // frontend/src/router/index.ts
 
@@ -1896,6 +3720,8 @@ import { connectSocket, getSocket } from '../socket';
 import * as OnlineLobbyPage from '../pages/OnlineLobbyPage';
 
 import * as ProfilePage from '../pages/ProfilePage';
+
+import * as MatchHistoryPage from '../pages/MatchHistoryPage';
 
 
 interface Route {
@@ -1972,12 +3798,10 @@ export async function handleLocation() {
 
   // 2. ADIM: Yönlendirme kurallarını uygula.
 
-  const protectedPaths = ['/dashboard', '/lobby', '/local-game', '/online-game'];
+  const protectedPaths = ['/dashboard', '/lobby', '/online-lobby', '/local-game', '/online-game'];
 
   const isAuthRequired = protectedPaths.includes(path);
 
-
-  // Token yokken korumalı sayfaya girmeye çalışırsa -> login'e yönlendir.
 
   if (isAuthRequired && !token) {
 
@@ -1986,8 +3810,6 @@ export async function handleLocation() {
     return;
 
   }
-
-  // Token varken login/register sayfasına girmeye çalışırsa -> dashboard'a yönlendir.
 
   if (!isAuthRequired && token && (path === '/' || path === '/register')) {
 
@@ -2000,23 +3822,27 @@ export async function handleLocation() {
 
   // 3. ADIM: Sayfayı render et.
 
-  let route: Route | null = null;
+  let routeToRender: Route | null = null;
 
   
 
-  if (path.startsWith('/profile/')) {
+  if (path.startsWith('/profile/') && path.endsWith('/history')) {
 
-    route = ProfilePage;
+    routeToRender = MatchHistoryPage;
+
+  } else if (path.startsWith('/profile/')) {
+
+    routeToRender = ProfilePage;
 
   } else {
 
-    route = routes[path] || routes['/'];
+    routeToRender = routes[path] || routes['/'];
 
   }
 
   
 
-  if (!route) { // Eğer hiçbir rota eşleşmezse
+  if (!routeToRender) {
 
       app.innerHTML = '<h1>404 Not Found</h1>';
 
@@ -2025,7 +3851,9 @@ export async function handleLocation() {
   }
 
 
-  if (currentRoute !== route) {
+  // Sadece rota gerçekten değiştiyse render et
+
+  if (currentRoute !== routeToRender) {
 
     if (currentRoute && currentRoute.cleanup) {
 
@@ -2035,19 +3863,17 @@ export async function handleLocation() {
 
     
 
-    app.innerHTML = route.render();
+    app.innerHTML = routeToRender.render();
 
     
 
-    if (route.afterRender) {
+    if (routeToRender.afterRender) {
 
-      // afterRender async olabileceği için void ile çağırıyoruz
-
-      void route.afterRender();
+      void routeToRender.afterRender();
 
     }
 
-    currentRoute = route;
+    currentRoute = routeToRender;
 
   }
 
@@ -2202,7 +4028,13 @@ export function getCurrentLanguage(): string {
 
 export function t(key: string): string {
 
-  return currentTranslations[key] || key;
+  if (Object.prototype.hasOwnProperty.call(currentTranslations, key)) {
+
+    return currentTranslations[key];
+
+  }
+
+  return key;
 
 }
 
@@ -2752,7 +4584,9 @@ frontend/tsconfig.json:
 
     "noFallthroughCasesInSwitch": true,
 
-    "noUncheckedSideEffectImports": true
+    "noUncheckedSideEffectImports": true,
+
+    "forceConsistentCasingInFileNames": true
 
   },
 
@@ -2762,1506 +4596,3 @@ frontend/tsconfig.json:
 
 
 
-
-
-
-backend/api/auth.routes.js:
-
-// backend/api/auth.routes.js
-
-const bcrypt = require('bcrypt');
-
-const jwt = require('jsonwebtoken');
-
-const prisma = require('../prisma/db');
-
-const SALT_ROUNDS = 10;
-
-const JWT_SECRET = process.env.JWT_SECRET;
-
-
-async function authRoutes(fastify, options) {
-
-    fastify.post('/register', async (request, reply) => {
-
-        const { email, name, password } = request.body;
-
-        if (!email || !password) return reply.code(400).send({ error: 'Email and password are required' });
-
-        try {
-
-            const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
-
-            const user = await prisma.user.create({ data: { email, name, password: hashedPassword } });
-
-            const { password: _, ...userWithoutPassword } = user;
-
-            return reply.code(201).send(userWithoutPassword);
-
-        } catch (error) {
-
-            if (error.code === 'P2002') return reply.code(409).send({ error: 'This email is already registered' });
-
-            fastify.log.error(error);
-
-            return reply.code(500).send({ error: 'Could not register user' });
-
-        }
-
-    });
-
-
-    fastify.post('/login', async (request, reply) => {
-
-        const { email, password } = request.body;
-
-        if (!email || !password) return reply.code(400).send({ error: 'Email and password are required' });
-
-        try {
-
-            const user = await prisma.user.findUnique({ where: { email } });
-
-            const isPasswordMatch = user ? await bcrypt.compare(password, user.password) : false;
-
-            if (!user || !isPasswordMatch) return reply.code(401).send({ error: 'Invalid credentials' });
-
-            const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
-
-            return { token };
-
-        } catch (error) {
-
-            fastify.log.error(error);
-
-            return reply.code(500).send({ error: 'Internal Server Error' });
-
-        }
-
-    });
-
-}
-
-module.exports = authRoutes;
-
-
-
-
-
-
-backend/api/users.routes.js:
-
-// backend/api/users.routes.js
-
-const prisma = require('../prisma/db');
-
-const authenticate = require('../middleware/authenticate');
-
-
-async function userRoutes(fastify, options) {
-
-    // Mevcut: Sadece kendi profilini getirir.
-
-    fastify.get('/profile', { preHandler: [authenticate] }, async (request, reply) => {
-
-        const userProfile = await prisma.user.findUnique({
-
-            where: { id: request.user.userId },
-
-            select: { id: true, email: true, name: true, createdAt: true },
-
-        });
-
-        if (!userProfile) return reply.code(404).send({ error: 'User not found' });
-
-        return userProfile;
-
-    });
-
-
-    // Mevcut: Tüm kullanıcıları listeler.
-
-    fastify.get('/users', { preHandler: [authenticate] }, async (request, reply) => {
-
-        const users = await prisma.user.findMany({ 
-
-            select: { id: true, name: true } // Sadece halka açık bilgileri seçiyoruz
-
-        });
-
-        return users;
-
-    });
-
-
-    // --- YENİ EKLENECEK YOL ---
-
-    // Belirli bir kullanıcının halka açık profilini ID ile getirir.
-
-    fastify.get('/users/:id', { preHandler: [authenticate] }, async (request, reply) => {
-
-        const userId = parseInt(request.params.id, 10);
-
-        if (isNaN(userId)) {
-
-            return reply.code(400).send({ error: 'Invalid user ID' });
-
-        }
-
-
-        try {
-
-            const user = await prisma.user.findUnique({
-
-                where: { id: userId },
-
-                select: { // Sadece güvenli ve halka açık bilgileri döndür
-
-                    id: true,
-
-                    name: true,
-
-                    createdAt: true,
-
-                    // Gelecekte buraya wins, losses gibi istatistikler eklenecek
-
-                    wins: true,
-
-                    losses: true
-
-                }
-
-            });
-
-
-            if (!user) {
-
-                return reply.code(404).send({ error: 'User not found' });
-
-            }
-
-            return user;
-
-        } catch (error) {
-
-            fastify.log.error(error);
-
-            return reply.code(500).send({ error: 'Internal Server Error' });
-
-        }
-
-    });
-
-}
-
-
-module.exports = userRoutes;
-
-
-
-
-
-
-backend/middleware/authenticate.js:
-
-// backend/middleware/authenticate.js
-
-const jwt = require('jsonwebtoken');
-
-const JWT_SECRET = process.env.JWT_SECRET;
-
-
-async function authenticate(request, reply) {
-
-    try {
-
-        const authHeader = request.headers.authorization;
-
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-
-            return reply.code(401).send({ error: 'Unauthorized: No token provided' });
-
-        }
-
-        const token = authHeader.split(' ')[1];
-
-        const decoded = jwt.verify(token, JWT_SECRET);
-
-        request.user = decoded;
-
-    } catch (error) {
-
-        return reply.code(401).send({ error: 'Unauthorized: Invalid token' });
-
-    }
-
-}
-
-module.exports = authenticate;
-
-
-
-
-
-
-backend/prisma/db.js:
-
-// backend/prisma/db.js
-
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient();
-
-module.exports = prisma;
-
-
-
-
-
-
-backend/prisma/schema.prisma:
-
-// This is your Prisma schema file,
-
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
-
-generator client {
-
-  provider = "prisma-client-js"
-
-}
-
-
-datasource db {
-
-  provider = "sqlite" // "postgresql" olan bu satırı "sqlite" olarak değiştir
-
-  url      = env("DATABASE_URL")
-
-}
-
-
-// Buradan aşağısı bizim veritabanı tablolarımızı temsil edecek.
-
-// İlk olarak Kullanıcı (User) modelimizi oluşturalım.
-
-
-model User {
-
-  id        Int      @id @default(autoincrement())
-
-  createdAt DateTime @default(now())
-
-  email     String   @unique
-
-  name      String?
-
-  password  String
-
-  
-
-  // --- YENİ EKLENEN ALANLAR ---
-
-  wins      Int      @default(0)
-
-  losses    Int      @default(0)
-
-}
-
-
-
-
-
-
-backend/websockets/chatHandler.js:
-
-// backend/websockets/chatHandler.js
-
-function chatHandler(io, socket, onlineUsers) {
-
-    socket.on('chat message', (msg) => {
-
-        const messageObject = {
-
-            type: 'public',
-
-            sender: socket.user.name || socket.user.email,
-
-            content: msg
-
-        };
-
-        io.emit('chat message', messageObject);
-
-    });
-
-    
-
-    socket.on('private message', ({ recipientId, message }) => {
-
-        const recipientSocket = io.sockets.sockets.get(onlineUsers.get(recipientId)?.socketId);
-
-        if (recipientSocket) {
-
-            const messageObject = {
-
-                type: 'private',
-
-                sender: socket.user.name || socket.user.email,
-
-                content: message
-
-            };
-
-            recipientSocket.emit('chat message', messageObject); // Alıcıya gönder
-
-            socket.emit('chat message', messageObject); // Gönderene de gönder
-
-        }
-
-    });
-
-}
-
-module.exports = chatHandler;
-
-
-
-
-
-
-backend/websockets/gameHandler.js:
-
-// backend/websockets/gameHandler.js
-
-
-const prisma = require('../prisma/db');
-
-
-// Bu fonksiyon, bir array'i karıştırmak için kullanılır (takım oluşturmada lazım olacak)
-
-function shuffleArray(array) {
-
-    for (let i = array.length - 1; i > 0; i--) {
-
-        const j = Math.floor(Math.random() * (i + 1));
-
-        [array[i], array[j]] = [array[j], array[i]];
-
-    }
-
-}
-
-
-async function updatePlayerStats(playerIds, outcome) {
-
-    const fieldToIncrement = outcome === 'win' ? 'wins' : 'losses';
-
-    try {
-
-        await prisma.user.updateMany({
-
-            where: {
-
-                id: { in: playerIds }
-
-            },
-
-            data: {
-
-                [fieldToIncrement]: {
-
-                    increment: 1
-
-                }
-
-            }
-
-        });
-
-        console.log(`Stats updated for players ${playerIds}. Outcome: ${outcome}`);
-
-    } catch (error) {
-
-        console.error("Failed to update player stats:", error);
-
-    }
-
-}
-
-
-function startGameLoop(room, players, io, mode, gameConfig)
-
-{
-
-    const { canvasSize, paddleSize, paddleThickness } = gameConfig;
-
-
-    let gameState = {
-
-        ballX: canvasSize / 2,
-
-        ballY: canvasSize / 2,
-
-        ballSpeedX: 6,
-
-        ballSpeedY: 6,
-
-        team1Score: 0,
-
-        team2Score: 0,
-
-        players: players.map(p => ({
-
-            id: p.id,
-
-            position: p.position,
-
-            team: p.team,
-
-            x: p.x,
-
-            y: p.y
-
-        }))
-
-    };
-
-
-    const WINNING_SCORE = 5;
-
-
-    const intervalId = setInterval(async () => {
-
-        // Top hareketi ve raket çarpışmaları...
-
-        gameState.ballX += gameState.ballSpeedX;
-
-        gameState.ballY += gameState.ballSpeedY;
-
-
-        gameState.players.forEach(p => {
-
-            if (p.position === 'left' && gameState.ballX <= paddleThickness && gameState.ballY > p.y && gameState.ballY < p.y + paddleSize) gameState.ballSpeedX = -gameState.ballSpeedX;
-
-            if (p.position === 'right' && gameState.ballX >= canvasSize - paddleThickness && gameState.ballY > p.y && gameState.ballY < p.y + paddleSize) gameState.ballSpeedX = -gameState.ballSpeedX;
-
-            if (p.position === 'top' && gameState.ballY <= paddleThickness && gameState.ballX > p.x && gameState.ballX < p.x + paddleSize) gameState.ballSpeedY = -gameState.ballSpeedY;
-
-            if (p.position === 'bottom' && gameState.ballY >= canvasSize - paddleThickness && gameState.ballX > p.x && gameState.ballX < p.x + paddleSize) gameState.ballSpeedY = -gameState.ballSpeedY;
-
-        });
-
-
-        // Skorlama mantığı
-
-        let scored = false;
-
-        let scoringTeam = null;
-
-
-        if (gameState.ballX < 0) {
-
-            const player = gameState.players.find(p => p.position === 'left');
-
-            scoringTeam = player.team === 1 ? 2 : 1;
-
-            scored = true;
-
-        } else if (gameState.ballX > canvasSize) {
-
-            const player = gameState.players.find(p => p.position === 'right');
-
-            scoringTeam = player.team === 1 ? 2 : 1;
-
-            scored = true;
-
-        }
-
-        
-
-        if (mode === '2v2') {
-
-            if (gameState.ballY < 0) {
-
-                const player = gameState.players.find(p => p.position === 'top');
-
-                scoringTeam = player.team === 1 ? 2 : 1;
-
-                scored = true;
-
-            } else if (gameState.ballY > canvasSize) {
-
-                const player = gameState.players.find(p => p.position === 'bottom');
-
-                scoringTeam = player.team === 1 ? 2 : 1;
-
-                scored = true;
-
-            }
-
-        } else {
-
-            if (gameState.ballY <= 0 || gameState.ballY >= canvasSize) {
-
-                gameState.ballSpeedY = -gameState.ballSpeedY;
-
-            }
-
-        }
-
-        
-
-        if (scored) {
-
-            // 1. ÖNCE skoru arttır.
-
-            if(scoringTeam === 1) gameState.team1Score++;
-
-            else gameState.team2Score++;
-
-            
-
-            // 2. SONRA, final skoru içeren son durumu herkese gönder.
-
-            io.to(room).emit('gameStateUpdate', gameState);
-
-
-            // 3. ŞİMDİ oyunun bitip bitmediğini kontrol et.
-
-            if (gameState.team1Score >= WINNING_SCORE || gameState.team2Score >= WINNING_SCORE) {
-
-                clearInterval(intervalId);
-
-                
-
-                const winners = players.filter(p => p.team === scoringTeam);
-
-                const losers = players.filter(p => p.team !== scoringTeam);
-
-                const winnerIds = winners.map(p => p.id);
-
-                const loserIds = losers.map(p => p.id);
-
-
-                await updatePlayerStats(winnerIds, 'win');
-
-                await updatePlayerStats(loserIds, 'loss');
-
-
-                io.to(room).emit('gameOver', { winners, losers });
-
-                
-
-                const playerSockets = players.map(p => io.sockets.sockets.get(p.socketId)).filter(Boolean);
-
-                playerSockets.forEach(sock => {
-
-                    sock.leave(room);
-
-                    sock.gameRoom = null;
-
-                });
-
-                
-
-                // gameRooms'dan silme işlemini cleanup fonksiyonu zaten yapıyor, burada tekrar gerek yok.
-
-                
-
-                return; 
-
-            }
-
-            
-
-            // Oyun bitmediyse topu sıfırla.
-
-            gameState.ballX = gameConfig.canvasSize / 2;
-
-            gameState.ballY = gameConfig.canvasSize / 2;
-
-            gameState.ballSpeedX = -gameState.ballSpeedX;
-
-        }
-
-        
-
-        // Skor olmadıysa normal oyun durumunu gönder.
-
-        if (!scored) {
-
-            io.to(room).emit('gameStateUpdate', gameState);
-
-        }
-
-    }, 1000 / 60);
-
-
-    const gameStartPayload = {
-
-        players: players.map(p => ({id: p.id, name: p.name, email: p.email, position: p.position, team: p.team})),
-
-        mode,
-
-        ...gameConfig
-
-    };
-
-
-    io.to(room).emit('gameStart', gameStartPayload);
-
-    return { players, intervalId, gameState };
-
-}
-
-
-
-function gameHandler(io, socket, state, payload) {
-
-    const { mode } = payload;
-
-    if (!mode || !state.waitingPlayers[mode]) return; // Geçersiz mod ise işlemi durdur
-
-
-    // Oyuncunun zaten bir havuzda olup olmadığını kontrol et
-
-    const isInAnyPool = Object.values(state.waitingPlayers).some(pool => pool.some(p => p.id === socket.id));
-
-    if (isInAnyPool) {
-
-        console.log(`[Matchmaking] ${socket.user.email} zaten bir bekleme havuzunda.`);
-
-        return;
-
-    }
-
-
-    const pool = state.waitingPlayers[mode];
-
-    pool.push(socket);
-
-    console.log(`[Matchmaking] ${socket.user.email} -> ${mode} havuzuna eklendi. (Havuzda ${pool.length} kişi var)`);
-
-    pool.forEach(p => p.emit('updateQueue', { queueSize: pool.length, requiredSize: mode === '1v1' ? 2 : 4 }));
-
-
-    let playerSockets;
-
-    let players;
-
-    const gameConfig = { canvasSize: 800, paddleSize: 100, paddleThickness: 15 };
-
-
-    // 1v1 OYUNU BAŞLATMA
-
-    if (mode === '1v1' && pool.length >= 2) {
-
-        console.log(`[Matchmaking] 1v1 için yeterli oyuncu bulundu.`);
-
-        playerSockets = pool.splice(0, 2);
-
-        const [p1, p2] = playerSockets;
-
-
-        players = [
-
-            { ...p1.user, socketId: p1.id, position: 'left', team: 1, x: 0, y: (gameConfig.canvasSize / 2) - (gameConfig.paddleSize / 2) },
-
-            { ...p2.user, socketId: p2.id, position: 'right', team: 2, x: gameConfig.canvasSize - gameConfig.paddleThickness, y: (gameConfig.canvasSize / 2) - (gameConfig.paddleSize / 2) }
-
-        ];
-
-    }
-
-
-    // 2v2 OYUNU BAŞLATMA
-
-    if (mode === '2v2' && pool.length >= 4) {
-
-        console.log(`[Matchmaking] 2v2 için yeterli oyuncu bulundu.`);
-
-        playerSockets = pool.splice(0, 4);
-
-        
-
-        shuffleArray(playerSockets);
-
-
-        const teamConfig = Math.random() < 0.5 ? 1 : 2;
-
-        console.log(`[Matchmaking] 2v2 Takım Konfigürasyonu: ${teamConfig}`);
-
-
-        if (teamConfig === 1) { // Durum 1: (Sol+Üst) vs (Sağ+Alt)
-
-            players = [
-
-                { ...playerSockets[0].user, socketId: playerSockets[0].id, position: 'left', team: 1 },
-
-                { ...playerSockets[1].user, socketId: playerSockets[1].id, position: 'top', team: 1 },
-
-                { ...playerSockets[2].user, socketId: playerSockets[2].id, position: 'right', team: 2 },
-
-                { ...playerSockets[3].user, socketId: playerSockets[3].id, position: 'bottom', team: 2 }
-
-            ];
-
-        } else { // Durum 2: (Sol+Alt) vs (Sağ+Üst)
-
-            players = [
-
-                { ...playerSockets[0].user, socketId: playerSockets[0].id, position: 'left', team: 1 },
-
-                { ...playerSockets[1].user, socketId: playerSockets[1].id, position: 'bottom', team: 1 },
-
-                { ...playerSockets[2].user, socketId: playerSockets[2].id, position: 'right', team: 2 },
-
-                { ...playerSockets[3].user, socketId: playerSockets[3].id, position: 'top', team: 2 }
-
-            ];
-
-        }
-
-
-        players.forEach(p => {
-
-            const center = (gameConfig.canvasSize / 2) - (gameConfig.paddleSize / 2);
-
-            if (p.position === 'left') { p.x = 0; p.y = center; }
-
-            if (p.position === 'right') { p.x = gameConfig.canvasSize - gameConfig.paddleThickness; p.y = center; }
-
-            if (p.position === 'top') { p.y = 0; p.x = center; }
-
-            if (p.position === 'bottom') { p.y = gameConfig.canvasSize - gameConfig.paddleThickness; p.x = center; }
-
-        });
-
-    }
-
-
-    if (players && playerSockets) {
-
-        const roomName = `game_${Date.now()}`;
-
-        playerSockets.forEach(sock => {
-
-            sock.join(roomName);
-
-            sock.gameRoom = { id: roomName, mode: mode };
-
-        });
-
-
-        const game = startGameLoop(roomName, players, io, mode, gameConfig);
-
-        state.gameRooms.set(roomName, game);
-
-        console.log(`[Matchmaking] Oda (${roomName}) oluşturuldu ve ${mode} oyunu başlatıldı.`);
-
-    }
-
-
-    socket.on('playerMove', (data) => {
-
-        if (!socket.gameRoom) return;
-
-        const game = state.gameRooms.get(socket.gameRoom.id);
-
-        if (!game) return;
-
-
-        const playerState = game.gameState.players.find(p => p.id === socket.user.id);
-
-        if (!playerState) return;
-
-        
-
-        const { newPosition } = data;
-
-        const { canvasSize, paddleSize } = gameConfig;
-
-        let finalPosition = newPosition;
-
-
-        if (finalPosition < 0) finalPosition = 0;
-
-        if (finalPosition > canvasSize - paddleSize) finalPosition = canvasSize - paddleSize;
-
-
-        if (playerState.position === 'left' || playerState.position === 'right') playerState.y = finalPosition;
-
-        if (playerState.position === 'top' || playerState.position === 'bottom') playerState.x = finalPosition;
-
-    });
-
-}
-
-
-module.exports = gameHandler;
-
-
-
-
-
-
-backend/websockets/index.js:
-
-// backend/websockets/index.js
-
-const jwt = require('jsonwebtoken');
-
-const prisma = require('../prisma/db');
-
-const chatHandler = require('./chatHandler');
-
-const gameHandler = require('./gameHandler');
-
-const JWT_SECRET = process.env.JWT_SECRET;
-
-
-// Paylaşılan değişkenler (shared state)
-
-const onlineUsers = new Map();
-
-const gameState = {
-
-    waitingPlayers: {
-
-        '1v1': [],
-
-        '2v2': []
-
-    },
-
-    gameRooms: new Map()
-
-};
-
-
-function initializeSocket(io) {
-
-    // Kimlik Doğrulama Middleware'i
-
-    io.use(async (socket, next) => {
-
-        const token = socket.handshake.auth.token;
-
-        if (!token) return next(new Error('Authentication error'));
-
-        try {
-
-            const decoded = jwt.verify(token, JWT_SECRET);
-
-            const user = await prisma.user.findUnique({
-
-                where: { id: decoded.userId },
-
-                select: { id: true, email: true, name: true }
-
-            });
-
-            if (!user) return next(new Error('User not found'));
-
-            socket.user = user;
-
-            next();
-
-        } catch (err) {
-
-            return next(new Error('Invalid token'));
-
-        }
-
-    });
-
-
-    // Ana Bağlantı Olayı
-
-    io.on('connection', (socket) => {
-
-        // --- TEKİL OTURUM KONTROLÜ ---
-
-        // Bu kullanıcıya ait eski bir bağlantı var mı diye kontrol et.
-
-        if (onlineUsers.has(socket.user.id)) {
-
-            const oldSocketId = onlineUsers.get(socket.user.id).socketId;
-
-            const oldSocket = io.sockets.sockets.get(oldSocketId);
-
-            if (oldSocket) {
-
-                // Eski tarayıcıya "oturumu sonlandır" mesajı gönder.
-
-                oldSocket.emit('forceDisconnect', 'Başka bir yerden giriş yapıldı.');
-
-                // Eski bağlantıyı sunucudan kopar.
-
-                oldSocket.disconnect();
-
-                console.log(`Eski oturum sonlandırıldı: ${socket.user.email} (Socket ID: ${oldSocketId})`);
-
-            }
-
-        }
-
-        // --- KONTROL SONU ---
-
-
-        console.log(`${socket.user.email} bağlandı. (Socket ID: ${socket.id})`);
-
-        onlineUsers.set(socket.user.id, { id: socket.user.id, socketId: socket.id, email: socket.user.email, name: socket.user.name });
-
-        io.emit('update user list', Array.from(onlineUsers.values()));
-
-
-        socket.on('requestUserList', () => {
-
-            socket.emit('update user list', Array.from(onlineUsers.values()));
-
-        });
-
-
-        chatHandler(io, socket, onlineUsers);
-
-
-        socket.on('joinMatchmaking', (payload) => {
-
-            console.log(`${socket.user.email} eşleştirme havuzuna katıldı. Mod: ${payload.mode}`);
-
-            gameHandler(io, socket, gameState, payload);
-
-        });
-
-
-        // --- GÜVENLİ TEMİZLEME FONKSİYONU ---
-
-        const cleanUpPlayer = (sock) => {
-
-            // Oyuncuyu tüm bekleme havuzlarından kaldır
-
-            Object.keys(gameState.waitingPlayers).forEach(mode => {
-
-                const pool = gameState.waitingPlayers[mode];
-
-                const newPool = pool.filter(p => p.id !== sock.id);
-
-                if (newPool.length < pool.length) {
-
-                    console.log(`${sock.user.email}, ${mode} bekleme havuzundan kaldırıldı.`);
-
-                    gameState.waitingPlayers[mode] = newPool;
-
-                    newPool.forEach(p => p.emit('updateQueue', { queueSize: newPool.length, requiredSize: mode === '1v1' ? 2 : 4 }));
-
-                }
-
-            });
-
-
-            // Oyuncu bir oyun odasındaysa, oyunu bitir.
-
-            if (sock.gameRoom) {
-
-                const game = gameState.gameRooms.get(sock.gameRoom.id);
-
-                // KRİTİK DÜZELTME: 'game' nesnesinin var olduğundan emin ol! Bu, çökme hatasını engeller.
-
-                if (game) {
-
-                    clearInterval(game.intervalId);
-
-                    const otherPlayers = game.players.filter(p => p.socketId !== sock.id);
-
-                    otherPlayers.forEach(p => {
-
-                         const otherSocket = io.sockets.sockets.get(p.socketId);
-
-                         if(otherSocket) otherSocket.emit('opponentLeft');
-
-                    });
-
-                    gameState.gameRooms.delete(sock.gameRoom.id);
-
-                    console.log(`Oda ${sock.gameRoom.id} temizlendi.`);
-
-                }
-
-            }
-
-        };
-
-
-        socket.on('leaveGameOrLobby', () => {
-
-            console.log(`${socket.user.email} oyun/lobi'den manuel olarak ayrıldı.`);
-
-            cleanUpPlayer(socket);
-
-        });
-
-
-        // Bağlantı Kesilme Olayı
-
-        socket.on('disconnect', () => {
-
-            console.log(`${socket.user.email} bağlantısı kesildi.`);
-
-            // Sadece bu soket gerçekten listedeki son soket ise onlineUsers'dan sil
-
-            if (onlineUsers.has(socket.user.id) && onlineUsers.get(socket.user.id).socketId === socket.id) {
-
-                onlineUsers.delete(socket.user.id);
-
-                io.emit('update user list', Array.from(onlineUsers.values()));
-
-            }
-
-            cleanUpPlayer(socket);
-
-        });
-
-    });
-
-}
-
-
-module.exports = initializeSocket;
-
-
-
-
-
-
-backend/.env:
-
-DATABASE_URL="file:./prisma/dev.db"
-
-JWT_SECRET="YourSecretKeyGoesHere"
-
-
-
-
-
-
-backend/.eslintrc.json:
-
-{
-
-    "env": {
-
-        "commonjs": true,
-
-        "es2021": true,
-
-        "node": true
-
-    },
-
-    "extends": ["eslint:recommended", "plugin:prettier/recommended"],
-
-    "parserOptions": {
-
-        "ecmaVersion": "latest"
-
-    },
-
-    "rules": {}
-
-}
-
-
-
-
-
-
-backend/.gitignore:
-
-node_modules
-
-# Keep environment variables out of version control
-
-.env
-
-
-/generated/prisma
-
-
-
-
-
-
-backend/.prettierrc.json:
-
-{
-
-    "tabWidth": 4,
-
-    "useTabs": false,
-
-    "semi": true,
-
-    "singleQuote": true,
-
-    "trailingComma": "es5",
-
-    "bracketSpacing": true,
-
-    "bracketSameLine": false
-
-}
-
-
-
-
-
-
-backend/Dockerfile:
-
-# Istenildiği gibi Node.js'in 20 versiyonunu temel alıyoruz.
-
-FROM node:20
-
-
-# Konteyner içinde çalışacağımız dizini belirliyoruz.
-
-WORKDIR /usr/src/app
-
-
-# package.json ve package-lock.json dosyalarını kopyalıyoruz.
-
-# Bu, sadece bağımlılıklar değiştiğinde "npm install" komutunun tekrar çalışmasını sağlar,
-
-# her kod değişikliğinde değil. Bu da build süresini hızlandırır.
-
-COPY package*.json ./
-
-
-# Proje bağımlılıklarını kuruyoruz.
-
-RUN npm install
-
-
-# Proje kaynak kodunu konteynere kopyalıyoruz.
-
-COPY . .
-
-
-# Uygulamayı başlatacak olan komutu belirtiyoruz.
-
-# "npm run dev" komutu ile nodemon'u çalıştıracağız.
-
-CMD ["npm", "run", "dev"]
-
-
-
-
-
-
-backend/package.json:
-
-{
-
-  "name": "backend",
-
-  "version": "1.0.0",
-
-  "description": "",
-
-  "main": "server.js",
-
-  "scripts": {
-
-    "start": "node server.js",
-
-    "dev": "nodemon server.js",
-
-    "lint": "eslint .",
-
-    "format": "prettier --write .",
-
-    "test": "echo \"Error: no test specified\" && exit 1"
-
-  },
-
-  "keywords": [],
-
-  "author": "",
-
-  "license": "ISC",
-
-  "dependencies": {
-
-    "@fastify/cors": "^11.1.0",
-
-    "@prisma/client": "^6.15.0",
-
-    "bcrypt": "^6.0.0",
-
-    "dotenv": "^17.2.2",
-
-    "fastify": "^5.6.0",
-
-    "jsonwebtoken": "^9.0.2",
-
-    "socket.io": "^4.8.1"
-
-  },
-
-  "devDependencies": {
-
-    "eslint": "^9.35.0",
-
-    "eslint-config-prettier": "^10.1.8",
-
-    "eslint-plugin-prettier": "^5.5.4",
-
-    "nodemon": "^3.1.10",
-
-    "prettier": "^3.6.2",
-
-    "prisma": "^6.15.0"
-
-  }
-
-}
-
-
-
-
-
-
-backend/server.js:
-
-// backend/server.js
-
-require('dotenv').config();
-
-
-const fastify = require('fastify')({ logger: true });
-
-const { Server } = require('socket.io');
-
-const cors = require('@fastify/cors');
-
-const initializeSocket = require('./websockets');
-
-
-// Eklentileri Kaydet
-
-fastify.register(cors, { origin: "*" });
-
-
-// HTTP Yollarını Kaydet
-
-fastify.register(require('./api/auth.routes'));
-
-fastify.register(require('./api/users.routes'));
-
-
-// Socket.io Sunucusunu Başlat
-
-const io = new Server(fastify.server, {
-
-    cors: { origin: "*", methods: ["GET", "POST"] }
-
-});
-
-initializeSocket(io);
-
-
-// Ana Durum Yolu
-
-fastify.get('/', (request, reply) => {
-
-    reply.send({ status: 'Server is running - Refactored!' });
-
-});
-
-
-// Sunucuyu Başlatma Fonksiyonu
-
-const start = async () => {
-
-    try {
-
-        await fastify.listen({ port: 3000, host: '0.0.0.0' });
-
-    } catch (err) {
-
-        fastify.log.error(err);
-
-        process.exit(1);
-
-    }
-
-};
-
-
-start();
-
-
-
-
-
-
-Makefile:
-
-# Makefile for ft_transcendence project management
-
-
-# .PHONY, bu hedeflerin birer dosya olmadığını, komut olduğunu belirtir.
-
-.PHONY: all up stop down clean db links start
-
-
-# 'make' komutu tek başına çalıştırıldığında 'up' hedefini çağırır.
-
-all: up
-
-
-# Projeyi her seferinde temiz bir şekilde yeniden kurar ve başlatır.
-
-# Bu hedef, önce 'clean' hedefini çalıştırarak tüm kalıntıları temizler.
-
-up: clean
-
-    @echo "Starting containers with a fresh build..."
-
-    docker compose up --build -d
-
-
-# Arka planda çalışan konteynerleri sadece durdurur (silmez).
-
-stop:
-
-    @echo "Stopping running containers..."
-
-    docker compose stop
-
-
-# Projeyi durdurur ve docker-compose tarafından yönetilen her şeyi temizler.
-
-down:
-
-    @echo "Stopping and removing project containers, networks, and volumes..."
-
-    docker compose down --volumes --remove-orphans
-
-
-# Projeyle ilgili olabilecek tüm "hayalet" konteynerleri zorla temizler.
-
-clean: down
-
-    @echo "Forcibly removing any lingering containers..."
-
-    @docker ps -a -q --filter "name=transcendence_backend" | xargs -r docker rm -f
-
-    @docker ps -a -q --filter "name=transcendence_frontend" | xargs -r docker rm -f
-
-
-# Veritabanını sıfırlar (tüm verileri siler).
-
-db:
-
-    (cd backend && npx prisma migrate reset --force)
-
-
-# Ağ ve yerel erişim linklerini gösterir.
-
-links:
-
-    @echo "for network: http://$$(hostname -I | awk '{print $$1}'):5173"
-
-    @echo "for local:   http://localhost:5173"
-
-
-# Projeyi ilk kez kurmak için frontend ve backend bağımlılıklarını yükler.
-
-start:
-
-    @echo "Installing backend dependencies..."
-
-    (cd backend && npm install)
-
-    @echo "Installing frontend dependencies..."
-
-    (cd frontend && npm install)
-
-    @echo "Setup complete! You can now run 'make up'."
-
-
-
-
-
-
-docker-compose.yml:
-
-services:
-
-  backend:
-
-    build:
-
-      context: ./backend
-
-      dockerfile: Dockerfile
-
-    container_name: transcendence_backend
-
-    ports:
-
-      - "3000:3000"
-
-    volumes:
-
-      - ./backend:/usr/src/app
-
-      - /usr/src/app/node_modules
-
-    networks:
-
-      - transcendence_network
-
-
-  frontend:
-
-    build:
-
-      context: ./frontend
-
-      dockerfile: Dockerfile
-
-    container_name: transcendence_frontend
-
-    ports:
-
-      - "5173:5173"
-
-    volumes:
-
-      - ./frontend:/usr/src/app
-
-      - /usr/src/app/node_modules
-
-    depends_on:
-
-      - backend
-
-    networks:
-
-      - transcendence_network
-
-
-networks:
-
-  transcendence_network:
-
-    driver: bridge

@@ -67,7 +67,7 @@ function initializeSocket(io) {
         });
 
         // --- GÜVENLİ TEMİZLEME FONKSİYONU ---
-        const cleanUpPlayer = (sock) => {
+        const cleanUpPlayer = async (sock) => {
             // Oyuncuyu tüm bekleme havuzlarından kaldır
             Object.keys(gameState.waitingPlayers).forEach(mode => {
                 const pool = gameState.waitingPlayers[mode];
@@ -82,16 +82,35 @@ function initializeSocket(io) {
             // Oyuncu bir oyun odasındaysa, oyunu bitir.
             if (sock.gameRoom) {
                 const game = gameState.gameRooms.get(sock.gameRoom.id);
-                // KRİTİK DÜZELTME: 'game' nesnesinin var olduğundan emin ol! Bu, çökme hatasını engeller.
                 if (game) {
                     clearInterval(game.intervalId);
-                    const otherPlayers = game.players.filter(p => p.socketId !== sock.id);
-                    otherPlayers.forEach(p => {
-                         const otherSocket = io.sockets.sockets.get(p.socketId);
-                         if(otherSocket) otherSocket.emit('opponentLeft');
-                    });
+
+                    // Oyundan düşen oyuncunun takımı kaybeder
+                    const leavingPlayer = game.players.find(p => p.socketId === sock.id);
+                    if (leavingPlayer) {
+                        const losingTeam = leavingPlayer.team;
+                        const winningTeam = losingTeam === 1 ? 2 : 1;
+                        
+                        const winners = game.players.filter(p => p.team === winningTeam);
+                        const losers = game.players.filter(p => p.team === losingTeam);
+
+                        // İstatistikleri güncelle ve maçı "forfeit" olarak kaydet
+                        await updatePlayerStats(winners.map(p => p.id), 'win');
+                        await updatePlayerStats(losers.map(p => p.id), 'loss');
+                        await saveMatch(game, winningTeam, true); // saveMatch'i birazdan oluşturacağız
+
+                        // Kalan oyunculara haber ver
+                        winners.forEach(p => {
+                            const otherSocket = io.sockets.sockets.get(p.socketId);
+                            if(otherSocket) otherSocket.emit('gameOver', { 
+                                winners, 
+                                losers, 
+                                reason: 'forfeit' // YENİ: Ayrılma nedenini de gönderiyoruz
+                            });
+                        });
+                    }
                     gameState.gameRooms.delete(sock.gameRoom.id);
-                    console.log(`Oda ${sock.gameRoom.id} temizlendi.`);
+                    console.log(`Oda ${sock.gameRoom.id} (terk edildi) temizlendi.`);
                 }
             }
         };
