@@ -30,32 +30,31 @@ async function saveMatch(game, winnerTeam, wasForfeit = false) {
     const player2Id = team2[0].id;
 
     try {
+        const durationInSeconds = wasForfeit ? 0 : Math.floor((Date.now() - game.startTime) / 1000);
+
         await prisma.match.create({
             data: {
                 mode: mode,
-                durationInSeconds: 0, // Bu özelliği şimdilik basitleştirelim
+                durationInSeconds: durationInSeconds,
                 player1Id: player1Id,
-                player3Id: team1[1]?.id, // 2v2 ise ikinci oyuncu, değilse null
+                player3Id: team1[1]?.id,
                 player2Id: player2Id,
-                player4Id: team2[1]?.id, // 2v2 ise ikinci oyuncu, değilse null
-
-                // Alan isimleri şema ile eşleştirildi
+                player4Id: team2[1]?.id,
                 team1Score: gameState.team1Score,
                 team2Score: gameState.team2Score,
-                winnerTeam: winnerTeam, // Kazanan takım bilgisini de ekliyoruz
-                winnerId: winnerTeam === 1 ? team1[0].id : team2[0].id, // Kazanan oyuncu ID'si
-
+                winnerTeam: winnerTeam,
+                winnerId: winnerTeam === 1 ? player1Id : player2Id,
                 wasForfeit: wasForfeit,
-
-                // hit/miss istatistikleri şimdilik eklenmedi, basit tutuyoruz
                 team1Hits: 0,
-                team1Misses: 0,
+                team1Misses: gameState.team2Score,
                 team2Hits: 0,
-                team2Misses: 0
+                team2Misses: gameState.team1Score
             }
         });
         console.log("Maç başarıyla kaydedildi.");
-    } catch (error) { 
+    }
+    catch (error)
+    { 
         console.error("Maç kaydedilemedi:", error); 
     }
 }
@@ -63,6 +62,7 @@ async function saveMatch(game, winnerTeam, wasForfeit = false) {
 // --- ANA OYUN DÖNGÜSÜ ---
 
 function startGameLoop(room, players, io, mode, gameConfig) {
+    const startTime = Date.now(); // OYUN BAŞLANGIÇ ZAMANI
     const { canvasSize, paddleSize, paddleThickness } = gameConfig;
     const WINNING_SCORE = 5;
     const BALL_RADIUS = 10;
@@ -149,7 +149,7 @@ function startGameLoop(room, players, io, mode, gameConfig) {
     return game;
 }
 
-function gameHandler(io, socket, state, payload) {
+function handleJoinMatchmaking(io, socket, state, payload) {
     const { mode } = payload;
     if (!mode || !state.waitingPlayers[mode]) return;
 
@@ -232,4 +232,8 @@ function gameHandler(io, socket, state, payload) {
     });
 }
 
-module.exports = gameHandler;
+module.exports = {
+    handleJoinMatchmaking,
+    updatePlayerStats,
+    saveMatch
+};

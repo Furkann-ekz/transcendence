@@ -57,30 +57,32 @@ export async function afterRender() {
             const opponentData = isPlayer1 ? match.player2 : match.player1;
             
             const myStats = isPlayer1 
-                ? { score: match.player1Score, hits: match.player1Hits, misses: match.player1Misses }
-                : { score: match.player2Score, hits: match.player2Hits, misses: match.player2Misses };
+                ? { score: match.team1Score, hits: match.team1Hits, misses: match.team1Misses }
+                : { score: match.team2Score, hits: match.team2Hits, misses: match.team2Misses };
             const opponentStats = isPlayer1
-                ? { score: match.player2Score, hits: match.player2Hits, misses: match.player2Misses }
-                : { score: match.player1Score, hits: match.player1Hits, misses: match.player1Misses };
+                ? { score: match.team2Score, hits: match.team2Hits, misses: match.team2Misses }
+                : { score: match.team1Score, hits: match.team1Hits, misses: match.team1Misses };
 
             const iWon = match.winnerId === profileOwnerId;
-
-            const myTotalShots = myStats.hits + myStats.misses;
-            const myAccuracy = myTotalShots > 0 ? ((myStats.hits / myTotalShots) * 100).toFixed(0) : 0;
-            
-            const opponentTotalShots = opponentStats.hits + opponentStats.misses;
-            const opponentAccuracy = opponentTotalShots > 0 ? ((opponentStats.hits / opponentTotalShots) * 100).toFixed(0) : 0;
-
+        
             const matchElement = document.createElement('div');
-            matchElement.className = `bg-white p-4 rounded-lg shadow-md flex items-center justify-between border-l-8 ${iWon ? 'border-green-500' : 'border-red-500'}`;
+            matchElement.className = `bg-white p-4 rounded-lg shadow-md flex items-center justify-between relative`;
             
+            const myTotalShots = myStats.score + myStats.misses;
+            const myAccuracy = myTotalShots > 0 ? ((myStats.score / myTotalShots) * 100).toFixed(0) : 100;
+
+            const opponentTotalShots = opponentStats.score + opponentStats.misses;
+            const opponentAccuracy = opponentTotalShots > 0 ? ((opponentStats.score / opponentTotalShots) * 100).toFixed(0) : 100;
+                        
             matchElement.innerHTML = `
+                <div class="absolute left-0 top-0 bottom-0 w-2 ${iWon ? 'bg-green-500' : 'bg-red-500'} rounded-l-lg"></div>
+                <div class="absolute right-0 top-0 bottom-0 w-2 ${!iWon ? 'bg-green-500' : 'bg-red-500'} rounded-r-lg"></div>
+
                 <div class="flex-1 text-center">
-                    <p class="font-bold text-lg">${myData.name} ${iWon ? `(${t('you_suffix')})` : ''}</p>
+                    <p class="font-bold text-lg">${myData.name} ${t('you_suffix')}</p>
                     <p class="text-sm ${iWon ? 'text-green-600' : 'text-red-600'} font-bold">${iWon ? t('outcome_win') : t('outcome_lose')}</p>
                     <div class="mt-2 text-xs text-gray-500">
                         <p>${t('stat_accuracy')}: ${myAccuracy}%</p>
-                        <p>${t('stat_missed')}: ${myStats.misses}</p>
                     </div>
                 </div>
 
@@ -95,9 +97,8 @@ export async function afterRender() {
                 <div class="flex-1 text-center">
                     <p class="font-bold text-lg">${opponentData.name}</p>
                     <p class="text-sm ${!iWon ? 'text-green-600' : 'text-red-600'} font-bold">${!iWon ? t('outcome_win') : t('outcome_lose')}</p>
-                     <div class="mt-2 text-xs text-gray-500">
+                    <div class="mt-2 text-xs text-gray-500">
                         <p>${t('stat_accuracy')}: ${opponentAccuracy}%</p>
-                        <p>${t('stat_missed')}: ${opponentStats.misses}</p>
                     </div>
                 </div>
             `;

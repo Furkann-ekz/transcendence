@@ -36,14 +36,23 @@ export async function handleLocation() {
   const token = localStorage.getItem('token');
 
   // 1. ADIM: Gerekliyse soket bağlantısını kur ve bekle.
-  if (token) {
-    if (!getSocket() || !getSocket()?.connected) {
-      try {
+  if (token)
+  {
+    if (!getSocket() || !getSocket()?.connected)
+    {
+      try
+      {
         await connectSocket(token);
-      } catch (error) {
+      }
+      catch (error)
+      {
         console.error("Soket'e bağlanılamadı, çıkış yapılıyor.");
         localStorage.removeItem('token');
-        navigateTo('/');
+        // EĞER ZATEN GİRİŞ SAYFASINDA DEĞİLSEK YÖNLENDİR
+        if (window.location.pathname !== '/')
+          {
+          navigateTo('/');
+        }
         return;
       }
     }

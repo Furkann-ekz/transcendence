@@ -2,7 +2,7 @@
 const jwt = require('jsonwebtoken');
 const prisma = require('../prisma/db');
 const chatHandler = require('./chatHandler');
-const gameHandler = require('./gameHandler');
+const { handleJoinMatchmaking, updatePlayerStats, saveMatch } = require('./gameHandler');
 const JWT_SECRET = process.env.JWT_SECRET;
 
 // Paylaşılan değişkenler (shared state)
@@ -63,7 +63,7 @@ function initializeSocket(io) {
 
         socket.on('joinMatchmaking', (payload) => {
             console.log(`${socket.user.email} eşleştirme havuzuna katıldı. Mod: ${payload.mode}`);
-            gameHandler(io, socket, gameState, payload);
+            handleJoinMatchmaking(io, socket, gameState, payload);
         });
 
         // --- GÜVENLİ TEMİZLEME FONKSİYONU ---

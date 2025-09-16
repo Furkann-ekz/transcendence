@@ -6,8 +6,16 @@ const { Server } = require('socket.io');
 const cors = require('@fastify/cors');
 const initializeSocket = require('./websockets');
 
+// .env dosyasından izin verilen adresleri oku ve bir diziye çevir
+const allowedOrigins = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : [];
+
+if (allowedOrigins.length === 0) {
+    fastify.log.warn('CORS_ORIGINS is not defined in .env file. CORS might not work as expected.');
+}
+
+
 // Eklentileri Kaydet
-fastify.register(cors, { origin: "*" });
+fastify.register(cors, { origin: allowedOrigins });
 
 // HTTP Yollarını Kaydet
 fastify.register(require('./api/auth.routes'));
@@ -15,7 +23,7 @@ fastify.register(require('./api/users.routes'));
 
 // Socket.io Sunucusunu Başlat
 const io = new Server(fastify.server, {
-    cors: { origin: "*", methods: ["GET", "POST"] }
+    cors: { origin: allowedOrigins, methods: ["GET", "POST"] }
 });
 initializeSocket(io);
 
