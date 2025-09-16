@@ -1,8 +1,9 @@
+// frontend/src/pages/ProfilePage.ts
 import { t } from '../i18n';
 import { getUserProfile } from '../api/users';
 
 export function render(): string {
-  // İstatistikleri göstereceğimiz yeni alanları HTML iskeletine ekliyoruz.
+  // İstatistikleri ve Maç Geçmişi butonunu içeren son HTML yapısı
   return `
     <div class="min-h-screen bg-gray-100 flex flex-col items-center justify-center">
       <div id="profile-card" class="bg-white p-8 rounded-lg shadow-md w-full max-w-md text-center">
@@ -21,7 +22,11 @@ export function render(): string {
           </div>
         </div>
 
-        <a href="/dashboard" data-link class="mt-8 inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800">
+        <a id="match-history-link" href="#" data-link class="mt-6 bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded block">
+          View Match History
+        </a>
+
+        <a href="/dashboard" data-link class="mt-4 inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800">
           ${t('return_to_chat')}
         </a>
       </div>
@@ -34,6 +39,7 @@ export async function afterRender() {
   const createdAtElement = document.getElementById('profile-created-at');
   const winsElement = document.getElementById('profile-wins');
   const lossesElement = document.getElementById('profile-losses');
+  const matchHistoryLink = document.getElementById('match-history-link'); // Maç geçmişi butonunu seç
 
   const pathParts = window.location.pathname.split('/');
   const userId = pathParts[2];
@@ -41,6 +47,11 @@ export async function afterRender() {
   if (!userId) {
     if (nameElement) nameElement.textContent = 'Invalid Profile';
     return;
+  }
+  
+  // Maç geçmişi butonunun linkini, görüntülenen kullanıcının ID'sine göre ayarla
+  if (matchHistoryLink) {
+    matchHistoryLink.setAttribute('href', `/profile/${userId}/history`);
   }
 
   try {
@@ -52,7 +63,6 @@ export async function afterRender() {
       const joinDate = new Date(userProfile.createdAt).toLocaleDateString();
       createdAtElement.textContent = `${t('profile_joined_on')} ${joinDate}`;
     }
-    // YENİ: İstatistikleri ekrana yazdır
     if (winsElement) winsElement.textContent = userProfile.wins.toString();
     if (lossesElement) lossesElement.textContent = userProfile.losses.toString();
 

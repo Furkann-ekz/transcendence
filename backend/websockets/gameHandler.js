@@ -1,8 +1,7 @@
 // backend/websockets/gameHandler.js
+const prisma = require('../prisma/db'); // Prisma'yı en üste import ediyoruz
 
-const prisma = require('../prisma/db');
-
-// Bu fonksiyon, bir array'i karıştırmak için kullanılır (takım oluşturmada lazım olacak)
+// Bu fonksiyon, bir array'i karıştırmak için kullanılır
 function shuffleArray(array) {
     for (let i = array.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -10,6 +9,7 @@ function shuffleArray(array) {
     }
 }
 
+// YARDIMCI FONKSİYON: Oyuncuların istatistiklerini günceller
 async function updatePlayerStats(playerIds, outcome) {
     const fieldToIncrement = outcome === 'win' ? 'wins' : 'losses';
     try {
@@ -29,9 +29,9 @@ async function updatePlayerStats(playerIds, outcome) {
     }
 }
 
-function startGameLoop(room, players, io, mode, gameConfig)
-{
+function startGameLoop(room, players, io, mode, gameConfig) {
     const { canvasSize, paddleSize, paddleThickness } = gameConfig;
+    const WINNING_SCORE = 5; // Kazanma skoru
 
     let gameState = {
         ballX: canvasSize / 2,
@@ -49,10 +49,7 @@ function startGameLoop(room, players, io, mode, gameConfig)
         }))
     };
 
-    const WINNING_SCORE = 5;
-
-    const intervalId = setInterval(async () => {
-        // Top hareketi ve raket çarpışmaları...
+    const intervalId = setInterval(async () => { // Fonksiyonu 'async' yapıyoruz
         gameState.ballX += gameState.ballSpeedX;
         gameState.ballY += gameState.ballSpeedY;
 
@@ -63,45 +60,22 @@ function startGameLoop(room, players, io, mode, gameConfig)
             if (p.position === 'bottom' && gameState.ballY >= canvasSize - paddleThickness && gameState.ballX > p.x && gameState.ballX < p.x + paddleSize) gameState.ballSpeedY = -gameState.ballSpeedY;
         });
 
-        // Skorlama mantığı
         let scored = false;
         let scoringTeam = null;
 
-        if (gameState.ballX < 0) {
-            const player = gameState.players.find(p => p.position === 'left');
-            scoringTeam = player.team === 1 ? 2 : 1;
-            scored = true;
-        } else if (gameState.ballX > canvasSize) {
-            const player = gameState.players.find(p => p.position === 'right');
-            scoringTeam = player.team === 1 ? 2 : 1;
-            scored = true;
-        }
-        
+        if (gameState.ballX < 0) { const player = gameState.players.find(p => p.position === 'left'); scoringTeam = player.team === 1 ? 2 : 1; scored = true; } 
+        else if (gameState.ballX > canvasSize) { const player = gameState.players.find(p => p.position === 'right'); scoringTeam = player.team === 1 ? 2 : 1; scored = true; }
         if (mode === '2v2') {
-            if (gameState.ballY < 0) {
-                const player = gameState.players.find(p => p.position === 'top');
-                scoringTeam = player.team === 1 ? 2 : 1;
-                scored = true;
-            } else if (gameState.ballY > canvasSize) {
-                const player = gameState.players.find(p => p.position === 'bottom');
-                scoringTeam = player.team === 1 ? 2 : 1;
-                scored = true;
-            }
-        } else {
-            if (gameState.ballY <= 0 || gameState.ballY >= canvasSize) {
-                gameState.ballSpeedY = -gameState.ballSpeedY;
-            }
-        }
+            if (gameState.ballY < 0) { const player = gameState.players.find(p => p.position === 'top'); scoringTeam = player.team === 1 ? 2 : 1; scored = true; } 
+            else if (gameState.ballY > canvasSize) { const player = gameState.players.find(p => p.position === 'bottom'); scoringTeam = player.team === 1 ? 2 : 1; scored = true; }
+        } else { if (gameState.ballY <= 0 || gameState.ballY >= canvasSize) { gameState.ballSpeedY = -gameState.ballSpeedY; } }
         
         if (scored) {
-            // 1. ÖNCE skoru arttır.
             if(scoringTeam === 1) gameState.team1Score++;
             else gameState.team2Score++;
             
-            // 2. SONRA, final skoru içeren son durumu herkese gönder.
             io.to(room).emit('gameStateUpdate', gameState);
 
-            // 3. ŞİMDİ oyunun bitip bitmediğini kontrol et.
             if (gameState.team1Score >= WINNING_SCORE || gameState.team2Score >= WINNING_SCORE) {
                 clearInterval(intervalId);
                 
@@ -121,18 +95,14 @@ function startGameLoop(room, players, io, mode, gameConfig)
                     sock.gameRoom = null;
                 });
                 
-                // gameRooms'dan silme işlemini cleanup fonksiyonu zaten yapıyor, burada tekrar gerek yok.
-                
                 return; 
             }
             
-            // Oyun bitmediyse topu sıfırla.
             gameState.ballX = gameConfig.canvasSize / 2;
             gameState.ballY = gameConfig.canvasSize / 2;
             gameState.ballSpeedX = -gameState.ballSpeedX;
         }
         
-        // Skor olmadıysa normal oyun durumunu gönder.
         if (!scored) {
             io.to(room).emit('gameStateUpdate', gameState);
         }
@@ -151,9 +121,8 @@ function startGameLoop(room, players, io, mode, gameConfig)
 
 function gameHandler(io, socket, state, payload) {
     const { mode } = payload;
-    if (!mode || !state.waitingPlayers[mode]) return; // Geçersiz mod ise işlemi durdur
+    if (!mode || !state.waitingPlayers[mode]) return;
 
-    // Oyuncunun zaten bir havuzda olup olmadığını kontrol et
     const isInAnyPool = Object.values(state.waitingPlayers).some(pool => pool.some(p => p.id === socket.id));
     if (isInAnyPool) {
         console.log(`[Matchmaking] ${socket.user.email} zaten bir bekleme havuzunda.`);
@@ -169,36 +138,30 @@ function gameHandler(io, socket, state, payload) {
     let players;
     const gameConfig = { canvasSize: 800, paddleSize: 100, paddleThickness: 15 };
 
-    // 1v1 OYUNU BAŞLATMA
     if (mode === '1v1' && pool.length >= 2) {
         console.log(`[Matchmaking] 1v1 için yeterli oyuncu bulundu.`);
         playerSockets = pool.splice(0, 2);
         const [p1, p2] = playerSockets;
-
         players = [
             { ...p1.user, socketId: p1.id, position: 'left', team: 1, x: 0, y: (gameConfig.canvasSize / 2) - (gameConfig.paddleSize / 2) },
             { ...p2.user, socketId: p2.id, position: 'right', team: 2, x: gameConfig.canvasSize - gameConfig.paddleThickness, y: (gameConfig.canvasSize / 2) - (gameConfig.paddleSize / 2) }
         ];
     }
 
-    // 2v2 OYUNU BAŞLATMA
     if (mode === '2v2' && pool.length >= 4) {
         console.log(`[Matchmaking] 2v2 için yeterli oyuncu bulundu.`);
         playerSockets = pool.splice(0, 4);
-        
         shuffleArray(playerSockets);
-
         const teamConfig = Math.random() < 0.5 ? 1 : 2;
         console.log(`[Matchmaking] 2v2 Takım Konfigürasyonu: ${teamConfig}`);
-
-        if (teamConfig === 1) { // Durum 1: (Sol+Üst) vs (Sağ+Alt)
+        if (teamConfig === 1) {
             players = [
                 { ...playerSockets[0].user, socketId: playerSockets[0].id, position: 'left', team: 1 },
                 { ...playerSockets[1].user, socketId: playerSockets[1].id, position: 'top', team: 1 },
                 { ...playerSockets[2].user, socketId: playerSockets[2].id, position: 'right', team: 2 },
                 { ...playerSockets[3].user, socketId: playerSockets[3].id, position: 'bottom', team: 2 }
             ];
-        } else { // Durum 2: (Sol+Alt) vs (Sağ+Üst)
+        } else {
             players = [
                 { ...playerSockets[0].user, socketId: playerSockets[0].id, position: 'left', team: 1 },
                 { ...playerSockets[1].user, socketId: playerSockets[1].id, position: 'bottom', team: 1 },
@@ -206,7 +169,6 @@ function gameHandler(io, socket, state, payload) {
                 { ...playerSockets[3].user, socketId: playerSockets[3].id, position: 'top', team: 2 }
             ];
         }
-
         players.forEach(p => {
             const center = (gameConfig.canvasSize / 2) - (gameConfig.paddleSize / 2);
             if (p.position === 'left') { p.x = 0; p.y = center; }
@@ -222,7 +184,6 @@ function gameHandler(io, socket, state, payload) {
             sock.join(roomName);
             sock.gameRoom = { id: roomName, mode: mode };
         });
-
         const game = startGameLoop(roomName, players, io, mode, gameConfig);
         state.gameRooms.set(roomName, game);
         console.log(`[Matchmaking] Oda (${roomName}) oluşturuldu ve ${mode} oyunu başlatıldı.`);
@@ -232,17 +193,13 @@ function gameHandler(io, socket, state, payload) {
         if (!socket.gameRoom) return;
         const game = state.gameRooms.get(socket.gameRoom.id);
         if (!game) return;
-
         const playerState = game.gameState.players.find(p => p.id === socket.user.id);
         if (!playerState) return;
-        
         const { newPosition } = data;
         const { canvasSize, paddleSize } = gameConfig;
         let finalPosition = newPosition;
-
         if (finalPosition < 0) finalPosition = 0;
         if (finalPosition > canvasSize - paddleSize) finalPosition = canvasSize - paddleSize;
-
         if (playerState.position === 'left' || playerState.position === 'right') playerState.y = finalPosition;
         if (playerState.position === 'top' || playerState.position === 'bottom') playerState.x = finalPosition;
     });
