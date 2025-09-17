@@ -1,7 +1,7 @@
 // frontend/src/api/auth.ts
 
 // Ortam değişkeninden API adresini alıyoruz
-const API_URL = `http://${window.location.hostname}:3000`;
+const API_URL = '/api';
 
 // DÜZELTME: Parametrelere ': string' tipi eklendi
 export async function loginUser(email: string, password: string) {

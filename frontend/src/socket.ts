@@ -11,8 +11,8 @@ export function connectSocket(token: string): Promise<Socket> {
             return resolve(socket);
         }
 
-        const SOCKET_URL = `http://${window.location.hostname}:3000`;
-        const newSocket = io(SOCKET_URL, {
+        const newSocket = io({ // URL belirtmiyoruz, mevcut adresi kullanacak
+            path: '/api/socket.io', // Backend'de belirttiğimiz yolla eşleştiriyoruz
             auth: { token }
         });
 

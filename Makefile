@@ -1,14 +1,17 @@
 # Makefile for ft_transcendence project management
 
 # .PHONY, bu hedeflerin birer dosya olmadığını, komut olduğunu belirtir.
-.PHONY: all up stop down clean db links start check-env
+.PHONY: all up stop down clean db links start check-env init-ssl
 
 # 'make' komutu tek başına çalıştırıldığında 'up' hedefini çağırır.
 all: up
 
+init-ssl:
+	@sh ./init-ssl.sh
+
 # YENİ VE GELİŞMİŞ "UP" KOMUTU
 # Projeyi sıfırdan kurar, başlatır ve veritabanını sıfırlar.
-up: check-env clean
+up: check-env init-ssl clean
 	@echo "--- Starting containers with a fresh build... ---"
 	docker compose up --build -d
 	@echo "--- Waiting for containers to initialize... ---"
@@ -42,8 +45,8 @@ migrate:
 
 # Ağ ve yerel erişim linklerini gösterir.
 links:
-	@echo "for network: http://$$(hostname -I | awk '{print $$1}'):5173"
-	@echo "for local:   http://localhost:5173"
+	@echo "for network: https://$$(hostname -I | awk '{print $$1}')"
+	@echo "for local:   https://localhost"
 
 # YENİ YARDIMCI HEDEF: .env dosyasını kontrol eder ve gerekirse oluşturur.
 check-env:

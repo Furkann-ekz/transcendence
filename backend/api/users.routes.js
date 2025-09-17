@@ -13,6 +13,31 @@ async function userRoutes(fastify, options) {
         return userProfile;
     });
 
+    // --- YENİ EKLENEN ENDPOINT ---
+    // Mevcut kullanıcının profilini günceller (şimdilik sadece 'name').
+    fastify.patch('/profile', { preHandler: [authenticate] }, async (request, reply) => {
+        const { name } = request.body;
+        const userId = request.user.userId;
+
+        // İsim alanı boş mu veya geçerli bir string mi diye kontrol et.
+        if (typeof name !== 'string' || name.trim() === '') {
+            return reply.code(400).send({ error: 'Name field cannot be empty' });
+        }
+
+        try {
+            const updatedUser = await prisma.user.update({
+                where: { id: userId },
+                data: { name: name.trim() },
+                select: { id: true, email: true, name: true } // Güvenlik için sadece bu alanları geri döndür
+            });
+            return updatedUser;
+        } catch (error) {
+            fastify.log.error(error);
+            return reply.code(500).send({ error: 'Could not update user profile' });
+        }
+    });
+    // --- YENİ ENDPOINT SONU ---
+
     // Mevcut: Belirli bir kullanıcının halka açık profilini ID ile getirir.
     fastify.get('/users/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const userId = parseInt(request.params.id, 10);
@@ -27,10 +52,8 @@ async function userRoutes(fastify, options) {
                     id: true,
                     name: true,
                     createdAt: true,
-                    // --- YENİ EKLENEN ALANLAR ---
                     wins: true,
                     losses: true
-                    // -------------------------
                 }
             });
 
@@ -44,8 +67,7 @@ async function userRoutes(fastify, options) {
         }
     });
 
-    // --- YENİ EKLENEN YOL ---
-    // Belirli bir kullanıcının son 10 maçını getirir.
+    // Mevcut: Belirli bir kullanıcının son 10 maçını getirir.
     fastify.get('/users/:id/matches', { preHandler: [authenticate] }, async (request, reply) => {
         const userId = parseInt(request.params.id, 10);
         if (isNaN(userId)) {

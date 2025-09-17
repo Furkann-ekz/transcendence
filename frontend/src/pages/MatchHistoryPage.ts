@@ -73,7 +73,7 @@ export async function afterRender() {
                 <div class="absolute right-0 top-0 bottom-0 w-2 ${!iWon ? 'bg-green-500' : 'bg-red-500'} rounded-r-lg"></div>
 
                 <div class="flex-1 text-center">
-                    <p class="font-bold text-lg">${myData.name} ${iWon ? `(${t('you_suffix')})` : ''}</p>
+                    <p class="font-bold text-lg">${myData.name}</p>
                     <p class="text-sm ${iWon ? 'text-green-600' : 'text-red-600'} font-bold">${iWon ? t('outcome_win') : t('outcome_lose')}</p>
                 </div>
 

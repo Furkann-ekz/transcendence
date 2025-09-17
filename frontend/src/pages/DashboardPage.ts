@@ -37,11 +37,13 @@ export function render(): string {
           <ul id="user-list" class="space-y-2"></ul>
         </div>
 
-        <div class="w-3/4 flex flex-col bg-white rounded-lg shadow-md">
+        <div class="w-3/4 flex flex-col bg-white rounded-lg shadow-md overflow-hidden">
           <div class="p-4 border-b">
             <strong>${t('recipient')}:</strong> <span id="recipient-info">${t('everyone')}</span>
           </div>
+          
           <ul id="messages" class="flex-grow p-4 overflow-y-auto"></ul>
+
           <form id="chat-form" class="p-4 bg-gray-200 flex rounded-b-lg">
             <input id="chat-input" autocomplete="off" placeholder="${t('chat_placeholder')}" class="border rounded-l-md p-2 flex-grow" />
             <button type="submit" class="bg-blue-500 text-white px-4 rounded-r-md hover:bg-blue-600">${t('send_button')}</button>
@@ -56,7 +58,7 @@ export function render(): string {
 export function afterRender() {
   const logoutButton = document.getElementById('logout-button');
   logoutButton?.addEventListener('click', () => {
-      clearMessages();
+      clearMessages(); // Çıkış yaparken de temizle
       localStorage.removeItem('token');
       disconnectSocket();
       navigateTo('/');
@@ -76,21 +78,28 @@ export function afterRender() {
   const chatForm = document.getElementById('chat-form') as HTMLFormElement;
   const chatInput = document.getElementById('chat-input') as HTMLInputElement;
 
-  // Sayfa yüklendiğinde hafızadaki mesajları (sessionStorage) ekrana yazdır
-  messagesList.innerHTML = '';
-  const existingMessages = getMessages();
-  existingMessages.forEach(msg => {
-    const item = document.createElement('li');
-    // Mesaj objesini o anki dile göre metne çeviriyoruz
-    const prefix = t(msg.type === 'public' ? 'chat_public_prefix' : 'chat_private_prefix');
-    item.textContent = `${prefix} ${msg.sender}: ${msg.content}`;
-    messagesList.appendChild(item);
-  });
-  if (messagesList.children.length > 0) {
-      messagesList.scrollTop = messagesList.scrollHeight;
-  }
-
   let selectedRecipient: any = null;
+
+  // --- YENİ FONKSİYON: Arayüzü bellekten gelen son duruma göre yeniden çizer ---
+  function renderMessages() {
+    if (!messagesList) return;
+    
+    const currentMessages = getMessages(); // Bellekteki güncel mesajları al
+    messagesList.innerHTML = ''; // Önce ekrandaki listeyi tamamen temizle
+
+    currentMessages.forEach(msg => { // Bellekteki her mesaj için yeni bir <li> oluştur
+      const item = document.createElement('li');
+      const prefix = t(msg.type === 'public' ? 'chat_public_prefix' : 'chat_private_prefix');
+      item.textContent = `${prefix} ${msg.sender}: ${msg.content}`;
+      messagesList.appendChild(item);
+    });
+
+    // Her zaman en alta kaydır
+    messagesList.scrollTop = messagesList.scrollHeight;
+  }
+  
+  // Sayfa ilk yüklendiğinde mesajları çiz
+  renderMessages();
 
   function selectRecipient(user: any) {
     selectedRecipient = user;
@@ -161,16 +170,8 @@ export function afterRender() {
   });
 
   socket.on('chat message', (msg: any) => {
-    // Gelen mesaj objesini doğrudan hafızaya (sessionStorage) ekle
-    addMessage(msg);
-
-    const prefix = t(msg.type === 'public' ? 'chat_public_prefix' : 'chat_private_prefix');
-    const fullMessage = `${prefix} ${msg.sender}: ${msg.content}`;
-
-    const item = document.createElement('li');
-    item.textContent = fullMessage;
-    messagesList.appendChild(item);
-    messagesList.scrollTop = messagesList.scrollHeight;
+    addMessage(msg);      // 1. Yeni mesajı belleğe ekle (ve gerekirse en eskisini sil)
+    renderMessages();     // 2. Arayüzü bellekten gelen son duruma göre tamamen yeniden çiz
   });
 
   chatForm.addEventListener('submit', (e) => {
@@ -191,17 +192,10 @@ export function afterRender() {
 
 export function cleanup() {
   console.log('Dashboard sayfasından ayrılıyor, sohbet geçmişi ve dinleyiciler temizleniyor...');
-  
-  // Önceki isteğin üzerine sohbet geçmişini temizliyoruz.
-  clearMessages();
 
-  // *** SORUNU ÇÖZEN KISIM BAŞLANGICI ***
-  // Bu sayfadan ayrılırken, bu sayfada eklediğimiz dinleyicileri kaldırıyoruz.
-  // Bu, mesajların katlanarak çoğalmasını engeller.
   const socket = getSocket();
   if (socket) {
     socket.off('update user list');
     socket.off('chat message');
   }
-  // *** SORUNU ÇÖZEN KISIM SONU ***
 }

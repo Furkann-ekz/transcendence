@@ -9,6 +9,7 @@ import { connectSocket, getSocket } from '../socket';
 import * as OnlineLobbyPage from '../pages/OnlineLobbyPage';
 import * as ProfilePage from '../pages/ProfilePage';
 import * as MatchHistoryPage from '../pages/MatchHistoryPage';
+import * as ProfileEditPage from '../pages/ProfileEditPage';
 
 interface Route {
   render: () => string;
@@ -24,6 +25,7 @@ const routes: { [key: string]: Route } = {
   '/lobby': { render: LobbyPage.render, afterRender: LobbyPage.afterRender },
   '/online-lobby': { render: OnlineLobbyPage.render, afterRender: OnlineLobbyPage.afterRender },
   '/local-game': { render: LocalGamePage.render, afterRender: LocalGamePage.afterRender, cleanup: LocalGamePage.cleanup },
+  '/profile/edit': { render: ProfileEditPage.render, afterRender: ProfileEditPage.afterRender },
   '/online-game': { render: OnlineGamePage.render, afterRender: OnlineGamePage.afterRender, cleanup: OnlineGamePage.cleanup },
 };
 
@@ -31,47 +33,43 @@ const app = document.querySelector<HTMLDivElement>('#app')!;
 
 // frontend/src/router/index.ts
 
-export async function handleLocation(forceReload = false) {
+export async function handleLocation() {
   const path = window.location.pathname;
   const token = localStorage.getItem('token');
 
-  // 1. ADIM: Gerekliyse soket bağlantısını kur ve bekle.
-  if (token)
-  {
-    if (!getSocket() || !getSocket()?.connected)
-    {
-      try
-      {
-        await connectSocket(token);
-      }
-      catch (error)
-      {
-        console.error("Soket'e bağlanılamadı, çıkış yapılıyor.");
+  const protectedPaths = ['/dashboard', '/lobby', '/online-lobby', '/local-game', '/online-game', '/profile/edit'];
+  // Profil ve maç geçmişi sayfaları da korunmalı
+  const isProtectedRoute = protectedPaths.includes(path) || path.startsWith('/profile/');
+  
+  // SENARYO 1: Korunmuş bir sayfaya girmeye çalışıyoruz
+  if (isProtectedRoute) {
+    if (!token) {
+      // Token yoksa, direkt giriş sayfasına yönlendir.
+      navigateTo('/');
+      return;
+    }
+    // Token var, geçerli mi diye kontrol edelim.
+    if (!getSocket() || !getSocket()?.connected) {
+      try {
+        await connectSocket(token); // Soket'e bağlanmayı dene
+      } catch (error) {
+        // Bağlantı başarısız oldu (token geçersiz), hafızayı temizle ve giriş sayfasına at.
+        console.error("Geçersiz token ile giriş denemesi engellendi, çıkış yapılıyor.");
         localStorage.removeItem('token');
-        // EĞER ZATEN GİRİŞ SAYFASINDA DEĞİLSEK YÖNLENDİR
-        if (window.location.pathname !== '/')
-          {
-          navigateTo('/');
-        }
+        navigateTo('/');
         return;
       }
     }
-  }
-
-  // 2. ADIM: Yönlendirme kurallarını uygula.
-  const protectedPaths = ['/dashboard', '/lobby', '/online-lobby', '/local-game', '/online-game'];
-  const isAuthRequired = protectedPaths.includes(path);
-
-  if (isAuthRequired && !token) {
-    if (path !== '/') navigateTo('/');
-    return;
-  }
-  if (!isAuthRequired && token && (path === '/' || path === '/register')) {
+  } 
+  // SENARYO 2: Halka açık bir sayfaya (giriş, kayıt) girmeye çalışıyoruz
+  else if (token) {
+    // Token'ı var ama halka açık sayfada, dashboard'a yönlendir.
+    // Burada soket bağlantısı denemiyoruz, yönlendirmeden sonra dashboard'da denenecek.
     navigateTo('/dashboard');
     return;
   }
 
-  // 3. ADIM: Sayfayı render et.
+  // Yönlendirme ve bağlantı kontrolleri bitti, şimdi sayfayı render et.
   let routeToRender: Route | null = null;
   
   if (path.startsWith('/profile/') && path.endsWith('/history')) {
@@ -83,12 +81,11 @@ export async function handleLocation(forceReload = false) {
   }
   
   if (!routeToRender) {
-      app.innerHTML = '<h1>404 Not Found</h1>';
-      return;
+    app.innerHTML = '<h1>404 Not Found</h1>';
+    return;
   }
 
-  // Sadece rota gerçekten değiştiyse render et
-  if (currentRoute !== routeToRender || forceReload) {
+  if (currentRoute !== routeToRender) {
     if (currentRoute && currentRoute.cleanup) {
       currentRoute.cleanup();
     }
@@ -102,12 +99,10 @@ export async function handleLocation(forceReload = false) {
   }
 }
 
-
 export async function navigateTo(path: string) { // 'async' eklendi
   window.history.pushState({}, '', path);
   await handleLocation(); // 'await' eklendi
 }
-
 
 export async function initializeRouter() { // 'async' eklendi
   window.addEventListener('popstate', () => handleLocation()); // Olası "this" context hatalarını önlemek için arrow function içine aldık.

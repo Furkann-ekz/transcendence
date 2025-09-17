@@ -18,11 +18,12 @@ if (allowedOrigins.length === 0) {
 fastify.register(cors, { origin: allowedOrigins });
 
 // HTTP Yollarını Kaydet
-fastify.register(require('./api/auth.routes'));
-fastify.register(require('./api/users.routes'));
+fastify.register(require('./api/auth.routes'), { prefix: '/api' });
+fastify.register(require('./api/users.routes'), { prefix: '/api' });
 
 // Socket.io Sunucusunu Başlat
 const io = new Server(fastify.server, {
+    path: '/api/socket.io',
     cors: { origin: allowedOrigins, methods: ["GET", "POST"] }
 });
 initializeSocket(io);
