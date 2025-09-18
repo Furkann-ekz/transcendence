@@ -51,5 +51,19 @@
   "outcome_win": "GALİBİYET",
   "outcome_lose": "MAĞLUBİYET",
   "stat_duration": "Süre",
-  "match_history_for_user": "{name} Adlı Oyuncunun Maç Geçmişi"
+  "match_history_for_user": "{name} Adlı Oyuncunun Maç Geçmişi",
+  "edit_profile_button": "Profili Düzenle",
+  "edit_profile_title": "Profili Düzenle",
+  "save_button": "Kaydet",
+  "cancel_button": "İptal",
+  "profile_update_success": "Profil başarıyla güncellendi!",
+  "save_name_button": "İsmi Kaydet",
+  "change_password_title": "Şifreyi Değiştir",
+  "current_password_label": "Mevcut Şifre",
+  "new_password_label": "Yeni Şifre",
+  "confirm_password_label": "Yeni Şifreyi Onayla",
+  "change_password_button": "Şifreyi Değiştir",
+  "passwords_do_not_match": "Yeni şifreler eşleşmiyor!",
+  "password_too_short": "Yeni şifre en az 6 karakter olmalıdır.",
+  "password_update_success": "Şifre başarıyla güncellendi!"
 }

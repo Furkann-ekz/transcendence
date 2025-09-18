@@ -51,5 +51,14 @@
   "outcome_win": "ПОБЕДА",
   "outcome_lose": "ПОРАЖЕНИЕ",
   "stat_duration": "Длительность",
-  "match_history_for_user": "История матчей игрока {name}"
+  "match_history_for_user": "История матчей игрока {name}",
+  "save_name_button": "Сохранить имя",
+  "change_password_title": "Сменить пароль",
+  "current_password_label": "Текущий пароль",
+  "new_password_label": "Новый пароль",
+  "confirm_password_label": "Подтвердите новый пароль",
+  "change_password_button": "Сменить пароль",
+  "passwords_do_not_match": "Новые пароли не совпадают!",
+  "password_too_short": "Новый пароль должен содержать не менее 6 символов.",
+  "password_update_success": "Пароль успешно обновлен!"
 }

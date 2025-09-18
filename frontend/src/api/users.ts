@@ -79,3 +79,23 @@ export async function updateUserProfile(data: { name: string }) {
   }
   return response.json();
 }
+
+export async function changePassword(passwordData: { currentPassword: string, newPassword: string }) {
+  const token = localStorage.getItem('token');
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch(`${API_URL}/profile/change-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(passwordData),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Failed to change password.');
+  }
+  return response.json();
+}

@@ -191,7 +191,7 @@ export function afterRender() {
 }
 
 export function cleanup() {
-  console.log('Dashboard sayfasından ayrılıyor, sohbet geçmişi ve dinleyiciler temizleniyor...');
+  console.log('Dashboard sayfasından ayrılıyor, dinleyiciler temizleniyor...');
 
   const socket = getSocket();
   if (socket) {

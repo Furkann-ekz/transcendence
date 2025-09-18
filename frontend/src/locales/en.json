@@ -51,5 +51,19 @@
   "outcome_win": "WIN",
   "outcome_lose": "LOSE",
   "stat_duration": "Duration",
-  "match_history_for_user": "Match History of Player Named {name}"
+  "match_history_for_user": "Match History of Player Named {name}",
+  "edit_profile_button": "Edit Profile",
+  "edit_profile_title": "Edit Profile",
+  "save_button": "Save",
+  "cancel_button": "Cancel",
+  "profile_update_success": "Profile updated successfully!",
+  "save_name_button": "Save Name",
+  "change_password_title": "Change Password",
+  "current_password_label": "Current Password",
+  "new_password_label": "New Password",
+  "confirm_password_label": "Confirm New Password",
+  "change_password_button": "Change Password",
+  "passwords_do_not_match": "New passwords do not match!",
+  "password_too_short": "New password must be at least 6 characters long.",
+  "password_update_success": "Password updated successfully!"
 }

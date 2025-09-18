@@ -25,35 +25,28 @@ const routes: { [key: string]: Route } = {
   '/lobby': { render: LobbyPage.render, afterRender: LobbyPage.afterRender },
   '/online-lobby': { render: OnlineLobbyPage.render, afterRender: OnlineLobbyPage.afterRender },
   '/local-game': { render: LocalGamePage.render, afterRender: LocalGamePage.afterRender, cleanup: LocalGamePage.cleanup },
-  '/profile/edit': { render: ProfileEditPage.render, afterRender: ProfileEditPage.afterRender },
+  '/profile/edit': { render: ProfileEditPage.render, afterRender: ProfileEditPage.afterRender }, // << YENİ EKLENEN SATIR
   '/online-game': { render: OnlineGamePage.render, afterRender: OnlineGamePage.afterRender, cleanup: OnlineGamePage.cleanup },
 };
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
-// frontend/src/router/index.ts
-
-export async function handleLocation() {
+export async function handleLocation(forceReload = false) {
   const path = window.location.pathname;
   const token = localStorage.getItem('token');
 
   const protectedPaths = ['/dashboard', '/lobby', '/online-lobby', '/local-game', '/online-game', '/profile/edit'];
-  // Profil ve maç geçmişi sayfaları da korunmalı
   const isProtectedRoute = protectedPaths.includes(path) || path.startsWith('/profile/');
   
-  // SENARYO 1: Korunmuş bir sayfaya girmeye çalışıyoruz
   if (isProtectedRoute) {
     if (!token) {
-      // Token yoksa, direkt giriş sayfasına yönlendir.
       navigateTo('/');
       return;
     }
-    // Token var, geçerli mi diye kontrol edelim.
     if (!getSocket() || !getSocket()?.connected) {
       try {
-        await connectSocket(token); // Soket'e bağlanmayı dene
+        await connectSocket(token);
       } catch (error) {
-        // Bağlantı başarısız oldu (token geçersiz), hafızayı temizle ve giriş sayfasına at.
         console.error("Geçersiz token ile giriş denemesi engellendi, çıkış yapılıyor.");
         localStorage.removeItem('token');
         navigateTo('/');
@@ -61,23 +54,26 @@ export async function handleLocation() {
       }
     }
   } 
-  // SENARYO 2: Halka açık bir sayfaya (giriş, kayıt) girmeye çalışıyoruz
   else if (token) {
-    // Token'ı var ama halka açık sayfada, dashboard'a yönlendir.
-    // Burada soket bağlantısı denemiyoruz, yönlendirmeden sonra dashboard'da denenecek.
     navigateTo('/dashboard');
     return;
   }
 
-  // Yönlendirme ve bağlantı kontrolleri bitti, şimdi sayfayı render et.
   let routeToRender: Route | null = null;
   
-  if (path.startsWith('/profile/') && path.endsWith('/history')) {
+  // Önce spesifik yolları kontrol et
+  if (routes[path]) {
+    routeToRender = routes[path];
+  } 
+  // Sonra dinamik (parametre içeren) yolları kontrol et
+  else if (path.startsWith('/profile/') && path.endsWith('/history')) {
     routeToRender = MatchHistoryPage;
   } else if (path.startsWith('/profile/')) {
     routeToRender = ProfilePage;
-  } else {
-    routeToRender = routes[path] || routes['/'];
+  } 
+  // Hiçbiri eşleşmezse ana sayfayı göster
+  else {
+    routeToRender = routes['/'];
   }
   
   if (!routeToRender) {
@@ -85,13 +81,11 @@ export async function handleLocation() {
     return;
   }
 
-  if (currentRoute !== routeToRender) {
+  if (currentRoute !== routeToRender || forceReload) {
     if (currentRoute && currentRoute.cleanup) {
       currentRoute.cleanup();
     }
-    
     app.innerHTML = routeToRender.render();
-    
     if (routeToRender.afterRender) {
       void routeToRender.afterRender();
     }

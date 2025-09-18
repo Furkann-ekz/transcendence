@@ -13,7 +13,6 @@ async function userRoutes(fastify, options) {
         return userProfile;
     });
 
-    // --- YENİ EKLENEN ENDPOINT ---
     // Mevcut kullanıcının profilini günceller (şimdilik sadece 'name').
     fastify.patch('/profile', { preHandler: [authenticate] }, async (request, reply) => {
         const { name } = request.body;
@@ -36,7 +35,41 @@ async function userRoutes(fastify, options) {
             return reply.code(500).send({ error: 'Could not update user profile' });
         }
     });
-    // --- YENİ ENDPOINT SONU ---
+    // Yeni: Mevcut kullanıcının şifresini değiştirir.
+    fastify.post('/profile/change-password', { preHandler: [authenticate] }, async (request, reply) => {
+        const { currentPassword, newPassword } = request.body;
+        const userId = request.user.userId;
+
+        // Gerekli alanlar gönderilmiş mi diye kontrol et
+        if (!currentPassword || !newPassword) {
+            return reply.code(400).send({ error: 'Current and new passwords are required' });
+        }
+
+        try {
+            // 1. Kullanıcının mevcut şifresini doğrula
+            const user = await prisma.user.findUnique({ where: { id: userId } });
+            const isPasswordMatch = await bcrypt.compare(currentPassword, user.password);
+
+            if (!isPasswordMatch) {
+                return reply.code(401).send({ error: 'Invalid current password' });
+            }
+
+            // 2. Yeni şifreyi hash'le
+            const hashedPassword = await bcrypt.hash(newPassword, 10); // SALT_ROUNDS = 10
+
+            // 3. Yeni şifreyi veritabanında güncelle
+            await prisma.user.update({
+                where: { id: userId },
+                data: { password: hashedPassword },
+            });
+
+            return { message: 'Password updated successfully' };
+
+        } catch (error) {
+            fastify.log.error(error);
+            return reply.code(500).send({ error: 'Could not change password' });
+        }
+    });
 
     // Mevcut: Belirli bir kullanıcının halka açık profilini ID ile getirir.
     fastify.get('/users/:id', { preHandler: [authenticate] }, async (request, reply) => {
