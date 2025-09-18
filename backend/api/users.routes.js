@@ -1,6 +1,7 @@
 // backend/api/users.routes.js
 const prisma = require('../prisma/db');
 const authenticate = require('../middleware/authenticate');
+const bcrypt = require('bcrypt');
 
 async function userRoutes(fastify, options) {
     // Mevcut: Sadece kendi profilini getirir.
@@ -40,24 +41,28 @@ async function userRoutes(fastify, options) {
         const { currentPassword, newPassword } = request.body;
         const userId = request.user.userId;
 
-        // Gerekli alanlar gönderilmiş mi diye kontrol et
         if (!currentPassword || !newPassword) {
             return reply.code(400).send({ error: 'Current and new passwords are required' });
         }
 
         try {
-            // 1. Kullanıcının mevcut şifresini doğrula
             const user = await prisma.user.findUnique({ where: { id: userId } });
+
+            // --- EKLENMESİ GEREKEN KONTROL ---
+            // Eğer token geçerli ama veritabanında kullanıcı yoksa, işlemi durdur.
+            if (!user) {
+                return reply.code(404).send({ error: 'User not found' });
+            }
+            // --- KONTROL SONU ---
+
             const isPasswordMatch = await bcrypt.compare(currentPassword, user.password);
 
             if (!isPasswordMatch) {
                 return reply.code(401).send({ error: 'Invalid current password' });
             }
 
-            // 2. Yeni şifreyi hash'le
-            const hashedPassword = await bcrypt.hash(newPassword, 10); // SALT_ROUNDS = 10
+            const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-            // 3. Yeni şifreyi veritabanında güncelle
             await prisma.user.update({
                 where: { id: userId },
                 data: { password: hashedPassword },
