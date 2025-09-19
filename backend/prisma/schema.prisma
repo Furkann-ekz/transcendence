@@ -10,45 +10,82 @@ datasource db {
 }
 
 model User {
-  id               Int      @id @default(autoincrement())
-  createdAt        DateTime @default(now())
-  email            String   @unique
-  name             String?
-  password         String
-  wins             Int      @default(0)
-  losses           Int      @default(0)
-  matchesAsPlayer1 Match[]  @relation("Player1Matches")
-  matchesAsPlayer2 Match[]  @relation("Player2Matches")
-  matchesAsPlayer3 Match[]  @relation("Player3Matches")
-  matchesAsPlayer4 Match[]  @relation("Player4Matches")
-  // Bu alan, aşağıdaki Match.winner ile eşleşir
-  wonMatches       Match[]  @relation("WinnerMatches")
+  id                 Int                     @id @default(autoincrement())
+  createdAt          DateTime                @default(now())
+  email              String                  @unique
+  name               String?
+  password           String
+  wins               Int                     @default(0)
+  losses             Int                     @default(0)
+  matchesAsPlayer1   Match[]                 @relation("Player1Matches")
+  matchesAsPlayer2   Match[]                 @relation("Player2Matches")
+  matchesAsPlayer3   Match[]                 @relation("Player3Matches")
+  matchesAsPlayer4   Match[]                 @relation("Player4Matches")
+  wonMatches         Match[]                 @relation("WinnerMatches")
+
+  // YENİ EKLENECEK TURNUVA ALANLARI
+  tournamentsPlayed  Int                     @default(0)
+  tournamentsWon     Int                     @default(0)
+  wonTournaments     Tournament[]            @relation("WonTournaments")
+  participants       TournamentParticipant[]
+}
+
+// YENİ EKLENECEK MODELLER
+enum TournamentStatus {
+  WAITING_FOR_PLAYERS
+  IN_PROGRESS
+  COMPLETED
+}
+
+model Tournament {
+  id           Int                     @id @default(autoincrement())
+  name         String
+  size         Int
+  createdAt    DateTime                @default(now())
+  status       TournamentStatus        @default(WAITING_FOR_PLAYERS)
+  participants TournamentParticipant[]
+  matches      Match[]
+  winner       User?                   @relation("WonTournaments", fields: [winnerId], references: [id])
+  winnerId     Int?
+}
+
+model TournamentParticipant {
+  id           Int        @id @default(autoincrement())
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  tournamentId Int
+  user         User       @relation(fields: [userId], references: [id])
+  userId       Int
+  isEliminated Boolean    @default(false)
+
+  @@unique([tournamentId, userId])
 }
 
 model Match {
-  id                 Int      @id @default(autoincrement())
-  createdAt          DateTime @default(now())
+  id                 Int         @id @default(autoincrement())
+  createdAt          DateTime    @default(now())
   durationInSeconds  Int
   mode               String
   player1Id          Int
   player3Id          Int?
   player2Id          Int
   player4Id          Int?
-  player1            User     @relation("Player1Matches", fields: [player1Id], references: [id])
-  player3            User?    @relation("Player3Matches", fields: [player3Id], references: [id])
-  player2            User     @relation("Player2Matches", fields: [player2Id], references: [id])
-  player4            User?    @relation("Player4Matches", fields: [player4Id], references: [id])
+  player1            User        @relation("Player1Matches", fields: [player1Id], references: [id])
+  player3            User?       @relation("Player3Matches", fields: [player3Id], references: [id])
+  player2            User        @relation("Player2Matches", fields: [player2Id], references: [id])
+  player4            User?       @relation("Player4Matches", fields: [player4Id], references: [id])
   team1Score         Int
   team2Score         Int
   winnerTeam         Int
-  wasForfeit         Boolean  @default(false)
-  
+  wasForfeit         Boolean     @default(false)
   winnerId           Int
-  // DÜZELTME: Bu alana, User.wonMatches ile aynı olan ilişki adı eklendi
-  winner             User     @relation("WinnerMatches", fields: [winnerId], references: [id])
+  winner             User        @relation("WinnerMatches", fields: [winnerId], references: [id])
+  team1Hits          Int         @default(0)
+  team1Misses        Int         @default(0)
+  team2Hits          Int         @default(0)
+  team2Misses        Int         @default(0)
 
-  team1Hits          Int      @default(0)
-  team1Misses        Int      @default(0)
-  team2Hits          Int      @default(0)
-  team2Misses        Int      @default(0)
+  // YENİ EKLENECEK TURNUVA İLİŞKİSİ
+  tournament         Tournament? @relation(fields: [tournamentId], references: [id])
+  tournamentId       Int?
+  roundNumber        Int?
 }
