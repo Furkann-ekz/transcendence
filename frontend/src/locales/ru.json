@@ -60,5 +60,9 @@
   "change_password_button": "Сменить пароль",
   "passwords_do_not_match": "Новые пароли не совпадают!",
   "password_too_short": "Новый пароль должен содержать не менее 6 символов.",
-  "password_update_success": "Пароль успешно обновлен!"
+  "password_update_success": "Пароль успешно обновлен!",
+  "friend_requests": "Запросы на добавление в друзья",
+  "accept_button": "Принять",
+  "reject_button": "Отклонить",
+  "no_friend_requests": "Нет ожидающих запросов на добавление в друзья."
 }

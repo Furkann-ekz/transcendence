@@ -5,109 +5,139 @@ import { t } from '../i18n';
 import { jwt_decode } from '../utils';
 import type { Socket } from "socket.io-client";
 import { addMessage, getMessages, clearMessages } from '../chatState';
+import { getFriends, respondToFriendRequest } from '../api/users';
 
-// Sayfa bazında değişkenleri tanımla
 let socket: Socket | null = null;
 let myId: number | null = null;
 
 export function render(): string {
-  // Navigasyon çubuğunu sol, orta ve sağ olmak üzere üç ana bölüme ayırıyoruz.
   return `
     <div class="h-screen w-screen flex flex-col bg-gray-100">
       <nav class="bg-gray-800 text-white p-4 flex justify-between items-center w-full">
-        
-        <div class="w-1/3">
-          </div>
-
-        <div class="w-1/3 text-center">
-          <h1 class="text-xl font-bold">Transcendence</h1>
-        </div>
-
+        <div class="w-1/3"></div>
+        <div class="w-1/3 text-center"><h1 class="text-xl font-bold">Transcendence</h1></div>
         <div class="w-1/3 flex justify-end items-center space-x-4">
           <a href="/lobby" data-link class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">${t('go_to_game')}</a>
           <button id="logout-button" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">${t('logout')}</button>
         </div>
-
       </nav>
-
       <div class="flex flex-grow overflow-hidden p-4 space-x-4">
-        
-        <div class="w-1/4 bg-white p-4 rounded-lg shadow-md overflow-y-auto">
-          <h2 class="text-lg font-bold mb-4">${t('online_users')}</h2>
-          <ul id="user-list" class="space-y-2"></ul>
-        </div>
-
-        <div class="w-3/4 flex flex-col bg-white rounded-lg shadow-md overflow-hidden">
-          <div class="p-4 border-b">
-            <strong>${t('recipient')}:</strong> <span id="recipient-info">${t('everyone')}</span>
+        <div class="w-1/4 flex flex-col space-y-4">
+          <div class="bg-white p-4 rounded-lg shadow-md overflow-y-auto">
+            <h2 class="text-lg font-bold mb-4">${t('online_users')}</h2>
+            <ul id="user-list" class="space-y-2"></ul>
           </div>
           
+          <div class="bg-white p-4 rounded-lg shadow-md overflow-y-auto">
+            <h2 class="text-lg font-bold mb-4">${t('friend_requests')}</h2>
+            <ul id="friend-request-list" class="space-y-2"></ul>
+          </div>
+        </div>
+        <div class="w-3/4 flex flex-col bg-white rounded-lg shadow-md overflow-hidden">
+          <div class="p-4 border-b"><strong>${t('recipient')}:</strong> <span id="recipient-info">${t('everyone')}</span></div>
           <ul id="messages" class="flex-grow p-4 overflow-y-auto"></ul>
-
           <form id="chat-form" class="p-4 bg-gray-200 flex rounded-b-lg">
             <input id="chat-input" autocomplete="off" placeholder="${t('chat_placeholder')}" class="border rounded-l-md p-2 flex-grow" />
             <button type="submit" class="bg-blue-500 text-white px-4 rounded-r-md hover:bg-blue-600">${t('send_button')}</button>
           </form>
         </div>
-
       </div>
     </div>
   `;
 }
 
 export function afterRender() {
-  const logoutButton = document.getElementById('logout-button');
-  logoutButton?.addEventListener('click', () => {
-      clearMessages(); // Çıkış yaparken de temizle
-      localStorage.removeItem('token');
-      disconnectSocket();
-      navigateTo('/');
-  });
+    // --- Değişkenleri ve DOM Elemanlarını Seçme ---
+    socket = getSocket()!;
+    const token = localStorage.getItem('token');
+    if (token) { myId = jwt_decode(token).userId; }
 
-  socket = getSocket()!;
-  socket.emit('requestUserList');
+    const logoutButton = document.getElementById('logout-button');
+    const userList = document.getElementById('user-list') as HTMLUListElement;
+    const friendRequestList = document.getElementById('friend-request-list') as HTMLUListElement;
+    const recipientInfo = document.getElementById('recipient-info') as HTMLSpanElement;
+    const messagesList = document.getElementById('messages') as HTMLUListElement;
+    const chatForm = document.getElementById('chat-form') as HTMLFormElement;
+    const chatInput = document.getElementById('chat-input') as HTMLInputElement;
+    let selectedRecipient: any = null;
 
-  const token = localStorage.getItem('token');
-  if (token) {
-      myId = jwt_decode(token).userId;
-  }
+    // --- Yardımcı Fonksiyonlar ---
 
-  const userList = document.getElementById('user-list') as HTMLUListElement;
-  const recipientInfo = document.getElementById('recipient-info') as HTMLSpanElement;
-  const messagesList = document.getElementById('messages') as HTMLUListElement;
-  const chatForm = document.getElementById('chat-form') as HTMLFormElement;
-  const chatInput = document.getElementById('chat-input') as HTMLInputElement;
+    function renderMessages() {
+        if (!messagesList) return;
+        const currentMessages = getMessages();
+        messagesList.innerHTML = '';
+        currentMessages.forEach(msg => {
+            const item = document.createElement('li');
+            const prefix = t(msg.type === 'public' ? 'chat_public_prefix' : 'chat_private_prefix');
+            item.textContent = `${prefix} ${msg.sender}: ${msg.content}`;
+            messagesList.appendChild(item);
+        });
+        messagesList.scrollTop = messagesList.scrollHeight;
+    }
 
-  let selectedRecipient: any = null;
+    async function renderFriendRequests() {
+        if (!friendRequestList) return;
+        try {
+            const { pendingRequests } = await getFriends();
+            if (pendingRequests.length === 0) {
+                friendRequestList.innerHTML = `<li class="text-gray-500 text-sm">${t('no_friend_requests')}</li>`;
+                return;
+            }
+            friendRequestList.innerHTML = '';
+            pendingRequests.forEach((request: any) => {
+                const item = document.createElement('li');
+                item.className = 'flex justify-between items-center';
+                item.innerHTML = `
+                    <span>${request.requester.name || request.requester.email}</span>
+                    <div class="flex space-x-2">
+                        <button data-id="${request.id}" class="accept-friend-btn bg-green-500 text-white px-2 py-1 text-xs rounded hover:bg-green-600">${t('accept_button')}</button>
+                        <button data-id="${request.id}" class="reject-friend-btn bg-red-500 text-white px-2 py-1 text-xs rounded hover:bg-red-600">${t('reject_button')}</button>
+                    </div>
+                `;
+                friendRequestList.appendChild(item);
+            });
 
-  // --- YENİ FONKSİYON: Arayüzü bellekten gelen son duruma göre yeniden çizer ---
-  function renderMessages() {
-    if (!messagesList) return;
-    
-    const currentMessages = getMessages(); // Bellekteki güncel mesajları al
-    messagesList.innerHTML = ''; // Önce ekrandaki listeyi tamamen temizle
+            document.querySelectorAll('.accept-friend-btn').forEach(button => {
+                button.addEventListener('click', async (e) => {
+                    const id = (e.target as HTMLElement).dataset.id;
+                    await respondToFriendRequest(parseInt(id!), true);
+                    renderFriendRequests();
+                });
+            });
+            document.querySelectorAll('.reject-friend-btn').forEach(button => {
+                button.addEventListener('click', async (e) => {
+                    const id = (e.target as HTMLElement).dataset.id;
+                    await respondToFriendRequest(parseInt(id!), false);
+                    renderFriendRequests();
+                });
+            });
+        } catch (error) {
+            console.error("Failed to render friend requests:", error);
+            friendRequestList.innerHTML = `<li class="text-red-500 text-sm">İstekler yüklenemedi.</li>`;
+        }
+    }
 
-    currentMessages.forEach(msg => { // Bellekteki her mesaj için yeni bir <li> oluştur
-      const item = document.createElement('li');
-      const prefix = t(msg.type === 'public' ? 'chat_public_prefix' : 'chat_private_prefix');
-      item.textContent = `${prefix} ${msg.sender}: ${msg.content}`;
-      messagesList.appendChild(item);
+    function selectRecipient(user: any) {
+        selectedRecipient = user;
+        recipientInfo.textContent = user.name || user.email || t('everyone');
+        document.querySelectorAll('#user-list li').forEach(li => {
+            li.classList.toggle('bg-blue-200', (li as HTMLElement).dataset.id == (user.id || 'all'));
+        });
+    }
+
+    // --- İlk Yükleme ve Event Listener'lar ---
+
+    logoutButton?.addEventListener('click', () => {
+        clearMessages();
+        localStorage.removeItem('token');
+        disconnectSocket();
+        navigateTo('/');
     });
 
-    // Her zaman en alta kaydır
-    messagesList.scrollTop = messagesList.scrollHeight;
-  }
-  
-  // Sayfa ilk yüklendiğinde mesajları çiz
-  renderMessages();
-
-  function selectRecipient(user: any) {
-    selectedRecipient = user;
-    recipientInfo.textContent = user.name || user.email || t('everyone');
-    document.querySelectorAll('#user-list li').forEach(li => {
-        li.classList.toggle('bg-blue-200', (li as HTMLElement).dataset.id == (user.id || 'all'));
-    });
-  }
+    renderMessages();
+    renderFriendRequests();
+    socket.emit('requestUserList');
 
   socket.on('update user list', (users: any[]) => {
     const currentSelectedId = selectedRecipient ? selectedRecipient.id : 'all';
@@ -170,6 +200,11 @@ export function afterRender() {
   });
 
   socket.on('chat message', (msg: any) => {
+    addMessage(msg);
+    renderMessages();
+  });
+
+  socket.on('chat message', (msg: any) => {
     addMessage(msg);      // 1. Yeni mesajı belleğe ekle (ve gerekirse en eskisini sil)
     renderMessages();     // 2. Arayüzü bellekten gelen son duruma göre tamamen yeniden çiz
   });
@@ -190,12 +225,11 @@ export function afterRender() {
   });
 }
 
-export function cleanup() {
-  console.log('Dashboard sayfasından ayrılıyor, dinleyiciler temizleniyor...');
 
-  const socket = getSocket();
-  if (socket) {
-    socket.off('update user list');
-    socket.off('chat message');
-  }
+export function cleanup() {
+    const socket = getSocket();
+    if (socket) {
+        socket.off('update user list');
+        socket.off('chat message');
+    }
 }

@@ -65,5 +65,9 @@
   "change_password_button": "Change Password",
   "passwords_do_not_match": "New passwords do not match!",
   "password_too_short": "New password must be at least 6 characters long.",
-  "password_update_success": "Password updated successfully!"
+  "password_update_success": "Password updated successfully!",
+  "friend_requests": "Friend Requests",
+  "accept_button": "Accept",
+  "reject_button": "Reject",
+  "no_friend_requests": "No pending friend requests."
 }

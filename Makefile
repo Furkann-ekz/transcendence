@@ -33,6 +33,8 @@ clean: down
 	@echo "--- Forcibly removing any lingering containers... ---"
 	@docker ps -a -q --filter "name=transcendence_backend" | xargs -r docker rm -f || true
 	@docker ps -a -q --filter "name=transcendence_frontend" | xargs -r docker rm -f || true
+	
+remove:
 	@(cd backend && rm -rf node_modules package-lock.json)
 	@(cd frontend && rm -rf node_modules package-lock.json)
 

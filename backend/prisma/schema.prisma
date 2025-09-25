@@ -17,38 +17,70 @@ model User {
   password         String
   wins             Int      @default(0)
   losses           Int      @default(0)
-  matchesAsPlayer1 Match[]  @relation("Player1Matches")
-  matchesAsPlayer2 Match[]  @relation("Player2Matches")
-  matchesAsPlayer3 Match[]  @relation("Player3Matches")
-  matchesAsPlayer4 Match[]  @relation("Player4Matches")
-  // Bu alan, aşağıdaki Match.winner ile eşleşir
-  wonMatches       Match[]  @relation("WinnerMatches")
+  
+  matchesAsPlayer1 Match[] @relation("Player1Matches")
+  matchesAsPlayer2 Match[] @relation("Player2Matches")
+  matchesAsPlayer3 Match[] @relation("Player3Matches")
+  matchesAsPlayer4 Match[] @relation("Player4Matches")
+  wonMatches       Match[] @relation("WinnerMatches")
+
+  // ARKADAŞLIK VE ENGELLEME İÇİN EKLENEN İLİŞKİLER
+  sentFriendRequests     Friendship[] @relation("SentRequests")
+  receivedFriendRequests Friendship[] @relation("ReceivedRequests")
+  blockedUsers           Block[]      @relation("BlockingUsers")
+  blockedBy              Block[]      @relation("BlockedByUsers")
 }
 
 model Match {
-  id                 Int      @id @default(autoincrement())
-  createdAt          DateTime @default(now())
-  durationInSeconds  Int
-  mode               String
-  player1Id          Int
-  player3Id          Int?
-  player2Id          Int
-  player4Id          Int?
-  player1            User     @relation("Player1Matches", fields: [player1Id], references: [id])
-  player3            User?    @relation("Player3Matches", fields: [player3Id], references: [id])
-  player2            User     @relation("Player2Matches", fields: [player2Id], references: [id])
-  player4            User?    @relation("Player4Matches", fields: [player4Id], references: [id])
-  team1Score         Int
-  team2Score         Int
-  winnerTeam         Int
-  wasForfeit         Boolean  @default(false)
-  
-  winnerId           Int
-  // DÜZELTME: Bu alana, User.wonMatches ile aynı olan ilişki adı eklendi
-  winner             User     @relation("WinnerMatches", fields: [winnerId], references: [id])
+  id                Int      @id @default(autoincrement())
+  createdAt         DateTime @default(now())
+  durationInSeconds Int
+  mode              String
+  player1Id         Int
+  player3Id         Int?
+  player2Id         Int
+  player4Id         Int?
+  player1           User     @relation("Player1Matches", fields: [player1Id], references: [id])
+  player3           User?    @relation("Player3Matches", fields: [player3Id], references: [id])
+  player2           User     @relation("Player2Matches", fields: [player2Id], references: [id])
+  player4           User?    @relation("Player4Matches", fields: [player4Id], references: [id])
+  team1Score        Int
+  team2Score        Int
+  winnerTeam        Int
+  wasForfeit        Boolean  @default(false)
+  winnerId          Int
+  winner            User     @relation("WinnerMatches", fields: [winnerId], references: [id])
+  team1Hits         Int      @default(0)
+  team1Misses       Int      @default(0)
+  team2Hits         Int      @default(0)
+  team2Misses       Int      @default(0)
+}
 
-  team1Hits          Int      @default(0)
-  team1Misses        Int      @default(0)
-  team2Hits          Int      @default(0)
-  team2Misses        Int      @default(0)
+// ARKADAŞLIK SİSTEMİ İÇİN YENİ MODELLER
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+}
+
+model Friendship {
+  id          Int              @id @default(autoincrement())
+  requesterId Int
+  requester   User             @relation("SentRequests", fields: [requesterId], references: [id])
+  receiverId  Int
+  receiver    User             @relation("ReceivedRequests", fields: [receiverId], references: [id])
+  status      FriendshipStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+
+  @@unique([requesterId, receiverId])
+}
+
+// KULLANICI ENGELLEME SİSTEMİ İÇİN YENİ MODEL
+model Block {
+  id        Int @id @default(autoincrement())
+  blockerId Int
+  blocker   User @relation("BlockingUsers", fields: [blockerId], references: [id])
+  blockedId Int
+  blockedBy User @relation("BlockedByUsers", fields: [blockedId], references: [id])
+
+  @@unique([blockerId, blockedId])
 }

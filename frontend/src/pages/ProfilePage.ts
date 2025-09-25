@@ -1,6 +1,5 @@
-// frontend/src/pages/ProfilePage.ts
 import { t } from '../i18n';
-import { getUserProfile } from '../api/users';
+import { getUserProfile, getFriendshipStatus, sendFriendRequest, removeFriendship, respondToFriendRequest } from '../api/users';
 import { jwt_decode } from '../utils';
 
 export function render(): string {
@@ -21,10 +20,9 @@ export function render(): string {
             <p class="text-sm text-gray-600">${t('profile_losses')}</p>
           </div>
         </div>
-
-        <a id="match-history-link" href="#" data-link class="mt-6 bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded block">
-          ${t('view_match_history')}
-        </a>
+        
+        <div id="profile-actions" class="mt-6 space-y-2">
+            </div>
 
         <a href="/dashboard" data-link class="mt-4 inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800">
           ${t('return_to_chat')}
@@ -35,53 +33,86 @@ export function render(): string {
 }
 
 export async function afterRender() {
-  const profileCard = document.getElementById('profile-card');
-  const nameElement = document.getElementById('profile-name');
-  const createdAtElement = document.getElementById('profile-created-at');
-  const winsElement = document.getElementById('profile-wins');
-  const lossesElement = document.getElementById('profile-losses');
-  const matchHistoryLink = document.getElementById('match-history-link');
+    const nameElement = document.getElementById('profile-name');
+    const createdAtElement = document.getElementById('profile-created-at');
+    const winsElement = document.getElementById('profile-wins');
+    const lossesElement = document.getElementById('profile-losses');
+    const profileActionsContainer = document.getElementById('profile-actions');
 
-  const pathParts = window.location.pathname.split('/');
-  const profileId = pathParts[2];
+    const pathParts = window.location.pathname.split('/');
+    const profileIdStr = pathParts[2];
+    const profileId = parseInt(profileIdStr, 10);
 
-  const token = localStorage.getItem('token');
-  const myId = token ? jwt_decode(token).userId : null;
+    const token = localStorage.getItem('token');
+    const myId = token ? jwt_decode(token).userId : null;
 
-  if (!profileId) {
-    if (nameElement) nameElement.textContent = 'Invalid Profile';
-    return;
-  }
-  
-  // Maç geçmişi linkini, görüntülenen kullanıcının ID'sine göre dinamik olarak ayarla
-  if (matchHistoryLink) {
-    matchHistoryLink.setAttribute('href', `/profile/${profileId}/history`);
-  }
-
-  // Eğer kullanıcı kendi profiline bakıyorsa "Düzenle" butonunu ekle
-  if (profileId == myId && profileCard) {
-    const editButton = document.createElement('a');
-    editButton.href = '/profile/edit';
-    editButton.setAttribute('data-link', '');
-    editButton.className = 'mt-2 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded block';
-    editButton.textContent = t('edit_profile_button');
-    // "Profili Düzenle" butonunu, "Maç Geçmişi" butonunun hemen üstüne ekleyelim
-    profileCard.insertBefore(editButton, matchHistoryLink);
-  }
-
-  try {
-    const userProfile = await getUserProfile(profileId);
-    
-    if (nameElement) nameElement.textContent = userProfile.name || 'Unnamed User';
-    if (createdAtElement) {
-      const joinDate = new Date(userProfile.createdAt).toLocaleDateString();
-      createdAtElement.textContent = `${t('profile_joined_on')} ${joinDate}`;
+    if (isNaN(profileId) || !profileActionsContainer || !nameElement) {
+        if (nameElement) nameElement.textContent = 'Invalid Profile';
+        return;
     }
-    if (winsElement) winsElement.textContent = userProfile.wins.toString();
-    if (lossesElement) lossesElement.textContent = userProfile.losses.toString();
 
-  } catch (error) {
-    if (nameElement) nameElement.textContent = 'Profile Not Found';
-    console.error(error);
-  }
+    async function renderFriendshipButton() {
+        if (!profileActionsContainer || profileId === myId) return;
+
+        try {
+            const friendship = await getFriendshipStatus(profileId);
+            let buttonHTML = '';
+            
+            if (friendship.status === 'none') {
+                buttonHTML = `<button id="add-friend-btn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded w-full">Arkadaş Ekle</button>`;
+            } else if (friendship.status === 'PENDING') {
+                if (friendship.isRequester) {
+                    buttonHTML = `<button id="cancel-request-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded w-full">İstek Gönderildi (İptal Et)</button>`;
+                } else {
+                    buttonHTML = `
+                        <p class="mb-2">Sana bir arkadaşlık isteği gönderdi.</p>
+                        <div class="flex space-x-2">
+                            <button id="accept-request-btn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded w-full">Kabul Et</button>
+                            <button id="reject-request-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded w-full">Reddet</button>
+                        </div>
+                    `;
+                }
+            } else if (friendship.status === 'ACCEPTED') {
+                buttonHTML = `<button id="remove-friend-btn" class="bg-red-700 hover:bg-red-800 text-white font-bold py-2 px-4 rounded w-full">Arkadaşlıktan Çıkar</button>`;
+            }
+
+            // Önceki içeriği temizle ve yeni butonu ekle
+            const friendButtonContainer = document.getElementById('friend-button-container');
+            if(friendButtonContainer) friendButtonContainer.innerHTML = buttonHTML;
+
+            // Event Listeners
+            document.getElementById('add-friend-btn')?.addEventListener('click', async () => { await sendFriendRequest(profileId); renderFriendshipButton(); });
+            document.getElementById('cancel-request-btn')?.addEventListener('click', async () => { await removeFriendship(friendship.id); renderFriendshipButton(); });
+            document.getElementById('accept-request-btn')?.addEventListener('click', async () => { await respondToFriendRequest(friendship.id, true); renderFriendshipButton(); });
+            document.getElementById('reject-request-btn')?.addEventListener('click', async () => { await respondToFriendRequest(friendship.id, false); renderFriendshipButton(); });
+            document.getElementById('remove-friend-btn')?.addEventListener('click', async () => { await removeFriendship(friendship.id); renderFriendshipButton(); });
+
+        } catch (error) {
+            console.error("Could not load friendship status:", error);
+        }
+    }
+
+    try {
+        const userProfile = await getUserProfile(profileIdStr);
+        nameElement.textContent = userProfile.name || 'Unnamed User';
+        if (createdAtElement) createdAtElement.textContent = `${t('profile_joined_on')} ${new Date(userProfile.createdAt).toLocaleDateString()}`;
+        if (winsElement) winsElement.textContent = userProfile.wins.toString();
+        if (lossesElement) lossesElement.textContent = userProfile.losses.toString();
+
+        profileActionsContainer.innerHTML = `<a id="match-history-link" href="/profile/${profileIdStr}/history" data-link class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded block">${t('view_match_history')}</a>`;
+        
+        if (profileId === myId) {
+            profileActionsContainer.insertAdjacentHTML('beforeend', `<a href="/profile/edit" data-link class="mt-2 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded block">${t('edit_profile_button')}</a>`);
+        } else {
+            const friendButtonDiv = document.createElement('div');
+            friendButtonDiv.id = 'friend-button-container';
+            friendButtonDiv.className = 'mt-2';
+            profileActionsContainer.appendChild(friendButtonDiv);
+            await renderFriendshipButton();
+        }
+
+    } catch (error) {
+        console.error("Could not load profile data:", error);
+        nameElement.textContent = 'Profile Not Found';
+    }
 }
