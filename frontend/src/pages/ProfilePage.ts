@@ -26,34 +26,36 @@ async function renderActionButtons() {
         const status = await getFriendshipStatus(profileId);
         let buttonsHTML = '';
 
-        if (status.friendshipStatus === 'blocked_by_them') {
-            actionsContainer.innerHTML = `<p class="text-sm text-gray-500">Bu kullanıcıyla etkileşimde bulunamazsınız.</p>`;
-            return;
-        }
-
-        switch (status.friendshipStatus) {
-            case 'none':
-                buttonsHTML += `<button id="add-friend-btn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded w-full">Arkadaş Ekle</button>`;
-                break;
-            case 'pending_sent':
-                buttonsHTML += `<button id="cancel-request-btn" data-friendship-id="${status.friendshipId}" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded w-full">İstek Gönderildi (İptal Et)</button>`;
-                break;
-            case 'pending_received':
-                buttonsHTML += `
-                    <p class="mb-2 text-sm">Size bir arkadaşlık isteği gönderdi.</p>
-                    <div class="flex space-x-2">
-                        <button id="accept-request-btn" data-friendship-id="${status.friendshipId}" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded w-full">Kabul Et</button>
-                        <button id="reject-request-btn" data-friendship-id="${status.friendshipId}" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded w-full">Reddet</button>
-                    </div>`;
-                break;
-            case 'friends':
-                buttonsHTML += `<button id="remove-friend-btn" data-friendship-id="${status.friendshipId}" class="bg-red-700 hover:bg-red-800 text-white font-bold py-2 px-4 rounded w-full">Arkadaşlıktan Çıkar</button>`;
-                break;
-        }
-
+        // --- YENİ MANTIK ---
+        // Önce engelleme durumunu kontrol et.
         if (status.isBlocked) {
-            buttonsHTML += `<button id="unblock-user-btn" class="mt-2 bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-4 rounded w-full">Engeli Kaldır</button>`;
+            // Eğer kullanıcı engelliyse, SADECE engeli kaldırma butonunu göster.
+            buttonsHTML += `<button id="unblock-user-btn" class="bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-4 rounded w-full">Engeli Kaldır</button>`;
+        } else if (status.friendshipStatus === 'blocked_by_them') {
+            // Eğer karşı taraf beni engellediyse, hiçbir şey gösterme.
+            buttonsHTML = `<p class="text-sm text-gray-500">Bu kullanıcıyla etkileşimde bulunamazsınız.</p>`;
         } else {
+            // Eğer engel yoksa, arkadaşlık durumuna göre butonları göster.
+            switch (status.friendshipStatus) {
+                case 'none':
+                    buttonsHTML += `<button id="add-friend-btn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded w-full">Arkadaş Ekle</button>`;
+                    break;
+                case 'pending_sent':
+                    buttonsHTML += `<button id="cancel-request-btn" data-friendship-id="${status.friendshipId}" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded w-full">İstek Gönderildi (İptal Et)</button>`;
+                    break;
+                case 'pending_received':
+                    buttonsHTML += `
+                        <p class="mb-2 text-sm">Size bir arkadaşlık isteği gönderdi.</p>
+                        <div class="flex space-x-2">
+                            <button id="accept-request-btn" data-friendship-id="${status.friendshipId}" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded w-full">Kabul Et</button>
+                            <button id="reject-request-btn" data-friendship-id="${status.friendshipId}" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded w-full">Reddet</button>
+                        </div>`;
+                    break;
+                case 'friends':
+                    buttonsHTML += `<button id="remove-friend-btn" data-friendship-id="${status.friendshipId}" class="bg-red-700 hover:bg-red-800 text-white font-bold py-2 px-4 rounded w-full">Arkadaşlıktan Çıkar</button>`;
+                    break;
+            }
+            // Engel butonunu sadece engel durumu yoksa göster.
             buttonsHTML += `<button id="block-user-btn" class="mt-2 bg-black hover:bg-gray-800 text-white font-bold py-2 px-4 rounded w-full">Engelle</button>`;
         }
         

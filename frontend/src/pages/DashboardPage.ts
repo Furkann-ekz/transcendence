@@ -144,29 +144,53 @@ export function afterRender() {
     socket.on('update user list', (users: OnlineUser[]) => {
         const currentSelectedId = selectedRecipient ? selectedRecipient.id : 'all';
         userList.innerHTML = '';
+
+        // Adım 1: "Herkese" seçeneğini ekle
         const allOption = document.createElement('li');
         allOption.textContent = t('everyone');
         allOption.dataset.id = 'all';
         allOption.classList.add('p-2', 'hover:bg-gray-200', 'cursor-pointer', 'rounded');
         allOption.addEventListener('click', () => selectRecipient({ id: 'all', name: t('everyone') }));
         userList.appendChild(allOption);
+        
+        // Adım 2: Mevcut kullanıcıyı (SEN) bul ve listeye ekle
+        const me = users.find(user => user.id === myId);
+        if (me) {
+            const myItem = document.createElement('li');
+            myItem.dataset.id = String(me.id);
+            myItem.classList.add('p-2', 'hover:bg-gray-200', 'cursor-pointer', 'rounded');
+            
+            const myLink = document.createElement('a');
+            myLink.href = `/profile/${me.id}`;
+            myLink.setAttribute('data-link', '');
+            myLink.textContent = `${me.name || me.email} ${t('you_suffix')}`;
+            myItem.appendChild(myLink);
+            
+            // Kendine özel mesaj atma engelli olduğu için click listener yok
+            userList.appendChild(myItem);
+        }
+
+        // Adım 3: Diğer kullanıcıları (kendin hariç) listeye ekle
         users.forEach(user => {
-            const item = document.createElement('li');
-            item.dataset.id = String(user.id);
-            item.classList.add('p-2', 'hover:bg-gray-200', 'cursor-pointer', 'rounded');
-            const userLink = document.createElement('a');
-            userLink.href = `/profile/${user.id}`;
-            userLink.setAttribute('data-link', '');
-            userLink.textContent = user.id === myId ? `${user.name || user.email} ${t('you_suffix')}` : user.name || user.email;
-            item.appendChild(userLink);
             if (user.id !== myId) {
+                const item = document.createElement('li');
+                item.dataset.id = String(user.id);
+                item.classList.add('p-2', 'hover:bg-gray-200', 'cursor-pointer', 'rounded');
+                
+                const userLink = document.createElement('a');
+                userLink.href = `/profile/${user.id}`;
+                userLink.setAttribute('data-link', '');
+                userLink.textContent = user.name || user.email;
+                item.appendChild(userLink);
+                
                 item.addEventListener('click', (e) => {
                     if ((e.target as HTMLElement).tagName === 'A') return;
                     selectRecipient(user);
                 });
+                userList.appendChild(item);
             }
-            userList.appendChild(item);
         });
+
         const newSelectedUser = users.find(u => u.id === currentSelectedId);
         selectRecipient(newSelectedUser || { id: 'all', name: t('everyone') });
     });

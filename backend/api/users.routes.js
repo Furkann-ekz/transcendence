@@ -224,11 +224,34 @@ async function userRoutes(fastify, { io, onlineUsers }) {
     fastify.post('/friends/request/:targetId', { preHandler: [authenticate] }, async (request, reply) => {
         const requesterId = request.user.userId;
         const receiverId = parseInt(request.params.targetId, 10);
-        if (requesterId === receiverId) { return reply.code(400).send({ error: "Cannot friend yourself." }); }
+        
+        if (requesterId === receiverId) { 
+            return reply.code(400).send({ error: "Cannot friend yourself." }); 
+        }
+
+        // --- YENİ EKLENEN KONTROL ---
+        // Kullanıcılardan herhangi biri diğerini engellemiş mi diye kontrol et.
+        const blockExists = await prisma.block.findFirst({
+            where: {
+                OR: [
+                    { blockerId: requesterId, blockedId: receiverId },
+                    { blockerId: receiverId, blockedId: requesterId },
+                ]
+            }
+        });
+
+        if (blockExists) {
+            return reply.code(403).send({ error: "Cannot send friend request. A block is active between users." });
+        }
+        // --- KONTROL SONU ---
+
         const existingFriendship = await prisma.friendship.findFirst({
             where: { OR: [{ requesterId, receiverId }, { requesterId: receiverId, receiverId: requesterId }] }
         });
-        if (existingFriendship) { return reply.code(409).send({ error: "Friendship already exists or is pending." }); }
+        if (existingFriendship) { 
+            return reply.code(409).send({ error: "Friendship already exists or is pending." }); 
+        }
+
         const newRequest = await prisma.friendship.create({ data: { requesterId, receiverId } });
         notifyUser(receiverId);
         return reply.code(201).send(newRequest);
@@ -270,23 +293,65 @@ async function userRoutes(fastify, { io, onlineUsers }) {
 
     // --- KULLANICI ENGELLEME ENDPOINT'LERİ ---
 
-    fastify.post('/users/:targetId/block', { preHandler: [authenticate] }, async (request, reply) => {
+     fastify.post('/users/:targetId/block', { preHandler: [authenticate] }, async (request, reply) => {
         const blockerId = request.user.userId;
         const blockedId = parseInt(request.params.targetId, 10);
-        if (blockerId === blockedId) { return reply.code(400).send({ error: "Cannot block yourself." }); }
-        const existingBlock = await prisma.block.findUnique({ where: { blockerId_blockedId: { blockerId, blockedId } } });
-        if (existingBlock) { return reply.code(409).send({ error: "User already blocked." }); }
-        const newBlock = await prisma.block.create({ data: { blockerId, blockedId } });
+
+        if (blockerId === blockedId) { 
+            return reply.code(400).send({ error: "Cannot block yourself." }); 
+        }
+        
+        const existingBlock = await prisma.block.findUnique({ 
+            where: { blockerId_blockedId: { blockerId, blockedId } } 
+        });
+        if (existingBlock) { 
+            return reply.code(409).send({ error: "User already blocked." }); 
+        }
+        
+        // --- YENİ MANTIK BURADA BAŞLIYOR ---
+
+        // 1. Önce bekleyen arkadaşlık isteğini sil.
+        // İki kullanıcı arasındaki PENDING durumundaki tüm istekleri siler.
+        await prisma.friendship.deleteMany({
+            where: {
+                status: 'PENDING',
+                OR: [
+                    { requesterId: blockerId, receiverId: blockedId },
+                    { requesterId: blockedId, receiverId: blockerId }
+                ]
+            }
+        });
+
+        // 2. Sonra engelleme kaydını oluştur.
+        const newBlock = await prisma.block.create({ 
+            data: { blockerId, blockedId } 
+        });
+
+        // 3. Her iki kullanıcıya da durumun güncellendiğine dair bildirim gönder.
+        // Bu sayede ekranları anında güncellenir.
+        notifyUser(blockerId);
+        notifyUser(blockedId);
+        
         return reply.code(201).send(newBlock);
     });
 
     fastify.delete('/users/:targetId/unblock', { preHandler: [authenticate] }, async (request, reply) => {
         const blockerId = request.user.userId;
         const blockedId = parseInt(request.params.targetId, 10);
+
         try {
-            await prisma.block.delete({ where: { blockerId_blockedId: { blockerId, blockedId } } });
+            await prisma.block.delete({ 
+                where: { blockerId_blockedId: { blockerId, blockedId } } 
+            });
+
+            // --- YENİ EKLENEN SATIRLAR ---
+            // Her iki kullanıcıya da durumun güncellendiğini bildir.
+            notifyUser(blockerId);
+            notifyUser(blockedId);
+
             return { message: "User unblocked." };
         } catch (error) {
+            // Engelleme ilişkisi bulunamazsa 404 hatası döner.
             return reply.code(404).send({ error: "Block relationship not found." });
         }
     });
