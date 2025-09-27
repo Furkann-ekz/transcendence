@@ -1,14 +1,60 @@
 const prisma = require('../prisma/db');
 const authenticate = require('../middleware/authenticate');
 const bcrypt = require('bcrypt');
+const fs = require('fs');
+const path = require('path');
+const util = require('util');
+const pipeline = util.promisify(require('stream').pipeline);
 
-async function userRoutes(fastify, options) {
+async function userRoutes(fastify, { io, onlineUsers }) {
     // --- TEMEL KULLANICI İŞLEMLERİ ---
-    
+
+    // Belirtilen kullanıcıya bildirim gönderir
+    const notifyUser = (userId) => {
+        const userSocketInfo = onlineUsers.get(userId);
+        if (userSocketInfo) {
+            io.to(userSocketInfo.socketId).emit('friendship_updated');
+        }
+    };
+
+    fastify.post('/profile/avatar', { preHandler: [authenticate] }, async (request, reply) => {
+        const data = await request.file();
+        if (!data) {
+            return reply.code(400).send({ error: 'No file uploaded.' });
+        }
+
+        const uploadDir = path.join(__dirname, '..', 'uploads', 'avatars');
+        await fs.promises.mkdir(uploadDir, { recursive: true });
+
+        const filename = `avatar-${request.user.userId}${path.extname(data.filename)}`;
+        const filepath = path.join(uploadDir, filename);
+        const avatarUrl = `/uploads/avatars/${filename}`;
+
+        try {
+            await pipeline(data.file, fs.createWriteStream(filepath));
+            await prisma.user.update({
+                where: { id: request.user.userId },
+                data: { avatarUrl },
+            });
+            return { message: 'Avatar updated successfully', avatarUrl };
+        } catch (error) {
+            fastify.log.error(error);
+            return reply.code(500).send({ error: 'Could not process file upload.' });
+        }
+    });
+
     fastify.get('/profile', { preHandler: [authenticate] }, async (request, reply) => {
         const userProfile = await prisma.user.findUnique({
             where: { id: request.user.userId },
-            select: { id: true, email: true, name: true, createdAt: true, wins: true, losses: true },
+            select: { 
+                id: true, 
+                email: true, 
+                name: true, 
+                createdAt: true, 
+                wins: true, 
+                losses: true,
+                avatarUrl: true
+            },
         });
         if (!userProfile) return reply.code(404).send({ error: 'User not found' });
         return userProfile;
@@ -32,7 +78,7 @@ async function userRoutes(fastify, options) {
             return reply.code(500).send({ error: 'Could not update user profile' });
         }
     });
-    
+
     fastify.post('/profile/change-password', { preHandler: [authenticate] }, async (request, reply) => {
         const { currentPassword, newPassword } = request.body;
         const userId = request.user.userId;
@@ -59,13 +105,20 @@ async function userRoutes(fastify, options) {
             return reply.code(500).send({ error: 'Could not change password' });
         }
     });
-
+    
     fastify.get('/users/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const userId = parseInt(request.params.id, 10);
         if (isNaN(userId)) { return reply.code(400).send({ error: 'Invalid user ID' }); }
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            select: { id: true, name: true, createdAt: true, wins: true, losses: true }
+            select: { 
+                id: true, 
+                name: true, 
+                createdAt: true, 
+                wins: true, 
+                losses: true,
+                avatarUrl: true
+            }
         });
         if (!user) { return reply.code(404).send({ error: 'User not found' }); }
         return user;
@@ -116,7 +169,6 @@ async function userRoutes(fastify, options) {
 
             const acceptedFriends = friends.map(f => f.requesterId === userId ? f.receiver : f.requester);
 
-            // DÜZELTME: Frontend'in beklediği obje yapısını burada oluşturup gönderiyoruz.
             return {
                 friends: acceptedFriends,
                 pendingRequests,
@@ -128,6 +180,46 @@ async function userRoutes(fastify, options) {
             return reply.code(500).send({ error: 'Could not fetch friends list.' });
         }
     });
+
+    fastify.get('/friends/status/:targetId', { preHandler: [authenticate] }, async (request, reply) => {
+        const myId = request.user.userId;
+        const targetId = parseInt(request.params.targetId, 10);
+        if (isNaN(targetId) || myId === targetId) {
+            return reply.code(400).send({ error: "Invalid target user." });
+        }
+        try {
+            const friendship = await prisma.friendship.findFirst({
+                where: { OR: [{ requesterId: myId, receiverId: targetId }, { requesterId: targetId, receiverId: myId }] }
+            });
+            const iBlockedTarget = await prisma.block.findUnique({
+                where: { blockerId_blockedId: { blockerId: myId, blockedId: targetId } }
+            });
+            const targetBlockedMe = await prisma.block.findUnique({
+                where: { blockerId_blockedId: { blockerId: targetId, blockedId: myId } }
+            });
+            if (targetBlockedMe) {
+                return { friendshipStatus: 'blocked_by_them', isBlocked: false };
+            }
+            const response = {
+                friendshipStatus: 'none',
+                friendshipId: null,
+                isBlocked: !!iBlockedTarget
+            };
+            if (friendship) {
+                response.friendshipId = friendship.id;
+                if (friendship.status === 'ACCEPTED') {
+                    response.friendshipStatus = 'friends';
+                } else if (friendship.status === 'PENDING') {
+                    response.friendshipStatus = friendship.requesterId === myId ? 'pending_sent' : 'pending_received';
+                }
+            }
+            return response;
+        } catch (error) {
+            fastify.log.error(error);
+            return reply.code(500).send({ error: "Could not fetch friendship status." });
+        }
+    });
+
     
     fastify.post('/friends/request/:targetId', { preHandler: [authenticate] }, async (request, reply) => {
         const requesterId = request.user.userId;
@@ -138,35 +230,42 @@ async function userRoutes(fastify, options) {
         });
         if (existingFriendship) { return reply.code(409).send({ error: "Friendship already exists or is pending." }); }
         const newRequest = await prisma.friendship.create({ data: { requesterId, receiverId } });
+        notifyUser(receiverId);
         return reply.code(201).send(newRequest);
     });
 
     fastify.post('/friends/respond/:friendshipId', { preHandler: [authenticate] }, async (request, reply) => {
         const userId = request.user.userId;
         const friendshipId = parseInt(request.params.friendshipId, 10);
-        const { accept } = request.body; // true for accept, false for reject
-
+        const { accept } = request.body;
         const friendship = await prisma.friendship.findFirst({ where: { id: friendshipId, receiverId: userId, status: 'PENDING' } });
         if (!friendship) { return reply.code(404).send({ error: "Request not found." }); }
         
+        let updatedFriendship;
         if (accept) {
-            return prisma.friendship.update({ where: { id: friendshipId }, data: { status: 'ACCEPTED' } });
+            updatedFriendship = await prisma.friendship.update({ where: { id: friendshipId }, data: { status: 'ACCEPTED' } });
         } else {
-            return prisma.friendship.delete({ where: { id: friendshipId } });
+            updatedFriendship = await prisma.friendship.delete({ where: { id: friendshipId } });
         }
+        notifyUser(friendship.requesterId); // İsteği gönderen kullanıcıya bildirim gönder
+
+        return updatedFriendship;
     });
 
-    fastify.delete('/friends/:friendId', { preHandler: [authenticate] }, async (request, reply) => {
+    fastify.delete('/friends/by-ship/:friendshipId', { preHandler: [authenticate] }, async (request, reply) => {
         const userId = request.user.userId;
-        const friendId = parseInt(request.params.friendId, 10);
-        
+        const friendshipId = parseInt(request.params.friendshipId, 10);
         const friendship = await prisma.friendship.findFirst({
-            where: { status: 'ACCEPTED', OR: [{ requesterId: userId, receiverId: friendId }, { requesterId: friendId, receiverId: userId }] }
+            where: { id: friendshipId, OR: [{ requesterId: userId }, { receiverId: userId }] }
         });
-        if (!friendship) { return reply.code(404).send({ error: "Friendship not found." }); }
-
+        if (!friendship) {
+            return reply.code(404).send({ error: "Friendship not found or you are not part of it." });
+        }
         await prisma.friendship.delete({ where: { id: friendship.id } });
-        return { message: "Friend removed." };
+        const otherUserId = friendship.requesterId === userId ? friendship.receiverId : friendship.requesterId;
+        notifyUser(otherUserId); 
+        
+        return { message: "Friendship removed." };
     });
 
     // --- KULLANICI ENGELLEME ENDPOINT'LERİ ---
@@ -174,12 +273,9 @@ async function userRoutes(fastify, options) {
     fastify.post('/users/:targetId/block', { preHandler: [authenticate] }, async (request, reply) => {
         const blockerId = request.user.userId;
         const blockedId = parseInt(request.params.targetId, 10);
-
         if (blockerId === blockedId) { return reply.code(400).send({ error: "Cannot block yourself." }); }
-        
         const existingBlock = await prisma.block.findUnique({ where: { blockerId_blockedId: { blockerId, blockedId } } });
         if (existingBlock) { return reply.code(409).send({ error: "User already blocked." }); }
-        
         const newBlock = await prisma.block.create({ data: { blockerId, blockedId } });
         return reply.code(201).send(newBlock);
     });
@@ -187,7 +283,6 @@ async function userRoutes(fastify, options) {
     fastify.delete('/users/:targetId/unblock', { preHandler: [authenticate] }, async (request, reply) => {
         const blockerId = request.user.userId;
         const blockedId = parseInt(request.params.targetId, 10);
-
         try {
             await prisma.block.delete({ where: { blockerId_blockedId: { blockerId, blockedId } } });
             return { message: "User unblocked." };

@@ -2,6 +2,14 @@ import { t } from '../i18n';
 import { changePassword, getCurrentUserProfile, updateUserProfile } from '../api/users';
 import { navigateTo } from '../router';
 
+// Tip tanımını dışarıda yapmak daha temiz bir yöntemdir.
+interface UserProfile {
+    id: number;
+    name: string | null;
+    avatarUrl: string | null;
+    // Diğer alanlar eklenebilir
+}
+
 export function render(): string {
   return `
     <div class="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -56,18 +64,22 @@ export async function afterRender() {
   const editProfileForm = document.getElementById('edit-profile-form') as HTMLFormElement;
   const nameInput = document.getElementById('name') as HTMLInputElement;
   const backLink = document.getElementById('back-to-profile-link');
-  let userId: number | null = null;
   const avatarPreview = document.getElementById('avatar-preview') as HTMLImageElement;
   const avatarUploadInput = document.getElementById('avatar-upload') as HTMLInputElement;
   const avatarUploadBtn = document.getElementById('avatar-upload-btn');
+  
+  // --- DÜZELTME: 'profile' değişkenini ve diğerlerini fonksiyonun en üst kapsamında tanımlıyoruz ---
+  let userId: number | null = null;
   let newAvatarFile: File | null = null;
+  let profile: UserProfile | null = null;
   
   try {
-    const profile = await getCurrentUserProfile();
-    userId = profile.id;
-    nameInput.value = profile.name || '';
-    if (profile.avatarUrl) {
-        avatarPreview.src = `${profile.avatarUrl}?t=${new Date().getTime()}`;
+    // 'const' kaldırıldı, üst kapsamdaki 'profile' değişkenine atama yapılıyor.
+    profile = await getCurrentUserProfile(); 
+    userId = profile!.id;
+    nameInput.value = profile!.name || '';
+    if (profile!.avatarUrl) {
+        avatarPreview.src = `${profile!.avatarUrl}?t=${new Date().getTime()}`;
     }
     if(backLink) {
         backLink.setAttribute('href', `/profile/${userId}`);
@@ -90,6 +102,13 @@ export async function afterRender() {
 
   editProfileForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+    
+    // Değişkenin var olup olmadığını kontrol et
+    if (!profile) {
+        alert('Profil bilgileri yüklenemediği için kayıt yapılamıyor.');
+        return;
+    }
+      
     const newName = nameInput.value;
     let avatarUpdated = false;
 
@@ -98,23 +117,33 @@ export async function afterRender() {
         formData.append('file', newAvatarFile);
         
         try {
-            await fetch('/api/profile/avatar', {
+          const response = await fetch('/api/profile/avatar', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
                 body: formData,
             });
-            newAvatarFile = null;
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Avatar yüklenemedi.');
+            }
+            newAvatarFile = null; 
             avatarUpdated = true;
         } catch (error: any) {
             alert('Avatar yüklenemedi: ' + error.message);
+            return; 
         }
     }
 
     try {
-      const updatedProfile = await updateUserProfile({ name: newName });
-      if (updatedProfile || avatarUpdated) {
+      const nameChanged = profile.name !== newName;
+      if (nameChanged) {
+        await updateUserProfile({ name: newName });
+      }
+      
+      if (nameChanged || avatarUpdated) {
         alert(t('profile_update_success'));
       }
+      
       if(userId) {
         navigateTo(`/profile/${userId}`);
       } else {

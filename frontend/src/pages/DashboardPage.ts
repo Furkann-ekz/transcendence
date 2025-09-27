@@ -137,6 +137,10 @@ export function afterRender() {
     renderMessages();
     renderFriendRequests();
     socket.emit('requestUserList');
+    socket.on('friendship_updated', () => {
+        console.log('Arkadaşlık durumu güncellendi, liste yenileniyor...');
+        renderFriendRequests(); // Arkadaş listesini yeniden çiz
+    });
     socket.on('update user list', (users: OnlineUser[]) => {
         const currentSelectedId = selectedRecipient ? selectedRecipient.id : 'all';
         userList.innerHTML = '';
@@ -190,5 +194,6 @@ export function cleanup() {
     if (socket) {
         socket.off('update user list');
         socket.off('chat message');
+        socket.off('friendship_updated');
     }
 }

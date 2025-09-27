@@ -7,9 +7,9 @@ import * as LocalGamePage from '../pages/LocalGamePage';
 import * as OnlineGamePage from '../pages/OnlineGamePage';
 import { connectSocket, getSocket } from '../socket';
 import * as OnlineLobbyPage from '../pages/OnlineLobbyPage';
-import * as ProfilePage from '../pages/ProfilePage';
 import * as MatchHistoryPage from '../pages/MatchHistoryPage';
 import * as ProfileEditPage from '../pages/ProfileEditPage';
+import * as ProfilePage from '../pages/ProfilePage';
 
 interface Route {
   render: () => string;
@@ -68,9 +68,14 @@ export async function handleLocation(forceReload = false) {
   // Sonra dinamik (parametre içeren) yolları kontrol et
   else if (path.startsWith('/profile/') && path.endsWith('/history')) {
     routeToRender = MatchHistoryPage;
-  } else if (path.startsWith('/profile/')) {
-    routeToRender = ProfilePage;
-  } 
+  }
+  else if (path.startsWith('/profile/')) {
+    routeToRender = { 
+        render: ProfilePage.render, 
+        afterRender: ProfilePage.afterRender, 
+        cleanup: ProfilePage.cleanup 
+    };
+  }
   // Hiçbiri eşleşmezse ana sayfayı göster
   else {
     routeToRender = routes['/'];

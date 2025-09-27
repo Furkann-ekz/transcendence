@@ -10,25 +10,26 @@ datasource db {
 }
 
 model User {
-  id               Int      @id @default(autoincrement())
-  createdAt        DateTime @default(now())
-  email            String   @unique
-  name             String?
-  password         String
-  wins             Int      @default(0)
-  losses           Int      @default(0)
+  id                   Int          @id @default(autoincrement())
+  createdAt            DateTime     @default(now())
+  email                String       @unique
+  name                 String?
+  password             String
+  avatarUrl            String?
+  wins                 Int          @default(0)
+  losses               Int          @default(0)
   
-  matchesAsPlayer1 Match[] @relation("Player1Matches")
-  matchesAsPlayer2 Match[] @relation("Player2Matches")
-  matchesAsPlayer3 Match[] @relation("Player3Matches")
-  matchesAsPlayer4 Match[] @relation("Player4Matches")
-  wonMatches       Match[] @relation("WinnerMatches")
+  matchesAsPlayer1     Match[]      @relation("Player1Matches")
+  matchesAsPlayer2     Match[]      @relation("Player2Matches")
+  matchesAsPlayer3     Match[]      @relation("Player3Matches")
+  matchesAsPlayer4     Match[]      @relation("Player4Matches")
+  wonMatches           Match[]      @relation("WinnerMatches")
 
   // ARKADAŞLIK VE ENGELLEME İÇİN EKLENEN İLİŞKİLER
-  sentFriendRequests     Friendship[] @relation("SentRequests")
+  sentFriendRequests   Friendship[] @relation("SentRequests")
   receivedFriendRequests Friendship[] @relation("ReceivedRequests")
-  blockedUsers           Block[]      @relation("BlockingUsers")
-  blockedBy              Block[]      @relation("BlockedByUsers")
+  blockedUsers         Block[]      @relation("BlockingUsers")
+  blockedBy            Block[]      @relation("BlockedByUsers")
 }
 
 model Match {
@@ -56,27 +57,21 @@ model Match {
   team2Misses       Int      @default(0)
 }
 
-// ARKADAŞLIK SİSTEMİ İÇİN YENİ MODELLER
-enum FriendshipStatus {
-  PENDING
-  ACCEPTED
-}
-
 model Friendship {
-  id          Int              @id @default(autoincrement())
+  id          Int      @id @default(autoincrement())
   requesterId Int
-  requester   User             @relation("SentRequests", fields: [requesterId], references: [id])
+  requester   User     @relation("SentRequests", fields: [requesterId], references: [id])
   receiverId  Int
-  receiver    User             @relation("ReceivedRequests", fields: [receiverId], references: [id])
-  status      FriendshipStatus @default(PENDING)
-  createdAt   DateTime         @default(now())
+  receiver    User     @relation("ReceivedRequests", fields: [receiverId], references: [id])
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now())
 
   @@unique([requesterId, receiverId])
 }
 
 // KULLANICI ENGELLEME SİSTEMİ İÇİN YENİ MODEL
 model Block {
-  id        Int @id @default(autoincrement())
+  id        Int  @id @default(autoincrement())
   blockerId Int
   blocker   User @relation("BlockingUsers", fields: [blockerId], references: [id])
   blockedId Int

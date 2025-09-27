@@ -16,6 +16,7 @@ const gameState = {
 };
 
 function initializeSocket(io) {
+    const onlineUsers = new Map();
     // Kimlik Doğrulama Middleware'i
     io.use(async (socket, next) => {
         const token = socket.handshake.auth.token;
@@ -131,6 +132,7 @@ function initializeSocket(io) {
             cleanUpPlayer(socket);
         });
     });
+    return onlineUsers;
 }
 
 module.exports = initializeSocket;

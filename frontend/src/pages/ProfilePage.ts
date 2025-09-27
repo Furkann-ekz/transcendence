@@ -1,4 +1,3 @@
-// frontend/src/pages/ProfilePage.ts
 import { t } from '../i18n';
 import { 
     getUserProfile, 
@@ -11,10 +10,12 @@ import {
 } from '../api/users';
 import { jwt_decode } from '../utils';
 import { navigateTo } from '../router';
+import { getSocket } from '../socket'; // Socket'i import et
+import type { Socket } from 'socket.io-client'; // Socket tipini import et
 
-// Global değişkenler bu sayfa için
 let profileId: number;
 let myId: number | null;
+let socket: Socket | null;
 
 // Butonları ve aksiyonları render eden ana fonksiyon
 async function renderActionButtons() {
@@ -134,7 +135,6 @@ export function render(): string {
 }
 
 export async function afterRender() {
-    // EKSİK OLAN ELEMENT SEÇİMİ EKLENDİ
     const avatarElement = document.getElementById('profile-avatar') as HTMLImageElement;
     const nameElement = document.getElementById('profile-name');
     const createdAtElement = document.getElementById('profile-created-at');
@@ -146,6 +146,18 @@ export async function afterRender() {
     profileId = parseInt(pathParts[2], 10);
     const token = localStorage.getItem('token');
     myId = token ? jwt_decode(token).userId : null;
+
+    // --- YENİ: Anlık güncelleme için socket dinleyicisini ekliyoruz ---
+    socket = getSocket();
+    if (socket) {
+        socket.on('friendship_updated', () => {
+            // Sadece başka bir kullanıcının profilini görüntülerken butonları yenile
+            if (profileId !== myId) {
+                console.log('Arkadaşlık durumu değişti, butonlar yenileniyor...');
+                renderActionButtons();
+            }
+        });
+    }
 
     if (isNaN(profileId) || !nameElement || !matchHistoryLink || !actionsContainer) {
         if (nameElement) nameElement.textContent = 'Geçersiz Profil';
@@ -173,5 +185,12 @@ export async function afterRender() {
         console.error("Profil verisi yüklenemedi:", error);
         nameElement.textContent = 'Profil Bulunamadı';
         navigateTo('/dashboard');
+    }
+}
+
+// --- YENİ: Sayfadan ayrılırken dinleyiciyi temizlemek için cleanup fonksiyonu ---
+export function cleanup() {
+    if (socket) {
+        socket.off('friendship_updated');
     }
 }
