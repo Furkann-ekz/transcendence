@@ -3,12 +3,20 @@ import { navigateTo } from '../router';
 import { getSocket, disconnectSocket } from '../socket';
 import { t } from '../i18n';
 import { jwt_decode } from '../utils';
+// --- DÜZELTME: 'import type' kullanıldı ---
 import type { Socket } from "socket.io-client";
 import { addMessage, getMessages, clearMessages } from '../chatState';
 import { getFriends, respondToFriendRequest } from '../api/users';
 
+// (Dosyanın geri kalanı zaten doğru olduğu için bir değişiklik gerekmiyor,
+// sadece import satırının 'import type' şeklinde olduğundan emin ol.)
+
+interface OnlineUser { id: number; email: string; name: string; }
+interface FriendRequest { id: number; requester: { id: number; name: string; email: string; }; }
+interface ChatMessage { type: 'public' | 'private'; sender: string; content: string; }
 let socket: Socket | null = null;
 let myId: number | null = null;
+let selectedRecipient: { id: number | 'all', name: string } | null = null;
 
 export function render(): string {
   return `
@@ -27,7 +35,6 @@ export function render(): string {
             <h2 class="text-lg font-bold mb-4">${t('online_users')}</h2>
             <ul id="user-list" class="space-y-2"></ul>
           </div>
-          
           <div class="bg-white p-4 rounded-lg shadow-md overflow-y-auto">
             <h2 class="text-lg font-bold mb-4">${t('friend_requests')}</h2>
             <ul id="friend-request-list" class="space-y-2"></ul>
@@ -47,11 +54,9 @@ export function render(): string {
 }
 
 export function afterRender() {
-    // --- Değişkenleri ve DOM Elemanlarını Seçme ---
     socket = getSocket()!;
     const token = localStorage.getItem('token');
     if (token) { myId = jwt_decode(token).userId; }
-
     const logoutButton = document.getElementById('logout-button');
     const userList = document.getElementById('user-list') as HTMLUListElement;
     const friendRequestList = document.getElementById('friend-request-list') as HTMLUListElement;
@@ -59,10 +64,6 @@ export function afterRender() {
     const messagesList = document.getElementById('messages') as HTMLUListElement;
     const chatForm = document.getElementById('chat-form') as HTMLFormElement;
     const chatInput = document.getElementById('chat-input') as HTMLInputElement;
-    let selectedRecipient: any = null;
-
-    // --- Yardımcı Fonksiyonlar ---
-
     function renderMessages() {
         if (!messagesList) return;
         const currentMessages = getMessages();
@@ -75,7 +76,6 @@ export function afterRender() {
         });
         messagesList.scrollTop = messagesList.scrollHeight;
     }
-
     async function renderFriendRequests() {
         if (!friendRequestList) return;
         try {
@@ -85,7 +85,7 @@ export function afterRender() {
                 return;
             }
             friendRequestList.innerHTML = '';
-            pendingRequests.forEach((request: any) => {
+            pendingRequests.forEach((request: FriendRequest) => {
                 const item = document.createElement('li');
                 item.className = 'flex justify-between items-center';
                 item.innerHTML = `
@@ -97,19 +97,22 @@ export function afterRender() {
                 `;
                 friendRequestList.appendChild(item);
             });
-
             document.querySelectorAll('.accept-friend-btn').forEach(button => {
                 button.addEventListener('click', async (e) => {
                     const id = (e.target as HTMLElement).dataset.id;
-                    await respondToFriendRequest(parseInt(id!), true);
-                    renderFriendRequests();
+                    if (id) {
+                        await respondToFriendRequest(parseInt(id), true);
+                        renderFriendRequests();
+                    }
                 });
             });
             document.querySelectorAll('.reject-friend-btn').forEach(button => {
                 button.addEventListener('click', async (e) => {
                     const id = (e.target as HTMLElement).dataset.id;
-                    await respondToFriendRequest(parseInt(id!), false);
-                    renderFriendRequests();
+                    if (id) {
+                        await respondToFriendRequest(parseInt(id), false);
+                        renderFriendRequests();
+                    }
                 });
             });
         } catch (error) {
@@ -117,115 +120,71 @@ export function afterRender() {
             friendRequestList.innerHTML = `<li class="text-red-500 text-sm">İstekler yüklenemedi.</li>`;
         }
     }
-
-    function selectRecipient(user: any) {
+    function selectRecipient(user: { id: number | 'all', name: string }) {
         selectedRecipient = user;
-        recipientInfo.textContent = user.name || user.email || t('everyone');
+        recipientInfo.textContent = user.name || t('everyone');
         document.querySelectorAll('#user-list li').forEach(li => {
-            li.classList.toggle('bg-blue-200', (li as HTMLElement).dataset.id == (user.id || 'all'));
+            const liElement = li as HTMLElement;
+            liElement.classList.toggle('bg-blue-200', liElement.dataset.id === String(user.id));
         });
     }
-
-    // --- İlk Yükleme ve Event Listener'lar ---
-
     logoutButton?.addEventListener('click', () => {
         clearMessages();
         localStorage.removeItem('token');
         disconnectSocket();
         navigateTo('/');
     });
-
     renderMessages();
     renderFriendRequests();
     socket.emit('requestUserList');
-
-  socket.on('update user list', (users: any[]) => {
-    const currentSelectedId = selectedRecipient ? selectedRecipient.id : 'all';
-    userList.innerHTML = ''; // Önce mevcut listeyi tamamen temizle
-    
-    // 1. ADIM: "Herkese" seçeneğini her zaman en üste ekle
-    const allOption = document.createElement('li');
-    allOption.textContent = t('everyone');
-    allOption.dataset.id = 'all';
-    allOption.classList.add('p-2', 'hover:bg-gray-200', 'cursor-pointer', 'rounded');
-    allOption.addEventListener('click', () => selectRecipient({ id: 'all', name: t('everyone') }));
-    userList.appendChild(allOption);
-
-    // 2. ADIM: Mevcut kullanıcıyı (SEN) bul ve ikinci sıraya ekle
-    const me = users.find(user => user.id === myId);
-    if (me) {
-        const myItem = document.createElement('li');
-        myItem.dataset.id = me.id.toString();
-        myItem.classList.add('p-2', 'hover:bg-gray-200', 'cursor-pointer', 'rounded');
-
-        const myLink = document.createElement('a');
-        myLink.href = `/profile/${me.id}`;
-        myLink.setAttribute('data-link', '');
-        myLink.textContent = `${me.name || me.email} ${t('you_suffix')}`;
-        myItem.appendChild(myLink);
-        
-        myItem.addEventListener('click', (e) => {
-            if ((e.target as HTMLElement).tagName === 'A') return;
-            // Kendine özel mesaj atma hala engelli
-        });
-        userList.appendChild(myItem);
-    }
-
-    // 3. ADIM: Diğer tüm kullanıcıları listele
-    users.forEach(user => {
-        // Eğer kullanıcı "sen" değilsen, listeye ekle
-        if (user.id !== myId) {
+    socket.on('update user list', (users: OnlineUser[]) => {
+        const currentSelectedId = selectedRecipient ? selectedRecipient.id : 'all';
+        userList.innerHTML = '';
+        const allOption = document.createElement('li');
+        allOption.textContent = t('everyone');
+        allOption.dataset.id = 'all';
+        allOption.classList.add('p-2', 'hover:bg-gray-200', 'cursor-pointer', 'rounded');
+        allOption.addEventListener('click', () => selectRecipient({ id: 'all', name: t('everyone') }));
+        userList.appendChild(allOption);
+        users.forEach(user => {
             const item = document.createElement('li');
-            item.dataset.id = user.id.toString();
+            item.dataset.id = String(user.id);
             item.classList.add('p-2', 'hover:bg-gray-200', 'cursor-pointer', 'rounded');
-
             const userLink = document.createElement('a');
             userLink.href = `/profile/${user.id}`;
             userLink.setAttribute('data-link', '');
-            userLink.textContent = user.name || user.email;
+            userLink.textContent = user.id === myId ? `${user.name || user.email} ${t('you_suffix')}` : user.name || user.email;
             item.appendChild(userLink);
-            
-            item.addEventListener('click', (e) => {
-                if ((e.target as HTMLElement).tagName === 'A') return;
-                selectRecipient(user);
-            });
-
+            if (user.id !== myId) {
+                item.addEventListener('click', (e) => {
+                    if ((e.target as HTMLElement).tagName === 'A') return;
+                    selectRecipient(user);
+                });
+            }
             userList.appendChild(item);
+        });
+        const newSelectedUser = users.find(u => u.id === currentSelectedId);
+        selectRecipient(newSelectedUser || { id: 'all', name: t('everyone') });
+    });
+    socket.on('chat message', (msg: ChatMessage) => {
+        addMessage(msg);
+        renderMessages();
+    });
+    chatForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (chatInput.value && socket) {
+            if (selectedRecipient && selectedRecipient.id !== 'all') {
+                socket.emit('private message', {
+                    recipientId: selectedRecipient.id,
+                    message: chatInput.value
+                });
+            } else {
+                socket.emit('chat message', chatInput.value);
+            }
+            chatInput.value = '';
         }
     });
-
-    // Sayfa yenilendiğinde seçili kullanıcıyı koru veya varsayılana dön
-    const newSelectedUser = users.find(u => u.id === currentSelectedId);
-    selectRecipient(newSelectedUser || { id: 'all', name: t('everyone') });
-  });
-
-  socket.on('chat message', (msg: any) => {
-    addMessage(msg);
-    renderMessages();
-  });
-
-  socket.on('chat message', (msg: any) => {
-    addMessage(msg);      // 1. Yeni mesajı belleğe ekle (ve gerekirse en eskisini sil)
-    renderMessages();     // 2. Arayüzü bellekten gelen son duruma göre tamamen yeniden çiz
-  });
-
-  chatForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    if (chatInput.value && socket) {
-      if (selectedRecipient && selectedRecipient.id !== 'all') {
-        socket.emit('private message', {
-          recipientId: selectedRecipient.id,
-          message: chatInput.value
-        });
-      } else {
-        socket.emit('chat message', chatInput.value);
-      }
-      chatInput.value = '';
-    }
-  });
 }
-
-
 export function cleanup() {
     const socket = getSocket();
     if (socket) {

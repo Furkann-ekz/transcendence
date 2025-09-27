@@ -1,10 +1,10 @@
 const API_URL = `/api`;
 
 // Arkadaş listesini, gelen ve giden istekleri getirir.
+
 export async function getFriends() {
   const token = localStorage.getItem('token');
   if (!token) throw new Error('Not authenticated');
-
   const response = await fetch(`${API_URL}/friends`, {
     headers: { 'Authorization': `Bearer ${token}` },
   });
@@ -12,11 +12,10 @@ export async function getFriends() {
   return response.json();
 }
 
-// İki kullanıcı arasındaki arkadaşlık durumunu getirir.
+// YENİ FONKSİYON: İki kullanıcı arasındaki durumu getirir.
 export async function getFriendshipStatus(targetId: number) {
   const token = localStorage.getItem('token');
   if (!token) throw new Error('Not authenticated');
-
   const response = await fetch(`${API_URL}/friends/status/${targetId}`, {
     headers: { 'Authorization': `Bearer ${token}` },
   });
@@ -24,16 +23,15 @@ export async function getFriendshipStatus(targetId: number) {
   return response.json();
 }
 
+
 // Belirtilen kullanıcıya arkadaşlık isteği gönderir.
 export async function sendFriendRequest(targetId: number) {
   const token = localStorage.getItem('token');
   if (!token) throw new Error('Not authenticated');
-
   const response = await fetch(`${API_URL}/friends/request/${targetId}`, {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${token}` },
   });
-
   if (!response.ok) {
     const errorData = await response.json();
     throw new Error(errorData.error || 'Failed to send friend request.');
@@ -45,7 +43,6 @@ export async function sendFriendRequest(targetId: number) {
 export async function respondToFriendRequest(friendshipId: number, accept: boolean) {
   const token = localStorage.getItem('token');
   if (!token) throw new Error('Not authenticated');
-
   const response = await fetch(`${API_URL}/friends/respond/${friendshipId}`, {
     method: 'POST',
     headers: {
@@ -54,7 +51,6 @@ export async function respondToFriendRequest(friendshipId: number, accept: boole
     },
     body: JSON.stringify({ accept })
   });
-
   if (!response.ok) {
     const errorData = await response.json();
     throw new Error(errorData.error || 'Failed to respond to friend request.');
@@ -63,15 +59,13 @@ export async function respondToFriendRequest(friendshipId: number, accept: boole
 }
 
 // Bir arkadaşlığı veya bekleyen isteği kaldırır.
-export async function removeFriendship(friendId: number) {
+export async function removeFriendship(friendshipId: number) {
   const token = localStorage.getItem('token');
   if (!token) throw new Error('Not authenticated');
-
-  const response = await fetch(`${API_URL}/friends/${friendId}`, {
+  const response = await fetch(`${API_URL}/friends/by-ship/${friendshipId}`, {
     method: 'DELETE',
     headers: { 'Authorization': `Bearer ${token}` },
   });
-
   if (!response.ok) {
     const errorData = await response.json();
     throw new Error(errorData.error || 'Failed to remove friendship.');
@@ -83,7 +77,6 @@ export async function removeFriendship(friendId: number) {
 export async function blockUser(targetId: number) {
     const token = localStorage.getItem('token');
     if (!token) throw new Error('Not authenticated');
-
     const response = await fetch(`${API_URL}/users/${targetId}/block`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
@@ -99,7 +92,6 @@ export async function blockUser(targetId: number) {
 export async function unblockUser(targetId: number) {
     const token = localStorage.getItem('token');
     if (!token) throw new Error('Not authenticated');
-
     const response = await fetch(`${API_URL}/users/${targetId}/unblock`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
@@ -113,43 +105,29 @@ export async function unblockUser(targetId: number) {
 
 export async function getUserProfile(userId: string) {
   const token = localStorage.getItem('token');
-  if (!token) {
-    throw new Error('Not authenticated');
-  }
-
+  if (!token) throw new Error('Not authenticated');
   const response = await fetch(`${API_URL}/users/${userId}`, {
     method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
+    headers: { 'Authorization': `Bearer ${token}` },
   });
-
   if (!response.ok) {
     const errorData = await response.json();
     throw new Error(errorData.error || 'Failed to fetch user profile.');
   }
-
   return response.json();
 }
 
 export async function getMatchHistory(userId: string) {
   const token = localStorage.getItem('token');
-  if (!token) {
-    throw new Error('Not authenticated');
-  }
-
+  if (!token) throw new Error('Not authenticated');
   const response = await fetch(`${API_URL}/users/${userId}/matches`, {
     method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
+    headers: { 'Authorization': `Bearer ${token}` },
   });
-
   if (!response.ok) {
     const errorData = await response.json();
     throw new Error(errorData.error || 'Failed to fetch match history.');
   }
-
   return response.json();
 }
 
@@ -157,13 +135,9 @@ export async function getMatchHistory(userId: string) {
 export async function getCurrentUserProfile() {
   const token = localStorage.getItem('token');
   if (!token) throw new Error('Not authenticated');
-
   const response = await fetch(`${API_URL}/profile`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
+    headers: { 'Authorization': `Bearer ${token}` },
   });
-
   if (!response.ok) {
     throw new Error('Failed to fetch current user profile.');
   }
@@ -174,7 +148,6 @@ export async function getCurrentUserProfile() {
 export async function updateUserProfile(data: { name: string }) {
   const token = localStorage.getItem('token');
   if (!token) throw new Error('Not authenticated');
-
   const response = await fetch(`${API_URL}/profile`, {
     method: 'PATCH',
     headers: {
@@ -183,7 +156,6 @@ export async function updateUserProfile(data: { name: string }) {
     },
     body: JSON.stringify(data),
   });
-
   if (!response.ok) {
     const errorData = await response.json();
     throw new Error(errorData.error || 'Failed to update profile.');
@@ -194,7 +166,6 @@ export async function updateUserProfile(data: { name: string }) {
 export async function changePassword(passwordData: { currentPassword: string, newPassword: string }) {
   const token = localStorage.getItem('token');
   if (!token) throw new Error('Not authenticated');
-
   const response = await fetch(`${API_URL}/profile/change-password`, {
     method: 'POST',
     headers: {
@@ -203,7 +174,6 @@ export async function changePassword(passwordData: { currentPassword: string, ne
     },
     body: JSON.stringify(passwordData),
   });
-
   if (!response.ok) {
     const errorData = await response.json();
     throw new Error(errorData.error || 'Failed to change password.');
