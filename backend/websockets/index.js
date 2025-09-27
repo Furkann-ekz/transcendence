@@ -57,7 +57,6 @@ function initializeSocket(io) {
         chatHandler(io, socket, onlineUsers);
 
         socket.on('joinMatchmaking', (payload) => {
-            console.log(`${socket.user.email} eşleştirme havuzuna katıldı. Mod: ${payload.mode}`);
             handleJoinMatchmaking(io, socket, gameState, payload);
         });
 
@@ -89,6 +88,7 @@ function initializeSocket(io) {
                     const roomName = `private_game_${Date.now()}`;
                     senderSocket.join(roomName);
                     receiverSocket.join(roomName);
+
                     senderSocket.gameRoom = { id: roomName, mode: '1v1_private' };
                     receiverSocket.gameRoom = { id: roomName, mode: '1v1_private' };
 
@@ -98,13 +98,33 @@ function initializeSocket(io) {
                         { ...receiverSocket.user, socketId: receiverSocket.id, position: 'right', team: 2, x: gameConfig.canvasSize - gameConfig.paddleThickness, y: (gameConfig.canvasSize / 2) - (gameConfig.paddleSize / 2) }
                     ];
 
-                    // --- DÜZELTME: Oyunu başlat ve veriyi al ---
                     const { game, gameStartPayload } = startGameLoop(roomName, players, io, '1v1_private', gameConfig);
                     gameState.gameRooms.set(roomName, game);
 
-                    // --- DÜZELTME: Veriyi tek bir sinyalle gönder ---
                     io.to(roomName).emit('start_private_game', gameStartPayload);
                 }
+            }
+        });
+
+        socket.on('playerMove', (data) => {
+            if (!socket.gameRoom) return;
+            const game = gameState.gameRooms.get(socket.gameRoom.id);
+            if (!game) return;
+
+            const playerState = game.gameState.players.find(p => p.id === socket.user.id);
+            if (!playerState) return;
+
+            const { newPosition } = data;
+            const { canvasSize, paddleSize } = game.gameConfig;
+            
+            let finalPosition = newPosition;
+            if (finalPosition < 0) finalPosition = 0;
+            if (finalPosition > canvasSize - paddleSize) finalPosition = canvasSize - paddleSize;
+
+            if (playerState.position === 'left' || playerState.position === 'right') {
+                playerState.y = finalPosition;
+            } else if (playerState.position === 'top' || playerState.position === 'bottom') {
+                playerState.x = finalPosition;
             }
         });
 

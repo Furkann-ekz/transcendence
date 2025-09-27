@@ -5,12 +5,14 @@ import { jwt_decode } from '../utils';
 import { t } from '../i18n';
 import { getGameData } from '../gameState';
 
+// Tip Tanımlamaları
 interface Player { id: number; name: string; email: string; socketId: string; position: 'left' | 'right' | 'top' | 'bottom'; team: 1 | 2; x: number; y: number; }
 interface GameConfig { canvasSize: number; paddleSize: number; paddleThickness: number; mode: string; }
 interface GameState { ballX?: number; ballY?: number; team1Score?: number; team2Score?: number; players?: Player[]; }
 interface UpdateQueuePayload { queueSize: number; requiredSize: number; }
 interface GameOverPayload { winners: Player[]; losers: Player[]; reason: string; }
 
+// Sayfa Değişkenleri
 let socket: Socket | null = null;
 let canvas: HTMLCanvasElement;
 let context: CanvasRenderingContext2D;
@@ -50,7 +52,6 @@ function renderGame() {
     }
 }
 
-// (Dosyanın geri kalanı öncekiyle aynı, herhangi bir değişiklik yok)
 function gameLoop() {
     renderGame();
     animationFrameId = requestAnimationFrame(gameLoop);
@@ -117,16 +118,20 @@ export function afterRender() {
     if (payload) {
         const newGameConfig: GameConfig = { ...payload };
         gameConfig = newGameConfig;
-
+        
         statusDiv.textContent = '';
         canvas.classList.remove('hidden');
         
         canvas.width = newGameConfig.canvasSize;
         canvas.height = newGameConfig.canvasSize;
-        
-        // --- DÜZELTME: 'players' listesi doğrudan 'payload' objesinden alınıyor ---
         myPlayer = payload.players.find((p: Player) => p.id === myUserId) || null;
-        
+
+        gameState = {
+            players: payload.players,
+            team1Score: 0,
+            team2Score: 0,
+        };
+
         window.addEventListener('keydown', handlePlayerMove);
         if (animationFrameId) cancelAnimationFrame(animationFrameId);
         gameLoop();
