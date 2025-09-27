@@ -72,17 +72,16 @@ async function saveMatch(game, winnerTeam, wasForfeit = false) {
 // --- ANA OYUN DÖNGÜSÜ ---
 
 function startGameLoop(room, players, io, mode, gameConfig) {
-    const startTime = Date.now(); // OYUN BAŞLANGIÇ ZAMANI
+    const startTime = Date.now();
     const { canvasSize, paddleSize, paddleThickness } = gameConfig;
     const WINNING_SCORE = 5;
     const BALL_RADIUS = 10;
     
     const game = { players, mode, gameState: {}, intervalId: null, startTime: startTime };
-
     let gameState = {
         ballX: canvasSize / 2, ballY: canvasSize / 2, ballSpeedX: 6, ballSpeedY: 6,
         team1Score: 0, team2Score: 0,
-        players: players.map(p => ({ ...p, hits: 0 })) // Her oyuncuya vuruş sayacı eklendi
+        players: players.map(p => ({ ...p, hits: 0 }))
     };
     game.gameState = gameState;
 
@@ -164,8 +163,7 @@ function startGameLoop(room, players, io, mode, gameConfig) {
         mode,
         ...gameConfig
     };
-    io.to(room).emit('gameStart', gameStartPayload);
-    return game;
+    return { game, gameStartPayload };
 }
 
 function handleJoinMatchmaking(io, socket, state, payload) {

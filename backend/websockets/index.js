@@ -89,6 +89,8 @@ function initializeSocket(io) {
                     const roomName = `private_game_${Date.now()}`;
                     senderSocket.join(roomName);
                     receiverSocket.join(roomName);
+                    senderSocket.gameRoom = { id: roomName, mode: '1v1_private' };
+                    receiverSocket.gameRoom = { id: roomName, mode: '1v1_private' };
 
                     const gameConfig = { canvasSize: 800, paddleSize: 100, paddleThickness: 15 };
                     const players = [
@@ -96,10 +98,12 @@ function initializeSocket(io) {
                         { ...receiverSocket.user, socketId: receiverSocket.id, position: 'right', team: 2, x: gameConfig.canvasSize - gameConfig.paddleThickness, y: (gameConfig.canvasSize / 2) - (gameConfig.paddleSize / 2) }
                     ];
 
-                    const game = startGameLoop(roomName, players, io, '1v1_private', gameConfig);
-                    gameState.gameRooms.set(roomName, game); // Oyunu odalara ekle
+                    // --- DÜZELTME: Oyunu başlat ve veriyi al ---
+                    const { game, gameStartPayload } = startGameLoop(roomName, players, io, '1v1_private', gameConfig);
+                    gameState.gameRooms.set(roomName, game);
 
-                    io.to(roomName).emit('start_private_game');
+                    // --- DÜZELTME: Veriyi tek bir sinyalle gönder ---
+                    io.to(roomName).emit('start_private_game', gameStartPayload);
                 }
             }
         });

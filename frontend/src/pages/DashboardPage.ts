@@ -6,6 +6,7 @@ import { jwt_decode } from '../utils';
 import type { Socket } from "socket.io-client";
 import { addMessage, getMessages, clearMessages } from '../chatState';
 import { getFriends, respondToFriendRequest } from '../api/users';
+import { setGameData } from '../gameState';
 
 // --- Tip Tanımlamaları ---
 interface OnlineUser {
@@ -279,8 +280,9 @@ export function afterRender() {
         alert(`${fromUser.name} davetinizi reddetti.`);
     });
     
-    socket.on('start_private_game', () => {
-        navigateTo('/online-game');
+    socket.on('start_private_game', (payload: any) => {
+        setGameData(payload); // Gelen oyun verisini sakla
+        navigateTo('/online-game'); // Sonra oyun sayfasına git
     });
 
     chatForm.addEventListener('submit', (e) => {
