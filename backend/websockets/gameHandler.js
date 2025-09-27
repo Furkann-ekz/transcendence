@@ -254,5 +254,6 @@ function handleJoinMatchmaking(io, socket, state, payload) {
 module.exports = {
     handleJoinMatchmaking,
     updatePlayerStats,
-    saveMatch
+    saveMatch,
+    startGameLoop
 };

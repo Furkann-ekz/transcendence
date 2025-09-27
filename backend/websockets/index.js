@@ -2,21 +2,20 @@
 const jwt = require('jsonwebtoken');
 const prisma = require('../prisma/db');
 const chatHandler = require('./chatHandler');
-const { handleJoinMatchmaking, updatePlayerStats, saveMatch } = require('./gameHandler');
+const { handleJoinMatchmaking, startGameLoop, updatePlayerStats, saveMatch } = require('./gameHandler');
 const JWT_SECRET = process.env.JWT_SECRET;
 
-// Paylaşılan değişkenler (shared state)
-const onlineUsers = new Map();
-const gameState = {
-    waitingPlayers: {
-        '1v1': [],
-        '2v2': []
-    },
-    gameRooms: new Map()
-};
-
 function initializeSocket(io) {
+    // Tüm state yönetimi bu fonksiyonun içinde kalmalı.
     const onlineUsers = new Map();
+    const gameState = {
+        waitingPlayers: {
+            '1v1': [],
+            '2v2': []
+        },
+        gameRooms: new Map()
+    };
+
     // Kimlik Doğrulama Middleware'i
     io.use(async (socket, next) => {
         const token = socket.handshake.auth.token;
@@ -37,20 +36,15 @@ function initializeSocket(io) {
 
     // Ana Bağlantı Olayı
     io.on('connection', (socket) => {
-        // --- TEKİL OTURUM KONTROLÜ ---
-        // Bu kullanıcıya ait eski bir bağlantı var mı diye kontrol et.
         if (onlineUsers.has(socket.user.id)) {
             const oldSocketId = onlineUsers.get(socket.user.id).socketId;
             const oldSocket = io.sockets.sockets.get(oldSocketId);
             if (oldSocket) {
-                // Eski tarayıcıya "oturumu sonlandır" mesajı gönder.
                 oldSocket.emit('forceDisconnect', 'Başka bir yerden giriş yapıldı.');
-                // Eski bağlantıyı sunucudan kopar.
                 oldSocket.disconnect();
                 console.log(`Eski oturum sonlandırıldı: ${socket.user.email} (Socket ID: ${oldSocketId})`);
             }
         }
-        // --- KONTROL SONU ---
 
         console.log(`${socket.user.email} bağlandı. (Socket ID: ${socket.id})`);
         onlineUsers.set(socket.user.id, { id: socket.user.id, socketId: socket.id, email: socket.user.email, name: socket.user.name });
@@ -67,9 +61,50 @@ function initializeSocket(io) {
             handleJoinMatchmaking(io, socket, gameState, payload);
         });
 
-        // --- GÜVENLİ TEMİZLEME FONKSİYONU ---
+        socket.on('invite_to_game', ({ targetUserId }) => {
+            const targetUserSocketInfo = onlineUsers.get(targetUserId);
+            if (targetUserSocketInfo) {
+                io.to(targetUserSocketInfo.socketId).emit('receive_game_invite', {
+                    fromUser: { id: socket.user.id, name: socket.user.name || socket.user.email }
+                });
+            }
+        });
+
+        socket.on('decline_game_invite', ({ senderId }) => {
+            const senderSocketInfo = onlineUsers.get(senderId);
+            if (senderSocketInfo) {
+                io.to(senderSocketInfo.socketId).emit('invite_declined', {
+                    fromUser: { id: socket.user.id, name: socket.user.name || socket.user.email }
+                });
+            }
+        });
+
+        socket.on('accept_game_invite', ({ senderId }) => {
+            const senderSocketInfo = onlineUsers.get(senderId);
+            const receiverSocket = socket;
+
+            if (senderSocketInfo) {
+                const senderSocket = io.sockets.sockets.get(senderSocketInfo.socketId);
+                if (senderSocket) {
+                    const roomName = `private_game_${Date.now()}`;
+                    senderSocket.join(roomName);
+                    receiverSocket.join(roomName);
+
+                    const gameConfig = { canvasSize: 800, paddleSize: 100, paddleThickness: 15 };
+                    const players = [
+                        { ...senderSocket.user, socketId: senderSocket.id, position: 'left', team: 1, x: 0, y: (gameConfig.canvasSize / 2) - (gameConfig.paddleSize / 2) },
+                        { ...receiverSocket.user, socketId: receiverSocket.id, position: 'right', team: 2, x: gameConfig.canvasSize - gameConfig.paddleThickness, y: (gameConfig.canvasSize / 2) - (gameConfig.paddleSize / 2) }
+                    ];
+
+                    const game = startGameLoop(roomName, players, io, '1v1_private', gameConfig);
+                    gameState.gameRooms.set(roomName, game); // Oyunu odalara ekle
+
+                    io.to(roomName).emit('start_private_game');
+                }
+            }
+        });
+
         const cleanUpPlayer = async (sock) => {
-            // Oyuncuyu tüm bekleme havuzlarından kaldır
             Object.keys(gameState.waitingPlayers).forEach(mode => {
                 const pool = gameState.waitingPlayers[mode];
                 const newPool = pool.filter(p => p.id !== sock.id);
@@ -80,34 +115,24 @@ function initializeSocket(io) {
                 }
             });
 
-            // Oyuncu bir oyun odasındaysa, oyunu bitir.
             if (sock.gameRoom) {
                 const game = gameState.gameRooms.get(sock.gameRoom.id);
                 if (game) {
                     clearInterval(game.intervalId);
-
-                    // Oyundan düşen oyuncunun takımı kaybeder
                     const leavingPlayer = game.players.find(p => p.socketId === sock.id);
                     if (leavingPlayer) {
                         const losingTeam = leavingPlayer.team;
                         const winningTeam = losingTeam === 1 ? 2 : 1;
-                        
                         const winners = game.players.filter(p => p.team === winningTeam);
                         const losers = game.players.filter(p => p.team === losingTeam);
 
-                        // İstatistikleri güncelle ve maçı "forfeit" olarak kaydet
                         await updatePlayerStats(winners.map(p => p.id), 'win');
                         await updatePlayerStats(losers.map(p => p.id), 'loss');
-                        await saveMatch(game, winningTeam, true); // saveMatch'i birazdan oluşturacağız
+                        await saveMatch(game, winningTeam, true);
 
-                        // Kalan oyunculara haber ver
                         winners.forEach(p => {
                             const otherSocket = io.sockets.sockets.get(p.socketId);
-                            if(otherSocket) otherSocket.emit('gameOver', { 
-                                winners, 
-                                losers, 
-                                reason: 'forfeit' // YENİ: Ayrılma nedenini de gönderiyoruz
-                            });
+                            if(otherSocket) otherSocket.emit('gameOver', { winners, losers, reason: 'forfeit' });
                         });
                     }
                     gameState.gameRooms.delete(sock.gameRoom.id);
@@ -121,10 +146,8 @@ function initializeSocket(io) {
             cleanUpPlayer(socket);
         });
 
-        // Bağlantı Kesilme Olayı
         socket.on('disconnect', () => {
             console.log(`${socket.user.email} bağlantısı kesildi.`);
-            // Sadece bu soket gerçekten listedeki son soket ise onlineUsers'dan sil
             if (onlineUsers.has(socket.user.id) && onlineUsers.get(socket.user.id).socketId === socket.id) {
                 onlineUsers.delete(socket.user.id);
                 io.emit('update user list', Array.from(onlineUsers.values()));
