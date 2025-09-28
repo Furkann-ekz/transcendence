@@ -37,6 +37,9 @@ export function afterRender() {
     const pathParts = window.location.pathname.split('/');
     tournamentId = pathParts[2];
 
+    const readyBtn = document.getElementById('ready-btn') as HTMLButtonElement;
+    let isReady = false; // Oyuncunun kendi hazır olma durumunu takip etmek için
+
     if (!tournamentId || !socket) {
         navigateTo('/tournaments');
         return;
@@ -49,6 +52,19 @@ export function afterRender() {
     socket.on('tournament:stateUpdate', (tournamentState) => {
         console.log('Turnuva durumu güncellendi:', tournamentState);
         renderPlayerList(tournamentState.players);
+    });
+
+    readyBtn?.addEventListener('click', () => {
+        isReady = !isReady; // Durumu tersine çevir
+        socket?.emit('tournament:setReady', {
+            tournamentId: tournamentId,
+            isReady: isReady
+        });
+
+        // Butonun görünümünü anında güncelle
+        readyBtn.textContent = isReady ? 'Hazır Değil' : 'Hazırım';
+        readyBtn.classList.toggle('bg-green-500', isReady);
+        readyBtn.classList.toggle('bg-yellow-500', !isReady);
     });
 }
 
