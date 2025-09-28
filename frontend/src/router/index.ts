@@ -7,10 +7,9 @@ import * as LocalGamePage from '../pages/LocalGamePage';
 import * as OnlineGamePage from '../pages/OnlineGamePage';
 import { connectSocket, getSocket } from '../socket';
 import * as OnlineLobbyPage from '../pages/OnlineLobbyPage';
+import * as MatchHistoryPage from '../pages/MatchHistoryPage';
 import * as ProfileEditPage from '../pages/ProfileEditPage';
 import * as ProfilePage from '../pages/ProfilePage';
-import * as TournamentListPage from '../pages/TournamentListPage.ts';
-import * as TournamentLobbyPage from '../pages/TournamentLobbyPage.ts';
 
 interface Route {
   render: () => string;
@@ -28,8 +27,6 @@ const routes: { [key: string]: Route } = {
   '/local-game': { render: LocalGamePage.render, afterRender: LocalGamePage.afterRender, cleanup: LocalGamePage.cleanup },
   '/profile/edit': { render: ProfileEditPage.render, afterRender: ProfileEditPage.afterRender }, // << YENİ EKLENEN SATIR
   '/online-game': { render: OnlineGamePage.render, afterRender: OnlineGamePage.afterRender, cleanup: OnlineGamePage.cleanup },
-  '/tournaments': { render: TournamentListPage.render, afterRender: TournamentListPage.afterRender },
-  '/tournaments/:id': { render: TournamentLobbyPage.render, afterRender: TournamentLobbyPage.afterRender, cleanup: TournamentLobbyPage.cleanup },
 };
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -38,8 +35,8 @@ export async function handleLocation(forceReload = false) {
   const path = window.location.pathname;
   const token = localStorage.getItem('token');
 
-  const protectedPaths = ['/dashboard', '/lobby', '/online-lobby', '/local-game', '/online-game', '/profile/edit', '/tournaments'];
-  const isProtectedRoute = protectedPaths.includes(path) || path.startsWith('/profile/') || path.startsWith('/tournaments/');
+  const protectedPaths = ['/dashboard', '/lobby', '/online-lobby', '/local-game', '/online-game', '/profile/edit'];
+  const isProtectedRoute = protectedPaths.includes(path) || path.startsWith('/profile/');
   
   if (isProtectedRoute) {
     if (!token) {
@@ -67,8 +64,10 @@ export async function handleLocation(forceReload = false) {
   // Önce spesifik yolları kontrol et
   if (routes[path]) {
     routeToRender = routes[path];
-  } else if (path.startsWith('/tournaments/')) {
-    routeToRender = TournamentLobbyPage;
+  } 
+  // Sonra dinamik (parametre içeren) yolları kontrol et
+  else if (path.startsWith('/profile/') && path.endsWith('/history')) {
+    routeToRender = MatchHistoryPage;
   }
   else if (path.startsWith('/profile/')) {
     routeToRender = { 

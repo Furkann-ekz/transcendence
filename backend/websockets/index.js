@@ -121,56 +121,6 @@ function initializeSocket(io) {
             cleanUpPlayer(socket);
         });
 
-        socket.on('tournament:subscribe', (tournamentId) => {
-            socket.join(tournamentId);
-            console.log(`Socket ${socket.id} joined tournament room: ${tournamentId}`);
-        });
-
-        socket.on('tournament:unsubscribe', (tournamentId) => {
-            socket.leave(tournamentId);
-            console.log(`Socket ${socket.id} left tournament room: ${tournamentId}`);
-        });
-
-        socket.on('tournament:setReady', async ({ tournamentId, isReady }) => {
-            const userId = socket.user.userId;
-
-            try {
-                // Veritabanında oyuncunun durumunu güncelle
-                await prisma.tournamentPlayer.update({
-                    where: {
-                        tournamentId_userId: {
-                            tournamentId: tournamentId,
-                            userId: userId
-                        }
-                    },
-                    data: { isReady: isReady }
-                });
-
-                // Odanın güncel durumunu veritabanından çek
-                const updatedTournament = await prisma.tournament.findUnique({
-                    where: { id: tournamentId },
-                    include: {
-                        players: { 
-                            include: { 
-                                user: { select: { id: true, name: true } } 
-                            },
-                            orderBy: { user: { name: 'asc' } }
-                        }
-                    }
-                });
-
-                // Güncel durumu odadaki herkese yayınla
-                if (updatedTournament) {
-                    io.to(tournamentId).emit('tournament:stateUpdate', updatedTournament);
-                }
-
-            } catch (error) {
-                console.error(`Failed to set ready state for user ${userId} in tournament ${tournamentId}`, error);
-                // İsteğe bağlı: Hata durumunda kullanıcıya bir bildirim gönderilebilir
-                // socket.emit('tournament:error', 'Durum güncellenemedi.');
-            }
-        });
-
         // Bağlantı Kesilme Olayı
         socket.on('disconnect', () => {
             console.log(`${socket.user.email} bağlantısı kesildi.`);
