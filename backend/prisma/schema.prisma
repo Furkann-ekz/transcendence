@@ -30,6 +30,10 @@ model User {
   receivedFriendRequests Friendship[] @relation("ReceivedRequests")
   blockedUsers         Block[]      @relation("BlockingUsers")
   blockedBy            Block[]      @relation("BlockedByUsers")
+
+  hostedTournaments Tournament[] @relation("HostedTournaments")
+  wonTournaments    Tournament[] @relation("WonTournaments")
+  tournaments       TournamentPlayer[]
 }
 
 model Match {
@@ -78,4 +82,27 @@ model Block {
   blockedBy User @relation("BlockedByUsers", fields: [blockedId], references: [id])
 
   @@unique([blockerId, blockedId])
+}
+
+model Tournament {
+  id        String      @id @default(cuid())
+  createdAt DateTime    @default(now())
+  status    String      @default("LOBBY") // LOBBY, IN_PROGRESS, FINISHED
+  hostId    Int
+  host      User        @relation("HostedTournaments", fields: [hostId], references: [id])
+  players   TournamentPlayer[]
+  winnerId  Int?
+  winner    User?       @relation("WonTournaments", fields: [winnerId], references: [id])
+}
+
+model TournamentPlayer {
+  id            String     @id @default(cuid())
+  tournamentId  String
+  tournament    Tournament @relation(fields: [tournamentId], references: [id])
+  userId        Int
+  user          User       @relation(fields: [userId], references: [id])
+  isReady       Boolean    @default(false)
+  isEliminated  Boolean    @default(false)
+
+  @@unique([tournamentId, userId])
 }

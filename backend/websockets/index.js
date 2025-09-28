@@ -121,6 +121,16 @@ function initializeSocket(io) {
             cleanUpPlayer(socket);
         });
 
+        socket.on('tournament:subscribe', (tournamentId) => {
+            socket.join(tournamentId);
+            console.log(`Socket ${socket.id} joined tournament room: ${tournamentId}`);
+        });
+
+        socket.on('tournament:unsubscribe', (tournamentId) => {
+            socket.leave(tournamentId);
+            console.log(`Socket ${socket.id} left tournament room: ${tournamentId}`);
+        });
+
         // Bağlantı Kesilme Olayı
         socket.on('disconnect', () => {
             console.log(`${socket.user.email} bağlantısı kesildi.`);

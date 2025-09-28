@@ -35,6 +35,11 @@ fastify.register(require('./api/users.routes'), {
     io: io,
     onlineUsers: onlineUsers
 });
+// YENİ EKLENEN SATIR
+fastify.register(require('./api/tournaments.routes'), { 
+    prefix: '/api',
+    io: io // WebSocket objesini bu rotalara da iletiyoruz
+});
 
 // Basit bir "sunucu ayakta" kontrolü
 fastify.get('/', (request, reply) => {
