@@ -1,18 +1,17 @@
 // frontend/src/pages/OnlineGamePage.ts
 import { getSocket } from '../socket';
+// --- DÜZELTME: 'import type' kullanıldı ---
 import type { Socket } from 'socket.io-client';
 import { jwt_decode } from '../utils';
 import { t } from '../i18n';
-import { getGameData } from '../gameState';
 
-// Tip Tanımlamaları
 interface Player { id: number; name: string; email: string; socketId: string; position: 'left' | 'right' | 'top' | 'bottom'; team: 1 | 2; x: number; y: number; }
-interface GameConfig { canvasSize: number; paddleSize: number; paddleThickness: number; mode: string; }
+interface GameConfig { canvasSize: number; paddleSize: number; paddleThickness: number; mode: '1v1' | '2v2'; }
 interface GameState { ballX?: number; ballY?: number; team1Score?: number; team2Score?: number; players?: Player[]; }
+interface GameStartPayload extends GameConfig { players: Player[]; }
 interface UpdateQueuePayload { queueSize: number; requiredSize: number; }
 interface GameOverPayload { winners: Player[]; losers: Player[]; reason: string; }
 
-// Sayfa Değişkenleri
 let socket: Socket | null = null;
 let canvas: HTMLCanvasElement;
 let context: CanvasRenderingContext2D;
@@ -22,13 +21,9 @@ let myPlayer: Player | null = null;
 let animationFrameId: number;
 
 function renderGame() {
-    if (!context || !gameState.players || !gameConfig) {
-        return;
-    }
-
+    if (!context || !gameState.players || !gameConfig?.canvasSize) return;
     const { players, ballX, ballY, team1Score, team2Score } = gameState;
     const { canvasSize, paddleSize, paddleThickness } = gameConfig;
-    
     context.fillStyle = 'black';
     context.fillRect(0, 0, canvasSize, canvasSize);
     context.fillStyle = 'white';
@@ -79,20 +74,20 @@ function handlePlayerMove(event: KeyboardEvent) {
 }
 
 export function render(): string {
-  return `
+    // --- DÜZELTME: CSS çakışmasını önlemek için 'flex' ve 'flex-col' başlangıçtan kaldırıldı ---
+    return `
     <div class="h-screen w-screen bg-gray-900 flex flex-col items-center justify-center relative">
       <div id="game-status" class="text-3xl text-white mb-4">${t('waiting_for_opponent')}</div>
-      <canvas id="pong-canvas" width="800" height="800" class="bg-black border border-white hidden"></canvas>
+      <canvas id="pong-canvas" width="800" height="800" class="bg-black border border-white"></canvas>
       <a href="/lobby" data-link class="mt-4 text-blue-400 hover:text-blue-300">${t('leave_lobby')}</a>
+
       <div id="game-over-modal" class="hidden absolute inset-0 bg-black bg-opacity-75 items-center justify-center text-white">
-        <div class="flex flex-col items-center">
-            <h2 id="game-over-text" class="text-6xl font-bold mb-8"></h2>
-            <div id="rematch-prompt" class="hidden flex-col items-center">
-                <p class="text-xl mb-4">${t('rematch_question')}</p>
-                <div class="flex space-x-4">
-                    <button id="stay-button" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded">${t('stay_on_page')}</button>
-                    <a href="/lobby" data-link class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded">${t('return_to_lobby')}</a>
-                </div>
+        <h2 id="game-over-text" class="text-6xl font-bold mb-8"></h2>
+        <div id="rematch-prompt" class="hidden items-center">
+            <p class="text-xl mb-4">${t('rematch_question')}</p>
+            <div class="flex space-x-4">
+                <button id="stay-button" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded">${t('stay_on_page')}</button>
+                <a href="/lobby" data-link class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded">${t('return_to_lobby')}</a>
             </div>
         </div>
       </div>
@@ -112,43 +107,27 @@ export function afterRender() {
     const stayButton = document.getElementById('stay-button')!;
     const token = localStorage.getItem('token');
     const myUserId = token ? jwt_decode(token).userId : null;
-    
-    const payload = getGameData();
 
-    if (payload) {
-        const newGameConfig: GameConfig = { ...payload };
-        gameConfig = newGameConfig;
-        
+    stayButton.addEventListener('click', () => {
+        gameOverModal.classList.add('hidden');
+    });
+
+    socket.on('updateQueue', ({ queueSize, requiredSize }: UpdateQueuePayload) => {
+        statusDiv.textContent = `${t('waiting_for_opponent')} (${queueSize}/${requiredSize})`;
+    });
+
+    socket.on('gameStart', (payload: GameStartPayload) => {
+        gameConfig = { ...payload };
+        canvas.width = gameConfig.canvasSize;
+        canvas.height = gameConfig.canvasSize;
         statusDiv.textContent = '';
         canvas.classList.remove('hidden');
-        
-        canvas.width = newGameConfig.canvasSize;
-        canvas.height = newGameConfig.canvasSize;
+        // --- DÜZELTME: 'undefined' durumunu ele almak için '|| null' eklendi ---
         myPlayer = payload.players.find((p: Player) => p.id === myUserId) || null;
-
-        gameState = {
-            players: payload.players,
-            team1Score: 0,
-            team2Score: 0,
-        };
 
         window.addEventListener('keydown', handlePlayerMove);
         if (animationFrameId) cancelAnimationFrame(animationFrameId);
         gameLoop();
-    } else {
-        statusDiv.textContent = t('waiting_for_opponent');
-        canvas.classList.add('hidden');
-    }
-
-    stayButton.addEventListener('click', () => {
-        gameOverModal.classList.add('hidden');
-        gameOverModal.classList.remove('flex');
-    });
-
-    socket.on('updateQueue', ({ queueSize, requiredSize }: UpdateQueuePayload) => {
-        if (!gameConfig) {
-            statusDiv.textContent = `${t('waiting_for_opponent')} (${queueSize}/${requiredSize})`;
-        }
     });
 
     socket.on('gameStateUpdate', (newGameState: GameState) => {
@@ -162,12 +141,13 @@ export function afterRender() {
         const isWinner = winners.some((winner: Player) => winner.id === myUserId);
         
         gameOverText.textContent = isWinner ? t('you_win') : t('you_lose');
+        // JavaScript ile 'flex' ve 'flex-col' burada ekleniyor, bu doğru.
         gameOverModal.classList.remove('hidden');
-        gameOverModal.classList.add('flex');
+        gameOverModal.classList.add('flex', 'flex-col');
 
         setTimeout(() => {
             rematchPrompt.classList.remove('hidden');
-            rematchPrompt.classList.add('flex');
+            rematchPrompt.classList.add('flex', 'flex-col');
         }, 3000);
     });
 }
@@ -176,6 +156,7 @@ export function cleanup() {
     if (socket) {
       socket.emit('leaveGameOrLobby');
       socket.off('updateQueue');
+      socket.off('gameStart');
       socket.off('gameStateUpdate');
       socket.off('gameOver');
     }

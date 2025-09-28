@@ -3,34 +3,17 @@ import { navigateTo } from '../router';
 import { getSocket, disconnectSocket } from '../socket';
 import { t } from '../i18n';
 import { jwt_decode } from '../utils';
+// --- DÜZELTME: 'import type' kullanıldı ---
 import type { Socket } from "socket.io-client";
 import { addMessage, getMessages, clearMessages } from '../chatState';
 import { getFriends, respondToFriendRequest } from '../api/users';
-import { setGameData } from '../gameState';
 
-// --- Tip Tanımlamaları ---
-interface OnlineUser {
-    id: number;
-    email: string;
-    name: string;
-}
+// (Dosyanın geri kalanı zaten doğru olduğu için bir değişiklik gerekmiyor,
+// sadece import satırının 'import type' şeklinde olduğundan emin ol.)
 
-interface FriendRequest {
-    id: number; // Bu, friendship kaydının ID'sidir
-    requester: {
-        id: number;
-        name: string;
-        email: string;
-    };
-}
-
-interface ChatMessage {
-    type: 'public' | 'private';
-    sender: string;
-    content: string;
-}
-
-// --- Sayfa Değişkenleri ---
+interface OnlineUser { id: number; email: string; name: string; }
+interface FriendRequest { id: number; requester: { id: number; name: string; email: string; }; }
+interface ChatMessage { type: 'public' | 'private'; sender: string; content: string; }
 let socket: Socket | null = null;
 let myId: number | null = null;
 let selectedRecipient: { id: number | 'all', name: string } | null = null;
@@ -67,16 +50,6 @@ export function render(): string {
         </div>
       </div>
     </div>
-    
-    <div id="invite-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 items-center justify-center">
-        <div class="bg-white p-8 rounded-lg shadow-xl text-center">
-            <p id="invite-text" class="text-lg mb-6"></p>
-            <div class="flex space-x-4 justify-center">
-                <button id="accept-invite-btn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded">Kabul Et</button>
-                <button id="decline-invite-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded">Reddet</button>
-            </div>
-        </div>
-    </div>
   `;
 }
 
@@ -84,13 +57,6 @@ export function afterRender() {
     socket = getSocket()!;
     const token = localStorage.getItem('token');
     if (token) { myId = jwt_decode(token).userId; }
-
-    const inviteModal = document.getElementById('invite-modal') as HTMLDivElement;
-    const inviteText = document.getElementById('invite-text') as HTMLParagraphElement;
-    const acceptInviteBtn = document.getElementById('accept-invite-btn') as HTMLButtonElement;
-    const declineInviteBtn = document.getElementById('decline-invite-btn') as HTMLButtonElement;
-    let inviter: OnlineUser | null = null;
-    
     const logoutButton = document.getElementById('logout-button');
     const userList = document.getElementById('user-list') as HTMLUListElement;
     const friendRequestList = document.getElementById('friend-request-list') as HTMLUListElement;
@@ -98,7 +64,6 @@ export function afterRender() {
     const messagesList = document.getElementById('messages') as HTMLUListElement;
     const chatForm = document.getElementById('chat-form') as HTMLFormElement;
     const chatInput = document.getElementById('chat-input') as HTMLInputElement;
-
     function renderMessages() {
         if (!messagesList) return;
         const currentMessages = getMessages();
@@ -111,7 +76,6 @@ export function afterRender() {
         });
         messagesList.scrollTop = messagesList.scrollHeight;
     }
-
     async function renderFriendRequests() {
         if (!friendRequestList) return;
         try {
@@ -156,7 +120,6 @@ export function afterRender() {
             friendRequestList.innerHTML = `<li class="text-red-500 text-sm">İstekler yüklenemedi.</li>`;
         }
     }
-
     function selectRecipient(user: { id: number | 'all', name: string }) {
         selectedRecipient = user;
         recipientInfo.textContent = user.name || t('everyone');
@@ -165,51 +128,24 @@ export function afterRender() {
             liElement.classList.toggle('bg-blue-200', liElement.dataset.id === String(user.id));
         });
     }
-
-    function handleInviteClick(targetUser: OnlineUser) {
-        if (socket) {
-            console.log(`Inviting ${targetUser.name} to a game.`);
-            socket.emit('invite_to_game', { targetUserId: targetUser.id });
-        }
-    }
-
-    declineInviteBtn.addEventListener('click', () => {
-        if (socket && inviter) {
-            socket.emit('decline_game_invite', { senderId: inviter.id });
-        }
-        inviteModal.classList.add('hidden');
-        inviteModal.classList.remove('flex');
-        inviter = null;
-    });
-
-    acceptInviteBtn.addEventListener('click', () => {
-        if (socket && inviter) {
-            socket.emit('accept_game_invite', { senderId: inviter.id });
-        }
-        inviteModal.classList.add('hidden');
-        inviteModal.classList.remove('flex');
-        inviter = null;
-    });
-
     logoutButton?.addEventListener('click', () => {
         clearMessages();
         localStorage.removeItem('token');
         disconnectSocket();
         navigateTo('/');
     });
-
     renderMessages();
     renderFriendRequests();
     socket.emit('requestUserList');
-
     socket.on('friendship_updated', () => {
-        renderFriendRequests();
+        console.log('Arkadaşlık durumu güncellendi, liste yenileniyor...');
+        renderFriendRequests(); // Arkadaş listesini yeniden çiz
     });
-    
     socket.on('update user list', (users: OnlineUser[]) => {
         const currentSelectedId = selectedRecipient ? selectedRecipient.id : 'all';
         userList.innerHTML = '';
 
+        // Adım 1: "Herkese" seçeneğini ekle
         const allOption = document.createElement('li');
         allOption.textContent = t('everyone');
         allOption.dataset.id = 'all';
@@ -217,45 +153,40 @@ export function afterRender() {
         allOption.addEventListener('click', () => selectRecipient({ id: 'all', name: t('everyone') }));
         userList.appendChild(allOption);
         
+        // Adım 2: Mevcut kullanıcıyı (SEN) bul ve listeye ekle
         const me = users.find(user => user.id === myId);
         if (me) {
             const myItem = document.createElement('li');
             myItem.dataset.id = String(me.id);
-            myItem.className = 'p-2 hover:bg-gray-200 rounded';
-            const userLink = document.createElement('a');
-            userLink.href = `/profile/${me.id}`;
-            userLink.setAttribute('data-link', '');
-            userLink.textContent = `${me.name || me.email} ${t('you_suffix')}`;
-            myItem.appendChild(userLink);
+            myItem.classList.add('p-2', 'hover:bg-gray-200', 'cursor-pointer', 'rounded');
+            
+            const myLink = document.createElement('a');
+            myLink.href = `/profile/${me.id}`;
+            myLink.setAttribute('data-link', '');
+            myLink.textContent = `${me.name || me.email} ${t('you_suffix')}`;
+            myItem.appendChild(myLink);
+            
+            // Kendine özel mesaj atma engelli olduğu için click listener yok
             userList.appendChild(myItem);
         }
 
+        // Adım 3: Diğer kullanıcıları (kendin hariç) listeye ekle
         users.forEach(user => {
             if (user.id !== myId) {
                 const item = document.createElement('li');
-                item.className = 'p-2 hover:bg-gray-200 rounded flex justify-between items-center';
-                
-                const userInfo = document.createElement('div');
-                userInfo.className = 'cursor-pointer';
+                item.dataset.id = String(user.id);
+                item.classList.add('p-2', 'hover:bg-gray-200', 'cursor-pointer', 'rounded');
                 
                 const userLink = document.createElement('a');
                 userLink.href = `/profile/${user.id}`;
                 userLink.setAttribute('data-link', '');
                 userLink.textContent = user.name || user.email;
-                userInfo.appendChild(userLink);
+                item.appendChild(userLink);
                 
-                userInfo.addEventListener('click', (e) => {
+                item.addEventListener('click', (e) => {
                     if ((e.target as HTMLElement).tagName === 'A') return;
                     selectRecipient(user);
                 });
-
-                const inviteButton = document.createElement('button');
-                inviteButton.textContent = 'Davet Et';
-                inviteButton.className = 'text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600';
-                inviteButton.onclick = () => handleInviteClick(user);
-
-                item.appendChild(userInfo);
-                item.appendChild(inviteButton);
                 userList.appendChild(item);
             }
         });
@@ -263,28 +194,10 @@ export function afterRender() {
         const newSelectedUser = users.find(u => u.id === currentSelectedId);
         selectRecipient(newSelectedUser || { id: 'all', name: t('everyone') });
     });
-
     socket.on('chat message', (msg: ChatMessage) => {
         addMessage(msg);
         renderMessages();
     });
-
-    socket.on('receive_game_invite', ({ fromUser }: { fromUser: OnlineUser }) => {
-        inviter = fromUser;
-        inviteText.textContent = `${fromUser.name} sizi bir Pong maçına davet ediyor!`;
-        inviteModal.classList.remove('hidden');
-        inviteModal.classList.add('flex');
-    });
-
-    socket.on('invite_declined', ({ fromUser }: { fromUser: OnlineUser }) => {
-        alert(`${fromUser.name} davetinizi reddetti.`);
-    });
-    
-    socket.on('start_private_game', (payload: any) => {
-        setGameData(payload); // Gelen oyun verisini sakla
-        navigateTo('/online-game'); // Sonra oyun sayfasına git
-    });
-
     chatForm.addEventListener('submit', (e) => {
         e.preventDefault();
         if (chatInput.value && socket) {
@@ -300,15 +213,11 @@ export function afterRender() {
         }
     });
 }
-
 export function cleanup() {
     const socket = getSocket();
     if (socket) {
         socket.off('update user list');
         socket.off('chat message');
         socket.off('friendship_updated');
-        socket.off('receive_game_invite');
-        socket.off('invite_declined');
-        socket.off('start_private_game');
     }
 }
