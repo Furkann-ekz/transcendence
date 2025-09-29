@@ -67,6 +67,20 @@ function initializeSocket(io) {
             handleJoinMatchmaking(io, socket, gameState, payload);
         });
 
+        socket.on('join_tournament_lobby', ({ tournamentId }) => {
+            if (tournamentId) {
+                socket.join(tournamentId);
+                console.log(`${socket.user.email}, ${tournamentId} odasına katıldı.`);
+            }
+        });
+
+        socket.on('leave_tournament_lobby', ({ tournamentId }) => {
+            if (tournamentId) {
+                socket.leave(tournamentId);
+                console.log(`${socket.user.email}, ${tournamentId} odasından ayrıldı.`);
+            }
+        });
+
         // --- GÜVENLİ TEMİZLEME FONKSİYONU ---
         const cleanUpPlayer = async (sock) => {
             // Oyuncuyu tüm bekleme havuzlarından kaldır

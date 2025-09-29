@@ -133,7 +133,8 @@ async function tournamentRoutes(fastify, { io }) {
                     players: { include: { user: { select: { id: true, name: true } } } }
                 }
             });
-
+            io.to(tournamentId).emit('tournament_lobby_updated');
+            io.emit('tournament_list_updated');
             return updatedTournament;
 
         } catch (error) {
