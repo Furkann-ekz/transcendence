@@ -90,6 +90,7 @@ async function tournamentRoutes(fastify, { io }) {
                     players: { include: { user: { select: { id: true, name: true } } } }
                 }
             });
+            io.emit('tournament_list_updated');
             return newTournament;
         } catch (error) {
             fastify.log.error(error);

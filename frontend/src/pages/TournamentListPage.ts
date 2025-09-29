@@ -3,6 +3,7 @@
 import { navigateTo } from '../router';
 import { t } from '../i18n';
 import { jwt_decode } from '../utils';
+import { getSocket } from '../socket'; // getSocket'i import et
 
 // Tip Tanımlamaları
 interface TournamentSummary {
@@ -68,6 +69,7 @@ export async function afterRender() {
     const createBtn = document.getElementById('create-tournament-btn');
     const token = localStorage.getItem('token');
     const myId = token ? jwt_decode(token).userId : null;
+    const socket = getSocket();
 
     const renderList = async () => {
         if (!listEl) return;
@@ -126,4 +128,17 @@ export async function afterRender() {
     });
 
     await renderList();
+    if (socket) {
+        socket.on('tournament_list_updated', () => {
+            console.log('Tournament listesi güncellendi, yeniden çiziliyor...');
+            renderList(); // Sinyal geldiğinde listeyi yeniden çiz
+        });
+    }
+}
+
+export function cleanup() {
+    const socket = getSocket();
+    if (socket) {
+        socket.off('tournament_list_updated');
+    }
 }

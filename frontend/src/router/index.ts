@@ -11,8 +11,8 @@ import * as OnlineLobbyPage from '../pages/OnlineLobbyPage';
 import * as MatchHistoryPage from '../pages/MatchHistoryPage';
 import * as ProfileEditPage from '../pages/ProfileEditPage';
 import * as ProfilePage from '../pages/ProfilePage';
-import * as TournamentListPage from '../pages/TournamentListPage';
 import * as TournamentLobbyPage from '../pages/TournamentLobbyPage';
+import * as TournamentListPage from '../pages/TournamentListPage';
 
 interface Route {
   render: () => string;
@@ -30,7 +30,7 @@ const routes: { [key: string]: Route } = {
   '/local-game': { render: LocalGamePage.render, afterRender: LocalGamePage.afterRender, cleanup: LocalGamePage.cleanup },
   '/profile/edit': { render: ProfileEditPage.render, afterRender: ProfileEditPage.afterRender },
   '/online-game': { render: OnlineGamePage.render, afterRender: OnlineGamePage.afterRender, cleanup: OnlineGamePage.cleanup },
-  '/tournaments': { render: TournamentListPage.render, afterRender: TournamentListPage.afterRender },
+  '/tournaments': { render: TournamentListPage.render, afterRender: TournamentListPage.afterRender, cleanup: TournamentListPage.cleanup },
 };
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
