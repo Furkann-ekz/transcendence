@@ -1,4 +1,5 @@
 // frontend/src/router/index.ts
+
 import * as LoginPage from '../pages/LoginPage';
 import * as RegisterPage from '../pages/RegisterPage';
 import * as DashboardPage from '../pages/DashboardPage';
@@ -10,6 +11,8 @@ import * as OnlineLobbyPage from '../pages/OnlineLobbyPage';
 import * as MatchHistoryPage from '../pages/MatchHistoryPage';
 import * as ProfileEditPage from '../pages/ProfileEditPage';
 import * as ProfilePage from '../pages/ProfilePage';
+import * as TournamentListPage from '../pages/TournamentListPage';
+import * as TournamentLobbyPage from '../pages/TournamentLobbyPage';
 
 interface Route {
   render: () => string;
@@ -25,8 +28,9 @@ const routes: { [key: string]: Route } = {
   '/lobby': { render: LobbyPage.render, afterRender: LobbyPage.afterRender },
   '/online-lobby': { render: OnlineLobbyPage.render, afterRender: OnlineLobbyPage.afterRender },
   '/local-game': { render: LocalGamePage.render, afterRender: LocalGamePage.afterRender, cleanup: LocalGamePage.cleanup },
-  '/profile/edit': { render: ProfileEditPage.render, afterRender: ProfileEditPage.afterRender }, // << YENİ EKLENEN SATIR
+  '/profile/edit': { render: ProfileEditPage.render, afterRender: ProfileEditPage.afterRender },
   '/online-game': { render: OnlineGamePage.render, afterRender: OnlineGamePage.afterRender, cleanup: OnlineGamePage.cleanup },
+  '/tournaments': { render: TournamentListPage.render, afterRender: TournamentListPage.afterRender },
 };
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -35,9 +39,9 @@ export async function handleLocation(forceReload = false) {
   const path = window.location.pathname;
   const token = localStorage.getItem('token');
 
-  const protectedPaths = ['/dashboard', '/lobby', '/online-lobby', '/local-game', '/online-game', '/profile/edit'];
-  const isProtectedRoute = protectedPaths.includes(path) || path.startsWith('/profile/');
-  
+  const protectedPaths = ['/dashboard', '/lobby', '/online-lobby', '/local-game', '/online-game', '/profile/edit', '/tournaments'];
+  const isProtectedRoute = protectedPaths.includes(path) || path.startsWith('/profile/') || path.startsWith('/tournaments/');
+
   if (isProtectedRoute) {
     if (!token) {
       navigateTo('/');
@@ -61,20 +65,19 @@ export async function handleLocation(forceReload = false) {
 
   let routeToRender: Route | null = null;
   
-  // Önce spesifik yolları kontrol et
+  // Önce statik rotaları kontrol et
   if (routes[path]) {
     routeToRender = routes[path];
   } 
-  // Sonra dinamik (parametre içeren) yolları kontrol et
+  // Sonra dinamik (parametre içeren) rotaları kontrol et
+  else if (path.startsWith('/tournaments/')) {
+    routeToRender = TournamentLobbyPage;
+  }
   else if (path.startsWith('/profile/') && path.endsWith('/history')) {
     routeToRender = MatchHistoryPage;
   }
   else if (path.startsWith('/profile/')) {
-    routeToRender = { 
-        render: ProfilePage.render, 
-        afterRender: ProfilePage.afterRender, 
-        cleanup: ProfilePage.cleanup 
-    };
+    routeToRender = ProfilePage;
   }
   // Hiçbiri eşleşmezse ana sayfayı göster
   else {
@@ -98,19 +101,22 @@ export async function handleLocation(forceReload = false) {
   }
 }
 
-export async function navigateTo(path: string) { // 'async' eklendi
+export async function navigateTo(path: string) {
   window.history.pushState({}, '', path);
-  await handleLocation(); // 'await' eklendi
+  await handleLocation();
 }
 
-export async function initializeRouter() { // 'async' eklendi
-  window.addEventListener('popstate', () => handleLocation()); // Olası "this" context hatalarını önlemek için arrow function içine aldık.
+export async function initializeRouter() {
+  window.addEventListener('popstate', () => handleLocation());
   document.body.addEventListener('click', (e: MouseEvent) => {
-    const target = e.target as HTMLElement;
-    if (target.matches('[data-link]')) {
+    const target = (e.target as HTMLElement).closest('[data-link]');
+    if (target) {
       e.preventDefault();
-      void navigateTo(target.getAttribute('href')!); // 'void' eklendi
+      const href = target.getAttribute('href');
+      if(href) {
+        void navigateTo(href);
+      }
     }
   });
-  await handleLocation(); // 'await' eklendi
+  await handleLocation();
 }

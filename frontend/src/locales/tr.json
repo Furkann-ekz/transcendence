@@ -69,5 +69,20 @@
   "friend_requests": "Arkadaş İstekleri",
   "accept_button": "Kabul Et",
   "reject_button": "Reddet",
-  "no_friend_requests": "Bekleyen arkadaş isteği yok."
+  "no_friend_requests": "Bekleyen arkadaş isteği yok.",
+  "tournaments_title": "Turnuvalar",
+  "create_new_tournament": "Yeni Turnuva Oluştur",
+  "users_tournament": "{name}'nin Turnuvası",
+  "tournament_host": "Kurucu",
+  "players": "Oyuncular",
+  "view_button": "Görüntüle",
+  "register_button_tournament": "Kayıt Ol",
+  "registered_button_tournament": "Kayıt Olundu",
+  "back_to_main_lobby": "Ana Lobiye Geri Dön",
+  "tournament_lobby_title": "Turnuva Lobisi",
+  "tournament_players_title": "Oyuncular",
+  "back_to_tournaments": "Tüm Turnuvalara Geri Dön",
+  "ready_button": "Hazırım",
+  "not_ready_button": "Hazır Değil",
+  "tournaments_load_error": "Turnuvalar yüklenemedi."
 }

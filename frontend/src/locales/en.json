@@ -69,5 +69,20 @@
   "friend_requests": "Friend Requests",
   "accept_button": "Accept",
   "reject_button": "Reject",
-  "no_friend_requests": "No pending friend requests."
+  "no_friend_requests": "No pending friend requests.",
+  "tournaments_title": "Tournaments",
+  "create_new_tournament": "Create New Tournament",
+  "users_tournament": "{name}'s Tournament",
+  "tournament_host": "Host",
+  "players": "Players",
+  "view_button": "View",
+  "register_button_tournament": "Register",
+  "registered_button_tournament": "Registered",
+  "back_to_main_lobby": "Back to Main Lobby",
+  "tournament_lobby_title": "Tournament Lobby",
+  "tournament_players_title": "Players",
+  "back_to_tournaments": "Back to All Tournaments",
+  "ready_button": "I'm Ready",
+  "not_ready_button": "Not Ready",
+  "tournaments_load_error": "Could not load tournaments."
 }

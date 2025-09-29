@@ -64,5 +64,20 @@
   "friend_requests": "Запросы на добавление в друзья",
   "accept_button": "Принять",
   "reject_button": "Отклонить",
-  "no_friend_requests": "Нет ожидающих запросов на добавление в друзья."
+  "no_friend_requests": "Нет ожидающих запросов на добавление в друзья.",
+  "tournaments_title": "Турниры",
+  "create_new_tournament": "Создать новый турнир",
+  "users_tournament": "Турнир {name}",
+  "tournament_host": "Организатор",
+  "players": "Игроки",
+  "view_button": "Посмотреть",
+  "register_button_tournament": "Зарегистрироваться",
+  "registered_button_tournament": "Зарегистрирован",
+  "back_to_main_lobby": "Вернуться в главное лобби",
+  "tournament_lobby_title": "Лобби турнира",
+  "tournament_players_title": "Игроки",
+  "back_to_tournaments": "Ко всем турнирам",
+  "ready_button": "Я готов",
+  "not_ready_button": "Не готов",
+  "tournaments_load_error": "Не удалось загрузить турниры."
 }

@@ -30,10 +30,10 @@ down:
 
 # Projeyle ilgili olabilecek tüm "hayalet" konteynerleri zorla temizler.
 clean: down
-    @echo "--- Forcibly removing any lingering containers... ---"
-    @docker ps -a -q --filter "name=transcendence_backend" | xargs -r docker rm -f || true
-    @docker ps -a -q --filter "name=transcendence_frontend" | xargs -r docker rm -f || true
-    @docker ps -a -q --filter "name=transcendence_nginx" | xargs -r docker rm -f || true
+	@echo "--- Forcibly removing any lingering containers... ---"
+	@docker ps -a -q --filter "name=transcendence_backend" | xargs -r docker rm -f || true
+	@docker ps -a -q --filter "name=transcendence_frontend" | xargs -r docker rm -f || true
+	@docker ps -a -q --filter "name=transcendence_nginx" | xargs -r docker rm -f || true
 	
 remove:
 	@(cd backend && rm -rf node_modules package-lock.json)
@@ -71,3 +71,9 @@ start:
 	@echo "Installing frontend dependencies on host..."
 	(cd frontend && npm install)
 	@echo "Host setup complete! You can now run 'make up'."
+
+backend-logs:
+	docker compose logs -f backend
+
+frontend-logs:
+	docker compose logs -f frontend

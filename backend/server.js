@@ -35,6 +35,10 @@ fastify.register(require('./api/users.routes'), {
     io: io,
     onlineUsers: onlineUsers
 });
+fastify.register(require('./api/tournaments.routes.js'), { 
+    prefix: '/api',
+    io: io 
+});
 
 // Basit bir "sunucu ayakta" kontrolü
 fastify.get('/', (request, reply) => {
