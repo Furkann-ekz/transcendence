@@ -84,5 +84,7 @@
   "back_to_tournaments": "Back to All Tournaments",
   "ready_button": "I'm Ready",
   "not_ready_button": "Not Ready",
-  "tournaments_load_error": "Could not load tournaments."
+  "tournaments_load_error": "Could not load tournaments.",
+  "tournaments_button": "Tournaments",
+  "no_active_tournaments": "There are currently no active tournaments."
 }

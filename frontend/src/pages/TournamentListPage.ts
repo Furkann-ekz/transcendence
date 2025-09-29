@@ -73,7 +73,7 @@ export async function afterRender() {
         try {
             const tournaments: TournamentSummary[] = await fetchTournaments();
             if (tournaments.length === 0) {
-                listEl.innerHTML = '<p class="text-center text-gray-500">Şu anda aktif bir turnuva bulunmuyor.</p>';
+                listEl.innerHTML = `<p class="text-center text-gray-500">${t('no_active_tournaments')}</p>`;
                 return;
             }
             listEl.innerHTML = tournaments.map((tournament) => {

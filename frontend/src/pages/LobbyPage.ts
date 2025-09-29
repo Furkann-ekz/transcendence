@@ -8,7 +8,7 @@ export function render() {
         <h2 class="text-2xl font-bold mb-6">${t('lobby_title')}</h2>
         <div class="flex flex-col space-y-4">
           <a href="/tournaments" data-link class="bg-purple-500 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded">
-            Turnuvalar
+            ${t('tournaments_button')}
           </a>
           <a href="/local-game" data-link class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded">
             ${t('play_local_button')}
