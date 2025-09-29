@@ -86,6 +86,7 @@ model Block {
 
 model Tournament {
   id        String      @id @default(cuid())
+  name      String
   createdAt DateTime    @default(now())
   status    String      @default("LOBBY") // LOBBY, IN_PROGRESS, FINISHED
   hostId    Int

@@ -57,9 +57,27 @@ async function tournamentRoutes(fastify, { io }) {
     // Yeni bir turnuva oluşturur
     fastify.post('/tournaments', { preHandler: [authenticate] }, async (request, reply) => {
         const hostId = request.user.userId;
+        const host = await prisma.user.findUnique({ where: { id: hostId } });
+
+        if (!host) {
+            return reply.code(404).send({ error: 'Host user not found.' });
+        }
+
         try {
+            // Bu kullanıcının şimdiye kadar kurduğu tüm turnuvaları say
+            const totalTournamentCount = await prisma.tournament.count({
+                where: {
+                    hostId: hostId,
+                }
+            });
+
+            const tournamentNumber = totalTournamentCount + 1;
+            // İsimlendirme kuralını burada uyguluyoruz
+            const tournamentName = `${host.name}'s Tournament #${tournamentNumber}`;
+
             const newTournament = await prisma.tournament.create({
                 data: {
+                    name: tournamentName, // Veritabanına yeni oluşturulan ismi kaydet
                     hostId: hostId,
                     players: {
                         create: {

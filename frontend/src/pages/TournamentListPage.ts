@@ -7,6 +7,7 @@ import { jwt_decode } from '../utils';
 // Tip Tanımlamaları
 interface TournamentSummary {
     id: string;
+    name: string;
     host: { id: number; name: string; };
     _count: { players: number; };
     players: { userId: number }[]; // Oyuncuları kontrol etmek için bu alanı da isteyeceğiz
@@ -82,7 +83,7 @@ export async function afterRender() {
                 <div class="bg-white p-4 rounded-lg shadow-md flex justify-between items-center">
                     <div>
                         <a href="/tournaments/${tournament.id}" data-link class="text-xl font-bold hover:text-blue-600">
-                            ${t('users_tournament').replace('{name}', tournament.host.name)}
+                            ${tournament.name}
                         </a>
                         <p class="text-sm text-gray-600">${t('tournament_host')}: ${tournament.host.name} | ${t('players')}: ${tournament._count.players}/8</p>
                     </div>
