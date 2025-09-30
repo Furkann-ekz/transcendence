@@ -7,7 +7,6 @@ const cors = require('@fastify/cors');
 const path = require('path');
 const initializeSocket = require('./websockets');
 
-// 1. Adım: Gerekli Fastify eklentilerini kaydet
 const allowedOrigins = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : [];
 if (allowedOrigins.length === 0) {
     fastify.log.warn('CORS_ORIGINS is not defined. CORS might not work as expected.');
@@ -15,7 +14,7 @@ if (allowedOrigins.length === 0) {
 fastify.register(cors, { origin: allowedOrigins });
 fastify.register(require('@fastify/multipart'), {
     limits: {
-        fileSize: 10 * 1024 * 1024, // Limiti 10 MB olarak ayarlıyoruz.
+        fileSize: 10 * 1024 * 1024,
     },
 });
 fastify.register(require('@fastify/static'), {
@@ -23,33 +22,32 @@ fastify.register(require('@fastify/static'), {
     prefix: '/uploads/',
 });
 
-// 2. Adım: Socket.IO sunucusunu oluştur
 const io = new Server(fastify.server, {
     path: '/api/socket.io',
     cors: { origin: allowedOrigins, methods: ["GET", "POST"] }
 });
 
-// 3. Adım: Socket mantığını başlat ve onlineUsers listesini al
-const onlineUsers = initializeSocket(io);
+// BU SATIR ÖNEMLİ: Artık bir obje döndürüyor
+const { onlineUsers, gameRooms } = initializeSocket(io);
 
-// 4. Adım: Rotaları kaydet (artık 'io' ve 'onlineUsers' mevcut)
 fastify.register(require('./api/auth.routes'), { prefix: '/api' });
 fastify.register(require('./api/users.routes'), { 
     prefix: '/api',
     io: io,
     onlineUsers: onlineUsers
 });
+// BU SATIR ÖNEMLİ: Artık onlineUsers ve gameRooms'u iletiyor
 fastify.register(require('./api/tournaments.routes.js'), { 
     prefix: '/api',
-    io: io 
+    io: io,
+    onlineUsers: onlineUsers,
+    gameRooms: gameRooms
 });
 
-// Basit bir "sunucu ayakta" kontrolü
 fastify.get('/', (request, reply) => {
     reply.send({ status: 'Server is running!' });
 });
 
-// 5. Adım: Sunucuyu başlat
 const start = async () => {
     try {
         await fastify.listen({ port: 3000, host: '0.0.0.0' });

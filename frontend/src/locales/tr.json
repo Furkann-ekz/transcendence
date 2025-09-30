@@ -91,6 +91,9 @@
   "status_waiting": "Bekliyor",
   "start_tournament_button": "Turnuvayı Başlat",
   "start_tournament_condition": "Başlatmak için en az 4 oyuncu olmalı ve herkes hazır olmalı.",
-  "change_avatar_button": "Avatar Değiştir"
+  "change_avatar_button": "Avatar Değiştir",
+  "leave_tournament": "Turnuvadan Ayrıl",
+  "leave_tournament_confirm": "Turnuvadan ayrılırsanız diskalifiye edileceksiniz. Ayrılmak istediğinize emin misiniz?",
+  "leave_button": "Ayrıl"
 
 }

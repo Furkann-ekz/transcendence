@@ -77,7 +77,7 @@ function startGameLoop(room, players, io, mode, gameConfig) {
     const WINNING_SCORE = 5;
     const BALL_RADIUS = 10;
     
-    const game = { players, mode, gameState: {}, intervalId: null, startTime: startTime };
+    const game = { players, mode, gameState: {}, intervalId: null, startTime: startTime, ...gameConfig };
 
     let gameState = {
         ballX: canvasSize / 2, ballY: canvasSize / 2, ballSpeedX: 6, ballSpeedY: 6,
@@ -234,25 +234,11 @@ function handleJoinMatchmaking(io, socket, state, payload) {
         const game = startGameLoop(roomName, players, io, mode, gameConfig);
         state.gameRooms.set(roomName, game);
     }
-
-    socket.on('playerMove', (data) => {
-        if (!socket.gameRoom) return;
-        const game = state.gameRooms.get(socket.gameRoom.id);
-        if (!game) return;
-        const playerState = game.gameState.players.find(p => p.id === socket.user.id);
-        if (!playerState) return;
-        const { newPosition } = data;
-        const { canvasSize, paddleSize } = gameConfig;
-        let finalPosition = newPosition;
-        if (finalPosition < 0) finalPosition = 0;
-        if (finalPosition > canvasSize - paddleSize) finalPosition = canvasSize - paddleSize;
-        if (playerState.position === 'left' || playerState.position === 'right') playerState.y = finalPosition;
-        if (playerState.position === 'top' || playerState.position === 'bottom') playerState.x = finalPosition;
-    });
 }
 
 module.exports = {
     handleJoinMatchmaking,
     updatePlayerStats,
-    saveMatch
+    saveMatch,
+    startGameLoop
 };

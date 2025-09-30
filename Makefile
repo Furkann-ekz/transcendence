@@ -45,8 +45,8 @@ docker-clean: down remove
 
 # Veritabanını sıfırlar (tüm verileri siler).
 db:
-	@echo "--- Resetting database inside the container... ---"
-	docker compose exec backend npx prisma migrate reset --force
+	@echo "--- Resetting database and clearing uploads inside the container... ---"
+	docker compose exec backend sh -c "npx prisma migrate reset --force && rm -rf /usr/src/app/uploads/avatars/*"
 
 migrate:
 	@echo "--- Applying new migrations inside the container... ---"

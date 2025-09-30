@@ -2,8 +2,9 @@
 
 const prisma = require('../prisma/db');
 const authenticate = require('../middleware/authenticate');
+const { startNextMatch } = require('../websockets/tournamentHandler');
 
-async function tournamentRoutes(fastify, { io }) {
+async function tournamentRoutes(fastify, { io, onlineUsers, gameRooms }) {
     
     // Aktif, Lobi durumundaki turnuvaları listeler
     fastify.get('/tournaments', { preHandler: [authenticate] }, async (request, reply) => {
@@ -234,6 +235,9 @@ async function tournamentRoutes(fastify, { io }) {
             
             // 6. Lobi'deki herkese turnuvanın başladığını bildir
             io.to(tournamentId).emit('tournament_started', { tournament: updatedTournament });
+            
+            // DEĞİŞİKLİK: Eksik olan onlineUsers ve gameRooms parametrelerini ekliyoruz.
+            startNextMatch(tournamentId, io, onlineUsers, gameRooms);
             
             return reply.send({ success: true, message: 'Tournament started!' });
 
