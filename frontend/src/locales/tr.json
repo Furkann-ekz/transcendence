@@ -88,5 +88,9 @@
   "tournaments_button": "Turnuvalar",
   "no_active_tournaments": "Şu anda aktif bir turnuva bulunmuyor.",
   "status_ready": "Hazır",
-  "status_waiting": "Bekliyor"
+  "status_waiting": "Bekliyor",
+  "start_tournament_button": "Turnuvayı Başlat",
+  "start_tournament_condition": "Başlatmak için en az 4 oyuncu olmalı ve herkes hazır olmalı.",
+  "change_avatar_button": "Avatar Değiştir"
+
 }

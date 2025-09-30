@@ -13,7 +13,11 @@ if (allowedOrigins.length === 0) {
     fastify.log.warn('CORS_ORIGINS is not defined. CORS might not work as expected.');
 }
 fastify.register(cors, { origin: allowedOrigins });
-fastify.register(require('@fastify/multipart'));
+fastify.register(require('@fastify/multipart'), {
+    limits: {
+        fileSize: 10 * 1024 * 1024, // Limiti 10 MB olarak ayarlıyoruz.
+    },
+});
 fastify.register(require('@fastify/static'), {
     root: path.join(__dirname, 'uploads'),
     prefix: '/uploads/',

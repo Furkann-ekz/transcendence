@@ -109,7 +109,7 @@ export function render(): string {
   return `
   <div class="min-h-screen bg-gray-100 flex flex-col items-center justify-center">
       <div id="profile-card" class="bg-white p-8 rounded-lg shadow-md w-full max-w-md text-center">
-        <img id="profile-avatar" src="/default-avatar.png" alt="Avatar" class="w-24 h-24 rounded-full object-cover border-2 border-gray-300 mb-4 mx-auto">
+        <div id="profile-avatar" class="w-24 h-24 rounded-full border-2 border-gray-300 mb-4 mx-auto bg-cover bg-center bg-gray-200"></div>
         <h2 id="profile-name" class="text-3xl font-bold mb-2">Yükleniyor...</h2>
         <p id="profile-created-at" class="text-gray-500 text-sm mb-6"></p>
         <div class="flex justify-center space-x-8 border-t border-b py-4">
@@ -137,7 +137,8 @@ export function render(): string {
 }
 
 export async function afterRender() {
-    const avatarElement = document.getElementById('profile-avatar') as HTMLImageElement;
+    // DEĞİŞİKLİK: Tip'i HTMLImageElement'dan HTMLDivElement'a çeviriyoruz.
+    const avatarElement = document.getElementById('profile-avatar') as HTMLDivElement;
     const nameElement = document.getElementById('profile-name');
     const createdAtElement = document.getElementById('profile-created-at');
     const winsElement = document.getElementById('profile-wins');
@@ -149,11 +150,9 @@ export async function afterRender() {
     const token = localStorage.getItem('token');
     myId = token ? jwt_decode(token).userId : null;
 
-    // --- YENİ: Anlık güncelleme için socket dinleyicisini ekliyoruz ---
     socket = getSocket();
     if (socket) {
         socket.on('friendship_updated', () => {
-            // Sadece başka bir kullanıcının profilini görüntülerken butonları yenile
             if (profileId !== myId) {
                 console.log('Arkadaşlık durumu değişti, butonlar yenileniyor...');
                 renderActionButtons();
@@ -174,8 +173,12 @@ export async function afterRender() {
         if (createdAtElement) createdAtElement.textContent = `${t('profile_joined_on')} ${new Date(userProfile.createdAt).toLocaleDateString()}`;
         if (winsElement) winsElement.textContent = userProfile.wins.toString();
         if (lossesElement) lossesElement.textContent = userProfile.losses.toString();
+        
+        // DEĞİŞİKLİK: Resmi .src ile değil, .style.backgroundImage ile yüklüyoruz.
         if (userProfile.avatarUrl && avatarElement) {
-            avatarElement.src = `${userProfile.avatarUrl}?t=${new Date().getTime()}`;
+            avatarElement.style.backgroundImage = `url(${userProfile.avatarUrl}?t=${new Date().getTime()})`;
+        } else if (avatarElement) {
+            avatarElement.style.backgroundImage = `url(/default-avatar.png)`;
         }
         
         if (profileId === myId) {

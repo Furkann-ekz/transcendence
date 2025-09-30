@@ -142,6 +142,51 @@ async function tournamentRoutes(fastify, { io }) {
             return reply.code(500).send({ error: 'Could not join tournament.' });
         }
     });
+
+    fastify.post('/tournaments/:id/ready', { preHandler: [authenticate] }, async (request, reply) => {
+        const tournamentId = request.params.id;
+        const userId = request.user.userId;
+        const { isReady } = request.body; // Body'den { "isReady": true/false } bekleniyor
+
+        if (typeof isReady !== 'boolean') {
+            return reply.code(400).send({ error: 'isReady field must be a boolean.' });
+        }
+
+        try {
+            // Önce oyuncunun o turnuvada olup olmadığını kontrol edelim.
+            const playerInTournament = await prisma.tournamentPlayer.findUnique({
+                where: {
+                    tournamentId_userId: {
+                        tournamentId: tournamentId,
+                        userId: userId
+                    }
+                }
+            });
+
+            if (!playerInTournament) {
+                return reply.code(404).send({ error: 'You are not a player in this tournament.' });
+            }
+            
+            // Oyuncunun durumunu güncelle
+            await prisma.tournamentPlayer.update({
+                where: {
+                    id: playerInTournament.id
+                },
+                data: {
+                    isReady: isReady
+                }
+            });
+
+            // Lobi'deki diğer oyunculara durumun güncellendiğini bildir
+            io.to(tournamentId).emit('tournament_lobby_updated');
+            
+            return reply.send({ success: true, message: `Ready status set to ${isReady}` });
+
+        } catch (error) {
+            fastify.log.error(error);
+            return reply.code(500).send({ error: 'Could not update ready status.' });
+        }
+    });
 }
 
 module.exports = tournamentRoutes;

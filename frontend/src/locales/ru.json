@@ -83,5 +83,11 @@
   "tournaments_button": "Турниры",
   "no_active_tournaments": "Активных турниров в данный момент нет.",
   "status_ready": "Готов",
-  "status_waiting": "Ожидание"
+  "status_waiting": "Ожидание",
+  "start_tournament_button": "Начать турнир",
+  "start_tournament_condition": "Для начала должно быть не менее 4 игроков, и все должны быть готовы.",
+  "edit_profile_title": "Редактировать профиль",
+  "change_avatar_button": "Сменить аватар",
+  "save_button": "Сохранить",
+  "edit_profile_button": "Редактировать профиль"
 }

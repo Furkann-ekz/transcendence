@@ -50,3 +50,29 @@ export async function joinTournament(tournamentId: string) {
     }
     return response.json();
 }
+
+export async function setReadyStatus(tournamentId: string, isReady: boolean) {
+    const response = await fetch(`${API_URL}/${tournamentId}/ready`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ isReady }) // Body'de durumu gönderiyoruz
+    });
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Durum güncellenemedi.');
+    }
+    return response.json();
+}
+
+export async function startTournament(tournamentId: string) {
+    const response = await fetch(`${API_URL}/${tournamentId}/start`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({})
+    });
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Turnuva başlatılamadı.');
+    }
+    return response.json();
+}

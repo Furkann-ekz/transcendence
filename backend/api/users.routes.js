@@ -3,8 +3,6 @@ const authenticate = require('../middleware/authenticate');
 const bcrypt = require('bcrypt');
 const fs = require('fs');
 const path = require('path');
-const util = require('util');
-const pipeline = util.promisify(require('stream').pipeline);
 
 async function userRoutes(fastify, { io, onlineUsers }) {
     // --- TEMEL KULLANICI İŞLEMLERİ ---
@@ -31,7 +29,10 @@ async function userRoutes(fastify, { io, onlineUsers }) {
         const avatarUrl = `/uploads/avatars/${filename}`;
 
         try {
-            await pipeline(data.file, fs.createWriteStream(filepath));
+            // DEĞİŞİKLİK: Dosyayı stream etmek yerine buffer'a alıp tek seferde yazıyoruz.
+            const buffer = await data.toBuffer();
+            await fs.promises.writeFile(filepath, buffer);
+
             await prisma.user.update({
                 where: { id: request.user.userId },
                 data: { avatarUrl },

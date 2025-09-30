@@ -7,7 +7,6 @@ interface UserProfile {
     id: number;
     name: string | null;
     avatarUrl: string | null;
-    // Diğer alanlar eklenebilir
 }
 
 export function render(): string {
@@ -17,9 +16,9 @@ export function render(): string {
         <h2 class="text-2xl font-bold mb-6 text-center">${t('edit_profile_title')}</h2>
         <form id="edit-profile-form" class="mb-8">
             <div class="flex flex-col items-center mb-6">
-                <img id="avatar-preview" src="/default-avatar.png" alt="Avatar" class="w-24 h-24 rounded-full object-cover border-2 border-gray-300 mb-4">
+                <div id="avatar-preview" class="w-24 h-24 rounded-full border-2 border-gray-300 mb-4 bg-cover bg-center bg-gray-200"></div>
                 <input type="file" id="avatar-upload" class="hidden" accept="image/png, image/jpeg">
-                <button type="button" id="avatar-upload-btn" class="bg-gray-200 text-sm text-gray-700 font-bold py-2 px-4 rounded">Avatar Değiştir</button>
+                <button type="button" id="avatar-upload-btn" class="bg-gray-200 text-sm text-gray-700 font-bold py-2 px-4 rounded">${t('change_avatar_button')}</button>
             </div>
             <div class="mb-4">
                 <label for="name" class="block text-gray-700 text-sm font-bold mb-2">${t('name_label')}</label>
@@ -64,22 +63,22 @@ export async function afterRender() {
   const editProfileForm = document.getElementById('edit-profile-form') as HTMLFormElement;
   const nameInput = document.getElementById('name') as HTMLInputElement;
   const backLink = document.getElementById('back-to-profile-link');
-  const avatarPreview = document.getElementById('avatar-preview') as HTMLImageElement;
+  const avatarPreview = document.getElementById('avatar-preview') as HTMLDivElement;
   const avatarUploadInput = document.getElementById('avatar-upload') as HTMLInputElement;
   const avatarUploadBtn = document.getElementById('avatar-upload-btn');
   
-  // --- DÜZELTME: 'profile' değişkenini ve diğerlerini fonksiyonun en üst kapsamında tanımlıyoruz ---
   let userId: number | null = null;
   let newAvatarFile: File | null = null;
   let profile: UserProfile | null = null;
   
   try {
-    // 'const' kaldırıldı, üst kapsamdaki 'profile' değişkenine atama yapılıyor.
     profile = await getCurrentUserProfile(); 
     userId = profile!.id;
     nameInput.value = profile!.name || '';
     if (profile!.avatarUrl) {
-        avatarPreview.src = `${profile!.avatarUrl}?t=${new Date().getTime()}`;
+        avatarPreview.style.backgroundImage = `url(${profile!.avatarUrl}?t=${new Date().getTime()})`;
+    } else {
+        avatarPreview.style.backgroundImage = `url(/default-avatar.png)`;
     }
     if(backLink) {
         backLink.setAttribute('href', `/profile/${userId}`);
@@ -96,14 +95,13 @@ export async function afterRender() {
     if (avatarUploadInput.files && avatarUploadInput.files[0]) {
         const file = avatarUploadInput.files[0];
         newAvatarFile = file;
-        avatarPreview.src = URL.createObjectURL(file);
+        avatarPreview.style.backgroundImage = `url(${URL.createObjectURL(file)})`;
     }
   });
 
   editProfileForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    // Değişkenin var olup olmadığını kontrol et
     if (!profile) {
         alert('Profil bilgileri yüklenemediği için kayıt yapılamıyor.');
         return;

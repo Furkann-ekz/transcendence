@@ -88,5 +88,8 @@
   "tournaments_button": "Tournaments",
   "no_active_tournaments": "There are currently no active tournaments.",
   "status_ready": "Ready",
-  "status_waiting": "Waiting"
+  "status_waiting": "Waiting",
+  "start_tournament_button": "Start Tournament",
+  "start_tournament_condition": "There must be at least 4 players and everyone must be ready to start.",
+  "change_avatar_button": "Change Avatar"
 }
