@@ -105,9 +105,8 @@ export async function afterRender() {
                 startButton.disabled = !canStart;
                 startButton.onclick = async () => {
                     try {
+                        // Sadece isteği gönderiyoruz. Yönlendirmeyi websocket listener yapacak.
                         await startTournament(tournamentId);
-                        // Backend 'tournament_started' sinyali gönderince yönlendirme yapılacak.
-                        alert("Turnuva başlatıldı! (Bu kısım geliştirilecek)");
                     } catch (error: any) {
                         alert(error.message);
                     }
@@ -134,8 +133,16 @@ export async function afterRender() {
             console.log('Lobi güncellendi, arayüz yenileniyor...');
             renderLobby();
         });
+
+        // YENİ LİSTENER'I EKLE
+        socket.on('tournament_started', ({ tournament }) => {
+            console.log('Turnuva başladı!', tournament);
+            // Yeni turnuva akış sayfasına yönlendir
+            navigateTo(`/tournament/${tournament.id}/play`);
+        });
     }
 }
+
 
 export function cleanup() {
     const socket = getSocket();
@@ -145,5 +152,7 @@ export function cleanup() {
     if (socket && tournamentId) {
         socket.emit('leave_tournament_lobby', { tournamentId });
         socket.off('tournament_lobby_updated');
+        // YENİ LİSTENER'I TEMİZLE
+        socket.off('tournament_started');
     }
 }

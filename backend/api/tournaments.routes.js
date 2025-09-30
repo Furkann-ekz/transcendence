@@ -39,7 +39,7 @@ async function tournamentRoutes(fastify, { io }) {
                 include: {
                     players: {
                         include: {
-                            user: { select: { id: true, name: true } }
+                            user: { select: { id: true, name: true, avatarUrl: true } }
                         }
                     }
                 }
@@ -185,6 +185,61 @@ async function tournamentRoutes(fastify, { io }) {
         } catch (error) {
             fastify.log.error(error);
             return reply.code(500).send({ error: 'Could not update ready status.' });
+        }
+    });
+
+    fastify.post('/tournaments/:id/start', { preHandler: [authenticate] }, async (request, reply) => {
+        const tournamentId = request.params.id;
+        const userId = request.user.userId;
+
+        try {
+            // 1. Turnuvayı ve oyuncularını veritabanından çek
+            const tournament = await prisma.tournament.findUnique({
+                where: { id: tournamentId },
+                include: { players: true }
+            });
+
+            if (!tournament) {
+                return reply.code(404).send({ error: 'Tournament not found.' });
+            }
+
+            // 2. Yetki Kontrolü: Sadece kurucu başlatabilir
+            if (tournament.hostId !== userId) {
+                return reply.code(403).send({ error: 'Only the host can start the tournament.' });
+            }
+
+            // 3. Durum Kontrolü: Turnuva zaten başlamış mı?
+            if (tournament.status !== 'LOBBY') {
+                return reply.code(409).send({ error: 'Tournament has already started or is finished.' });
+            }
+
+            // 4. Başlatma Koşullarının Kontrolü
+            const allPlayersReady = tournament.players.every(p => p.isReady);
+            if (tournament.players.length < 4 || !allPlayersReady) {
+                return reply.code(400).send({ error: 'To start, there must be at least 4 players and all must be ready.' });
+            }
+
+            // 5. Turnuvanın durumunu güncelle
+            const updatedTournament = await prisma.tournament.update({
+                where: { id: tournamentId },
+                data: { status: 'IN_PROGRESS' },
+                include: {
+                    players: {
+                        include: {
+                            user: { select: { id: true, name: true, avatarUrl: true } }
+                        }
+                    }
+                }
+            });
+            
+            // 6. Lobi'deki herkese turnuvanın başladığını bildir
+            io.to(tournamentId).emit('tournament_started', { tournament: updatedTournament });
+            
+            return reply.send({ success: true, message: 'Tournament started!' });
+
+        } catch (error) {
+            fastify.log.error(error);
+            return reply.code(500).send({ error: 'Could not start the tournament.' });
         }
     });
 }

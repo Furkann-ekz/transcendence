@@ -13,6 +13,7 @@ import * as ProfileEditPage from '../pages/ProfileEditPage';
 import * as ProfilePage from '../pages/ProfilePage';
 import * as TournamentLobbyPage from '../pages/TournamentLobbyPage';
 import * as TournamentListPage from '../pages/TournamentListPage';
+import * as TournamentFlowPage from '../pages/TournamentFlowPage';
 
 interface Route {
   render: () => string;
@@ -40,7 +41,8 @@ export async function handleLocation(forceReload = false) {
   const token = localStorage.getItem('token');
 
   const protectedPaths = ['/dashboard', '/lobby', '/online-lobby', '/local-game', '/online-game', '/profile/edit', '/tournaments'];
-  const isProtectedRoute = protectedPaths.includes(path) || path.startsWith('/profile/') || path.startsWith('/tournaments/');
+  // DEĞİŞİKLİK: Yeni turnuva akış sayfasının yolunu da korumalı olarak işaretliyoruz.
+  const isProtectedRoute = protectedPaths.includes(path) || path.startsWith('/profile/') || path.startsWith('/tournaments/') || path.startsWith('/tournament/');
 
   if (isProtectedRoute) {
     if (!token) {
@@ -72,6 +74,9 @@ export async function handleLocation(forceReload = false) {
   // Sonra dinamik (parametre içeren) rotaları kontrol et
   else if (path.startsWith('/tournaments/')) {
     routeToRender = TournamentLobbyPage;
+  }
+  else if (path.startsWith('/tournament/') && path.endsWith('/play')) {
+    routeToRender = TournamentFlowPage;
   }
   else if (path.startsWith('/profile/') && path.endsWith('/history')) {
     routeToRender = MatchHistoryPage;
