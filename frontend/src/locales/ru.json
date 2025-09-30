@@ -81,5 +81,7 @@
   "not_ready_button": "Не готов",
   "tournaments_load_error": "Не удалось загрузить турниры.",
   "tournaments_button": "Турниры",
-  "no_active_tournaments": "Активных турниров в данный момент нет."
+  "no_active_tournaments": "Активных турниров в данный момент нет.",
+  "status_ready": "Готов",
+  "status_waiting": "Ожидание"
 }

@@ -86,5 +86,7 @@
   "not_ready_button": "Not Ready",
   "tournaments_load_error": "Could not load tournaments.",
   "tournaments_button": "Tournaments",
-  "no_active_tournaments": "There are currently no active tournaments."
+  "no_active_tournaments": "There are currently no active tournaments.",
+  "status_ready": "Ready",
+  "status_waiting": "Waiting"
 }

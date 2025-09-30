@@ -3,24 +3,19 @@
 import { navigateTo } from '../router';
 import { t } from '../i18n';
 import { getSocket } from '../socket';
+// DEĞİŞİKLİK: API fonksiyonunu merkezi dosyadan import ediyoruz.
+import { getTournamentDetails } from '../api/tournaments';
 
-// Tip tanımlamaları doğru.
 interface TournamentPlayer {
     user: {
+        id: number;
         name: string;
     };
     isReady: boolean;
 }
 
-async function getTournamentDetails(id: string) {
-    const response = await fetch(`/api/tournaments/${id}`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    });
-    if (!response.ok) throw new Error('Turnuva detayları alınamadı.');
-    return response.json();
-}
+// DEĞİŞİKLİK: Bu sayfadaki yerel 'getTournamentDetails' fonksiyonu kaldırıldı.
 
-// Render fonksiyonu doğru.
 export function render(): string {
   return `
     <div class="min-h-screen bg-gray-100 p-8">
@@ -30,20 +25,20 @@ export function render(): string {
             <ul id="lobby-player-list" class="space-y-2 mb-4">
                 <p>${t('loading_history')}...</p>
             </ul>
-            <a href="/tournaments" data-link class="text-blue-500 hover:text-blue-700">${t('back_to_tournaments')}</a>
+            <div id="lobby-actions" class="mt-4">
+                </div>
+            <a href="/tournaments" data-link class="block text-center mt-6 text-blue-500 hover:text-blue-700">${t('back_to_tournaments')}</a>
         </div>
     </div>
   `;
 }
 
-// afterRender fonksiyonunun DÜZELTİLMİŞ hali.
 export async function afterRender() {
     const playerListEl = document.getElementById('lobby-player-list');
     const pathParts = window.location.pathname.split('/');
     const tournamentId = pathParts[2];
     const socket = getSocket();
 
-    // Odaya katılma sinyali doğru.
     if (socket && tournamentId) {
         socket.emit('join_tournament_lobby', { tournamentId });
     }
@@ -53,39 +48,40 @@ export async function afterRender() {
         return;
     }
 
-    // Veri çekme ve render etme mantığı bu fonksiyonda toplanmış, bu da doğru.
     const renderPlayerList = async () => {
         try {
+            // Artık import ettiğimiz merkezi 'getTournamentDetails' fonksiyonunu kullanıyoruz.
             const tournament = await getTournamentDetails(tournamentId);
-            // Düzeltme: Sunucudan gelen yanıtta tournament null ise hata yönetimi
             if (!tournament) {
                  playerListEl.innerHTML = `<p class="text-red-500">Turnuva bulunamadı veya yüklenemedi.</p>`;
                  return;
             }
+
+            // Oyuncu listesini render et
             playerListEl.innerHTML = tournament.players.map((p: TournamentPlayer) => `
-                <li class="p-2 bg-gray-200 rounded">
-                    ${p.user.name}
+                <li class="p-2 bg-gray-200 rounded flex justify-between items-center">
+                    <span>${p.user.name}</span>
+                    <span class="${p.isReady ? 'text-green-500' : 'text-yellow-500'} font-bold">
+                        ${p.isReady ? t('status_ready') : t('status_waiting')}
+                    </span>
                 </li>
             `).join('');
+
         } catch (error) {
             playerListEl.innerHTML = '<p class="text-red-500">Oyuncu listesi yüklenemedi.</p>';
         }
     };
     
-    // Sayfa ilk yüklendiğinde listeyi bir kez çiziyoruz.
     await renderPlayerList();
     
-    // Sunucudan lobinin güncellenmesi gerektiği sinyalini dinle.
     if (socket) {
         socket.on('tournament_lobby_updated', () => {
             console.log('Lobi güncellendi, oyuncu listesi yenileniyor...');
-            // Sinyal geldiğinde listeyi yeniden çiz.
             renderPlayerList();
         });
     }
 }
 
-// Cleanup fonksiyonu doğru.
 export function cleanup() {
     const socket = getSocket();
     const pathParts = window.location.pathname.split('/');

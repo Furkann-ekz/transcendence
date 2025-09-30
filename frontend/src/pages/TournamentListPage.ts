@@ -3,7 +3,9 @@
 import { navigateTo } from '../router';
 import { t } from '../i18n';
 import { jwt_decode } from '../utils';
-import { getSocket } from '../socket'; // getSocket'i import et
+import { getSocket } from '../socket';
+// DEĞİŞİKLİK: API fonksiyonlarını merkezi dosyadan import ediyoruz.
+import { getTournaments, joinTournament, createTournament } from '../api/tournaments'; 
 
 // Tip Tanımlamaları
 interface TournamentSummary {
@@ -11,37 +13,11 @@ interface TournamentSummary {
     name: string;
     host: { id: number; name: string; };
     _count: { players: number; };
-    players: { userId: number }[]; // Oyuncuları kontrol etmek için bu alanı da isteyeceğiz
+    players: { userId: number }[]; 
 }
 
-async function fetchTournaments() {
-    const response = await fetch('/api/tournaments', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    });
-    if (!response.ok) throw new Error('Turnuvalar yüklenemedi.');
-    return response.json();
-}
-
-async function registerForTournament(tournamentId: string) {
-    const response = await fetch(`/api/tournaments/${tournamentId}/join`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    });
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Turnuvaya kayıt olunamadı.');
-    }
-    return response.json();
-}
-
-async function createTournament() {
-    const response = await fetch('/api/tournaments', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    });
-    if (!response.ok) throw new Error('Turnuva oluşturulamadı.');
-    return response.json();
-}
+// DEĞİŞİKLİK: Bu sayfadaki yerel 'fetchTournaments', 'registerForTournament' ve 
+// 'createTournament' fonksiyonları kaldırıldı çünkü artık merkezi API dosyasını kullanıyoruz.
 
 export function render(): string {
   return `
@@ -62,8 +38,6 @@ export function render(): string {
   `;
 }
 
-// frontend/src/pages/TournamentListPage.ts
-
 export async function afterRender() {
     const listEl = document.getElementById('tournament-list');
     const createBtn = document.getElementById('create-tournament-btn');
@@ -74,7 +48,8 @@ export async function afterRender() {
     const renderList = async () => {
         if (!listEl) return;
         try {
-            const tournaments: TournamentSummary[] = await fetchTournaments();
+            // Artık import ettiğimiz merkezi 'getTournaments' fonksiyonunu kullanıyoruz.
+            const tournaments: TournamentSummary[] = await getTournaments();
             if (tournaments.length === 0) {
                 listEl.innerHTML = `<p class="text-center text-gray-500">${t('no_active_tournaments')}</p>`;
                 return;
@@ -97,7 +72,8 @@ export async function afterRender() {
                         ${isPlayerJoined ? t('registered_button_tournament') : t('register_button_tournament')}
                     </button>
                 </div>
-            `}).join('');
+            `;
+            }).join('');
 
             document.querySelectorAll('.register-btn').forEach(button => {
                 button.addEventListener('click', async (e) => {
@@ -105,7 +81,8 @@ export async function afterRender() {
                     const tournamentId = target.dataset.tournamentId;
                     if (!tournamentId || target.disabled) return;
                     try {
-                        await registerForTournament(tournamentId);
+                        // Artık import ettiğimiz merkezi 'joinTournament' fonksiyonunu kullanıyoruz.
+                        await joinTournament(tournamentId);
                         await renderList();
                     } catch (error: any) {
                         alert(error.message);
@@ -120,10 +97,11 @@ export async function afterRender() {
 
     createBtn?.addEventListener('click', async () => {
         try {
+            // Artık import ettiğimiz merkezi 'createTournament' fonksiyonunu kullanıyoruz.
             const newTournament = await createTournament();
             navigateTo(`/tournaments/${newTournament.id}`);
-        } catch (error) {
-            alert('Turnuva oluşturulamadı.');
+        } catch (error: any) {
+            alert(error.message || 'Turnuva oluşturulamadı.');
         }
     });
 
@@ -131,7 +109,7 @@ export async function afterRender() {
     if (socket) {
         socket.on('tournament_list_updated', () => {
             console.log('Tournament listesi güncellendi, yeniden çiziliyor...');
-            renderList(); // Sinyal geldiğinde listeyi yeniden çiz
+            renderList();
         });
     }
 }

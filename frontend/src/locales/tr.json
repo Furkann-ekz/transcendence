@@ -86,5 +86,7 @@
   "not_ready_button": "Hazır Değil",
   "tournaments_load_error": "Turnuvalar yüklenemedi.",
   "tournaments_button": "Turnuvalar",
-  "no_active_tournaments": "Şu anda aktif bir turnuva bulunmuyor."
+  "no_active_tournaments": "Şu anda aktif bir turnuva bulunmuyor.",
+  "status_ready": "Hazır",
+  "status_waiting": "Bekliyor"
 }
