@@ -3,10 +3,9 @@
 import { navigateTo } from '../router';
 import { t } from '../i18n';
 import { getSocket } from '../socket';
-import { getTournamentDetails, setReadyStatus, startTournament } from '../api/tournaments';
 import { jwt_decode } from '../utils';
+import { getTournamentDetails, setReadyStatus, startTournament, leaveTournament, joinTournament } from '../api/tournaments';
 
-// Tip tanımını güncelliyoruz, kullanıcı ID'sine ihtiyacımız olacak
 interface TournamentPlayer {
     user: {
         id: number;
@@ -31,7 +30,7 @@ export function render(): string {
             <ul id="lobby-player-list" class="space-y-2 mb-4">
                 <p>${t('loading_history')}...</p>
             </ul>
-            <div id="lobby-actions" class="mt-6 border-t pt-4">
+            <div id="lobby-actions" class="mt-6 border-t pt-4 space-y-2">
                 </div>
             <a href="/tournaments" data-link class="block text-center mt-6 text-blue-500 hover:text-blue-700">${t('back_to_tournaments')}</a>
         </div>
@@ -65,63 +64,85 @@ export async function afterRender() {
             
             if (titleEl) titleEl.textContent = tournament.name;
 
-            // Oyuncu listesini render et
             playerListEl.innerHTML = tournament.players.map((p: TournamentPlayer) => `
                 <li class="p-2 bg-gray-200 rounded flex justify-between items-center">
-                    <span>${p.user.name} ${p.user.id === myId ? t('you_suffix') : ''}</span>
+                    <span>${p.user.name} ${p.user.id === myId ? t('you_suffix') : ''} ${p.user.id === tournament.hostId ? '(Host)' : ''}</span>
                     <span class="${p.isReady ? 'text-green-500' : 'text-yellow-500'} font-bold">
                         ${p.isReady ? t('status_ready') : t('status_waiting')}
                     </span>
                 </li>
             `).join('');
 
-            // Aksiyon butonlarını render et
             actionsEl.innerHTML = ''; // Önceki butonları temizle
 
-            const meAsPlayer = tournament.players.find(p => p.user.id === myId);
-            if (meAsPlayer) {
+            const amIHost = tournament.hostId === myId;
+            const amIPlayer = tournament.players.some(p => p.user.id === myId);
+
+            if (amIHost) {
+                // --- KURUCU İÇİN BUTONLAR ---
+                const meAsPlayer = tournament.players.find(p => p.user.id === myId)!;
                 const readyButton = document.createElement('button');
                 readyButton.textContent = meAsPlayer.isReady ? t('not_ready_button') : t('ready_button');
                 readyButton.className = `w-full font-bold py-2 px-4 rounded ${meAsPlayer.isReady ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-500 hover:bg-green-600'} text-white`;
                 readyButton.onclick = async () => {
-                    try {
-                        await setReadyStatus(tournamentId, !meAsPlayer.isReady);
-                        // renderLobby() fonksiyonu websocket sinyali ile tetikleneceği için burada tekrar çağırmıyoruz.
-                    } catch (error: any) {
-                        alert(error.message);
-                    }
+                    try { await setReadyStatus(tournamentId, !meAsPlayer.isReady); } 
+                    catch (error: any) { alert(error.message); }
                 };
                 actionsEl.appendChild(readyButton);
-            }
 
-            // "Turnuvayı Başlat" butonu için kontroller
-            const amIHost = tournament.hostId === myId;
-            const canStart = tournament.players.length >= 4 && tournament.players.every(p => p.isReady);
-
-            if (amIHost) {
+                const canStart = tournament.players.length >= 4 && tournament.players.every(p => p.isReady);
                 const startButton = document.createElement('button');
-                startButton.textContent = t('start_tournament_button'); // Bu çeviriyi ekleyeceğiz
-                startButton.className = `w-full font-bold py-2 px-4 rounded mt-2 text-white ${canStart ? 'bg-blue-500 hover:bg-blue-700' : 'bg-gray-400 cursor-not-allowed'}`;
+                startButton.textContent = t('start_tournament_button');
+                startButton.className = `w-full font-bold py-2 px-4 rounded text-white ${canStart ? 'bg-blue-500 hover:bg-blue-700' : 'bg-gray-400 cursor-not-allowed'}`;
                 startButton.disabled = !canStart;
                 startButton.onclick = async () => {
-                    try {
-                        // Sadece isteği gönderiyoruz. Yönlendirmeyi websocket listener yapacak.
-                        await startTournament(tournamentId);
-                    } catch (error: any) {
-                        alert(error.message);
+                    try { await startTournament(tournamentId); } 
+                    catch (error: any) { alert(error.message); }
+                };
+                actionsEl.appendChild(startButton);
+
+            } else if (amIPlayer) {
+                // --- OYUNCU İÇİN BUTONLAR ---
+                const meAsPlayer = tournament.players.find(p => p.user.id === myId)!;
+                const readyButton = document.createElement('button');
+                readyButton.textContent = meAsPlayer.isReady ? t('not_ready_button') : t('ready_button');
+                readyButton.className = `w-full font-bold py-2 px-4 rounded ${meAsPlayer.isReady ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-500 hover:bg-green-600'} text-white`;
+                readyButton.onclick = async () => {
+                    try { await setReadyStatus(tournamentId, !meAsPlayer.isReady); } 
+                    catch (error: any) { alert(error.message); }
+                };
+                actionsEl.appendChild(readyButton);
+
+                const leaveButton = document.createElement('button');
+                leaveButton.textContent = t('leave_tournament_lobby');
+                leaveButton.className = 'w-full font-bold py-2 px-4 rounded bg-red-600 hover:bg-red-700 text-white';
+                leaveButton.onclick = async () => {
+                    if (confirm('Turnuvadan ayrılmak istediğinize emin misiniz?')) {
+                        try {
+                            await leaveTournament(tournamentId);
+                            navigateTo('/tournaments');
+                        } catch (error: any) { alert(error.message); }
                     }
                 };
-                
-                if (!canStart) {
-                    const helpText = document.createElement('p');
-                    helpText.className = "text-xs text-center text-gray-500 mt-2";
-                    helpText.textContent = t('start_tournament_condition'); // Bu çeviriyi ekleyeceğiz
-                    actionsEl.appendChild(helpText);
-                }
-                actionsEl.appendChild(startButton);
-            }
+                actionsEl.appendChild(leaveButton);
 
+            } else {
+                // --- İZLEYİCİ İÇİN BUTON ---
+                if (tournament.players.length < 8) {
+                    const joinButton = document.createElement('button');
+                    joinButton.textContent = t('join_tournament');
+                    joinButton.className = 'w-full font-bold py-2 px-4 rounded bg-green-500 hover:bg-green-600 text-white';
+                    joinButton.onclick = async () => {
+                        try { await joinTournament(tournamentId); } 
+                        catch (error: any) { alert(error.message); }
+                    };
+                    actionsEl.appendChild(joinButton);
+                } else {
+                    actionsEl.innerHTML = `<p class="text-center text-gray-500">Turnuva dolu.</p>`;
+                }
+            }
         } catch (error) {
+            console.error(error);
             playerListEl.innerHTML = '<p class="text-red-500">Oyuncu listesi yüklenemedi.</p>';
         }
     };
@@ -129,30 +150,20 @@ export async function afterRender() {
     await renderLobby();
     
     if (socket) {
-        socket.on('tournament_lobby_updated', () => {
-            console.log('Lobi güncellendi, arayüz yenileniyor...');
-            renderLobby();
-        });
-
-        // YENİ LİSTENER'I EKLE
+        socket.on('tournament_lobby_updated', renderLobby);
         socket.on('tournament_started', ({ tournament }) => {
-            console.log('Turnuva başladı!', tournament);
-            // Yeni turnuva akış sayfasına yönlendir
             navigateTo(`/tournament/${tournament.id}/play`);
         });
     }
 }
 
-
 export function cleanup() {
     const socket = getSocket();
     const pathParts = window.location.pathname.split('/');
     const tournamentId = pathParts[2];
-
     if (socket && tournamentId) {
         socket.emit('leave_tournament_lobby', { tournamentId });
         socket.off('tournament_lobby_updated');
-        // YENİ LİSTENER'I TEMİZLE
         socket.off('tournament_started');
     }
 }

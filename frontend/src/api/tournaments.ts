@@ -64,6 +64,21 @@ export async function setReadyStatus(tournamentId: string, isReady: boolean) {
     return response.json();
 }
 
+// Bir turnuvadan ayrılmayı sağlar.
+export async function leaveTournament(tournamentId: string) {
+    const response = await fetch(`${API_URL}/${tournamentId}/leave`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+        // EKLENEN SATIR: Boş da olsa geçerli bir JSON gövdesi ekliyoruz.
+        body: JSON.stringify({})
+    });
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Turnuvadan ayrılamadı.');
+    }
+    return response.json();
+}
+
 export async function startTournament(tournamentId: string) {
     const response = await fetch(`${API_URL}/${tournamentId}/start`, {
         method: 'POST',
@@ -76,3 +91,4 @@ export async function startTournament(tournamentId: string) {
     }
     return response.json();
 }
+

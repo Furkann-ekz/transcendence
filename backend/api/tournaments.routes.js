@@ -144,6 +144,45 @@ async function tournamentRoutes(fastify, { io, onlineUsers, gameRooms }) {
         }
     });
 
+    // Bir oyuncunun bir turnuvadan ayrılmasını sağlar
+    fastify.delete('/tournaments/:id/leave', { preHandler: [authenticate] }, async (request, reply) => {
+        const tournamentId = request.params.id;
+        const userId = request.user.userId;
+
+        try {
+            const tournament = await prisma.tournament.findUnique({
+                where: { id: tournamentId },
+            });
+
+            if (!tournament) {
+                return reply.code(404).send({ error: 'Tournament not found.' });
+            }
+
+            // Kurucu turnuvadan ayrılamaz, sadece iptal edebilir (bu özellik daha sonra eklenebilir)
+            if (tournament.hostId === userId) {
+                return reply.code(403).send({ error: 'Host cannot leave the tournament.' });
+            }
+
+            // Oyuncunun turnuvadaki kaydını sil
+            await prisma.tournamentPlayer.deleteMany({
+                where: {
+                    tournamentId: tournamentId,
+                    userId: userId,
+                }
+            });
+
+            // Lobi ve turnuva listesi ekranlarını güncellemek için sinyal gönder
+            io.to(tournamentId).emit('tournament_lobby_updated');
+            io.emit('tournament_list_updated');
+
+            return reply.send({ success: true, message: 'Successfully left the tournament.' });
+
+        } catch (error) {
+            fastify.log.error(error);
+            return reply.code(500).send({ error: 'Could not leave tournament.' });
+        }
+    });
+
     fastify.post('/tournaments/:id/ready', { preHandler: [authenticate] }, async (request, reply) => {
         const tournamentId = request.params.id;
         const userId = request.user.userId;
