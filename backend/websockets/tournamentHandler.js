@@ -65,9 +65,9 @@ async function startNextMatch(tournamentId, io, onlineUsers, gameRooms) {
                 return;
             }
 
-            const gameConfig = { canvasSize: 800, paddleSize: 100, paddleThickness: 15 };
+			const gameConfig = { canvasSize: 800, paddleSize: 100, paddleThickness: 15, tournamentId: tournamentId };
             const roomName = `tournament_match_${tournamentId}_${Date.now()}`;
-            
+
             const playerSockets = [player1Socket, player2Socket];
             const players = [
                 { ...player1, socketId: player1Socket.id, position: 'left', team: 1, x: 0, y: (gameConfig.canvasSize / 2) - (gameConfig.paddleSize / 2) },
@@ -79,7 +79,40 @@ async function startNextMatch(tournamentId, io, onlineUsers, gameRooms) {
                 sock.gameRoom = { id: roomName, mode: '1v1-tournament' };
             });
 
-            const game = startGameLoop(roomName, players, io, '1v1', gameConfig);
+			console.log('HANDLER - startGameLoop ÇAĞIRILIYOR, gameConfig:', gameConfig);
+
+			const onMatchEnd = async (losers) => {
+                console.log(`[Tournament ${tournamentId}] Maç bitti, kaybedenler eleniyor...`);
+
+                if (losers && losers.length > 0) {
+                    const loserIds = losers.map(l => l.id);
+
+                    // 1. Kaybedenleri veritabanında 'elenmiş' olarak işaretle
+                    await prisma.tournamentPlayer.updateMany({
+                        where: {
+                            tournamentId: tournamentId,
+                            userId: { in: loserIds },
+                        },
+                        data: {
+                            isEliminated: true,
+                        },
+                    });
+
+                    // 2. Herkesin ekranındaki oyuncu listesini anında güncelle
+                    const updatedPlayers = await prisma.tournamentPlayer.findMany({
+                        where: { tournamentId: tournamentId },
+                        include: { user: { select: { id: true, name: true, avatarUrl: true } } }
+                    });
+                    io.to(tournamentId).emit('tournament_update', { players: updatedPlayers });
+                }
+
+                // 3. Bir sonraki maçı başlatmak için fonksiyonu tekrar çağır
+                setTimeout(() => {
+                    startNextMatch(tournamentId, io, onlineUsers, gameRooms);
+                }, 3000); // 3 saniye bekle
+            };
+
+            const game = startGameLoop(roomName, players, io, '1v1', gameConfig, onMatchEnd);
             gameRooms.set(roomName, game);
         }
     }, 1000);

@@ -94,5 +94,8 @@
   "change_avatar_button": "Change Avatar",
   "leave_tournament": "Leave Tournament",
   "leave_tournament_confirm": "If you leave the tournament, you will be disqualified. Are you sure you want to leave?",
-  "leave_button": "Leave"
+  "leave_button": "Leave",
+  "return_to_tournament": "Return to Tournament",
+  "join_tournament": "Join Tournament",
+  "leave_tournament_lobby": "Leave Tournament"
 }

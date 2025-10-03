@@ -94,6 +94,8 @@
   "change_avatar_button": "Avatar Değiştir",
   "leave_tournament": "Turnuvadan Ayrıl",
   "leave_tournament_confirm": "Turnuvadan ayrılırsanız diskalifiye edileceksiniz. Ayrılmak istediğinize emin misiniz?",
-  "leave_button": "Ayrıl"
-
+  "leave_button": "Ayrıl",
+  "return_to_tournament": "Turnuvaya Dön",
+  "join_tournament": "Turnuvaya Katıl",
+  "leave_tournament_lobby": "Turnuvadan Ayrıl"
 }

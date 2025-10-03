@@ -129,6 +129,7 @@ export async function afterRender() {
     // BU SATIR ÖNEMLİ: Sadece yönlendirme yapıyor.
     socket.on('gameStart', () => {
         console.log("Maç başlıyor sinyali alındı! Oyun ekranına yönlendiriliyor...");
+        sessionStorage.setItem('activeTournamentId', tournamentId);
         navigateTo('/online-game');
     });
 

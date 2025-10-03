@@ -1,11 +1,6 @@
-const prisma = require('../prisma/db');
+// backend/websockets/gameHandler.js
 
-function shuffleArray(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-    }
-}
+const prisma = require('../prisma/db');
 
 async function updatePlayerStats(playerIds, outcome) {
     const fieldToIncrement = outcome === 'win' ? 'wins' : 'losses';
@@ -25,29 +20,20 @@ async function saveMatch(game, winnerTeam, wasForfeit = false) {
     const team1 = players.filter(p => p.team === 1);
     const team2 = players.filter(p => p.team === 2);
     
+    if (team1.length === 0 || team2.length === 0) {
+        console.error("Cannot save match, one or both teams are empty.");
+        return;
+    }
+    
     const player1Id = team1[0].id;
     const player2Id = team2[0].id;
-
-    // --- HATA AYIKLAMA LOGLARI BAŞLANGICI ---
-    console.log('--- Debugging saveMatch ---');
-    console.log('wasForfeit:', wasForfeit);
-    const endTime = Date.now();
-    console.log('End Time (Date.now()):', endTime);
-    console.log('game.startTime:', game.startTime);
-    
-    const durationMs = endTime - game.startTime;
-    console.log('Calculated duration (milliseconds):', durationMs);
-
-    const durationInSeconds = Math.floor(durationMs / 1000);
-    console.log('Final durationInSeconds to be saved:', durationInSeconds);
-    console.log('---------------------------');
-    // --- HATA AYIKLAMA LOGLARI SONU ---
+    const durationInSeconds = Math.floor((Date.now() - game.startTime) / 1000);
 
     try {
         await prisma.match.create({
             data: {
                 mode: mode,
-                durationInSeconds: durationInSeconds, // Değişkeni kullan
+                durationInSeconds: durationInSeconds,
                 player1Id: player1Id,
                 player3Id: team1[1]?.id,
                 player2Id: player2Id,
@@ -57,10 +43,6 @@ async function saveMatch(game, winnerTeam, wasForfeit = false) {
                 winnerTeam: winnerTeam,
                 winnerId: winnerTeam === 1 ? player1Id : player2Id,
                 wasForfeit: wasForfeit,
-                team1Hits: 0,
-                team1Misses: gameState.team2Score,
-                team2Hits: 0,
-                team2Misses: gameState.team1Score
             }
         });
         console.log("Maç başarıyla kaydedildi.");
@@ -69,20 +51,17 @@ async function saveMatch(game, winnerTeam, wasForfeit = false) {
     }
 }
 
-// --- ANA OYUN DÖNGÜSÜ ---
-
-function startGameLoop(room, players, io, mode, gameConfig) {
-    const startTime = Date.now(); // OYUN BAŞLANGIÇ ZAMANI
-    const { canvasSize, paddleSize, paddleThickness } = gameConfig;
+function startGameLoop(room, players, io, mode, gameConfig, onMatchEnd) {
+    const startTime = Date.now();
     const WINNING_SCORE = 5;
     const BALL_RADIUS = 10;
     
     const game = { players, mode, gameState: {}, intervalId: null, startTime: startTime, ...gameConfig };
 
     let gameState = {
-        ballX: canvasSize / 2, ballY: canvasSize / 2, ballSpeedX: 6, ballSpeedY: 6,
+        ballX: gameConfig.canvasSize / 2, ballY: gameConfig.canvasSize / 2, ballSpeedX: 6, ballSpeedY: 6,
         team1Score: 0, team2Score: 0,
-        players: players.map(p => ({ ...p, hits: 0 })) // Her oyuncuya vuruş sayacı eklendi
+        players: players.map(p => ({ ...p, hits: 0 }))
     };
     game.gameState = gameState;
 
@@ -90,43 +69,31 @@ function startGameLoop(room, players, io, mode, gameConfig) {
         gameState.ballX += gameState.ballSpeedX;
         gameState.ballY += gameState.ballSpeedY;
 
-        // DÜZELTİLMİŞ ÇARPIŞMA MANTIĞI
         gameState.players.forEach(p => {
-        // Önce oyuncunun pozisyonuna göre doğru fizik grubunu seçiyoruz
             if (p.position === 'left' || p.position === 'right') {
-                // Yatay oyuncular için çarpışma kontrolü
-                const paddleEdgeX = (p.position === 'left') ? paddleThickness : canvasSize - paddleThickness;
+                const paddleEdgeX = (p.position === 'left') ? gameConfig.paddleThickness : gameConfig.canvasSize - gameConfig.paddleThickness;
                 const ballEdgeX = (p.position === 'left') ? gameState.ballX - BALL_RADIUS : gameState.ballX + BALL_RADIUS;
-
-                if (((p.position === 'left' && ballEdgeX <= paddleEdgeX && gameState.ballSpeedX < 0) || (p.position === 'right' && ballEdgeX >= paddleEdgeX && gameState.ballSpeedX > 0)) &&
-                    (gameState.ballY > p.y && gameState.ballY < p.y + paddleSize)) {
-                    
+                if (((p.position === 'left' && ballEdgeX <= paddleEdgeX && gameState.ballSpeedX < 0) || (p.position === 'right' && ballEdgeX >= paddleEdgeX && gameState.ballSpeedX > 0)) && (gameState.ballY > p.y && gameState.ballY < p.y + gameConfig.paddleSize)) {
                     gameState.ballSpeedX = -gameState.ballSpeedX;
-                    p.hits++; // << VURUŞ BURADA DOĞRU BİR ŞEKİLDE SAYILIYOR
                 }
-            } else { // 'top' veya 'bottom' pozisyonundaki oyuncular için
-                // Dikey oyuncular için çarpışma kontrolü
-                const paddleEdgeY = (p.position === 'top') ? paddleThickness : canvasSize - paddleThickness;
+            } else {
+                const paddleEdgeY = (p.position === 'top') ? gameConfig.paddleThickness : gameConfig.canvasSize - gameConfig.paddleThickness;
                 const ballEdgeY = (p.position === 'top') ? gameState.ballY - BALL_RADIUS : gameState.ballY + BALL_RADIUS;
-
-                if (((p.position === 'top' && ballEdgeY <= paddleEdgeY && gameState.ballSpeedY < 0) || (p.position === 'bottom' && ballEdgeY >= paddleEdgeY && gameState.ballSpeedY > 0)) &&
-                    (gameState.ballX > p.x && gameState.ballX < p.x + paddleSize)) {
-                    
+                if (((p.position === 'top' && ballEdgeY <= paddleEdgeY && gameState.ballSpeedY < 0) || (p.position === 'bottom' && ballEdgeY >= paddleEdgeY && gameState.ballSpeedY > 0)) && (gameState.ballX > p.x && gameState.ballX < p.x + gameConfig.paddleSize)) {
                     gameState.ballSpeedY = -gameState.ballSpeedY;
-                    p.hits++; // << VURUŞ BURADA DOĞRU BİR ŞEKİLDE SAYILIYOR
                 }
             }
         });
 
-        // Skorlama mantığı
         let scored = false;
         let scoringTeam = null;
         if (gameState.ballX - BALL_RADIUS < 0) { const player = gameState.players.find(p => p.position === 'left'); scoringTeam = player.team === 1 ? 2 : 1; scored = true; } 
-        else if (gameState.ballX + BALL_RADIUS > canvasSize) { const player = gameState.players.find(p => p.position === 'right'); scoringTeam = player.team === 1 ? 2 : 1; scored = true; }
+        else if (gameState.ballX + BALL_RADIUS > gameConfig.canvasSize) { const player = gameState.players.find(p => p.position === 'right'); scoringTeam = player.team === 1 ? 2 : 1; scored = true; }
+        
         if (mode === '2v2') {
             if (gameState.ballY - BALL_RADIUS < 0) { const player = gameState.players.find(p => p.position === 'top'); scoringTeam = player.team === 1 ? 2 : 1; scored = true; } 
-            else if (gameState.ballY + BALL_RADIUS > canvasSize) { const player = gameState.players.find(p => p.position === 'bottom'); scoringTeam = player.team === 1 ? 2 : 1; scored = true; }
-        } else { if (gameState.ballY - BALL_RADIUS <= 0 || gameState.ballY + BALL_RADIUS >= canvasSize) { gameState.ballSpeedY = -gameState.ballSpeedY; } }
+            else if (gameState.ballY + BALL_RADIUS > gameConfig.canvasSize) { const player = gameState.players.find(p => p.position === 'bottom'); scoringTeam = player.team === 1 ? 2 : 1; scored = true; }
+        } else { if (gameState.ballY - BALL_RADIUS <= 0 || gameState.ballY + BALL_RADIUS >= gameConfig.canvasSize) { gameState.ballSpeedY = -gameState.ballSpeedY; } }
         
         if (scored) {
             if(scoringTeam === 1) gameState.team1Score++; else gameState.team2Score++;
@@ -139,9 +106,13 @@ function startGameLoop(room, players, io, mode, gameConfig) {
                 
                 await updatePlayerStats(winners.map(p => p.id), 'win');
                 await updatePlayerStats(losers.map(p => p.id), 'loss');
+                
                 await saveMatch(game, scoringTeam, false);
 
                 io.to(room).emit('gameOver', { winners, losers, reason: 'score' });
+                
+                if (onMatchEnd) onMatchEnd(losers); 
+
                 const playerSockets = players.map(p => io.sockets.sockets.get(p.socketId)).filter(Boolean);
                 playerSockets.forEach(sock => { sock.leave(room); sock.gameRoom = null; });
                 return; 
@@ -161,8 +132,11 @@ function startGameLoop(room, players, io, mode, gameConfig) {
 
     const gameStartPayload = {
         players: players.map(p => ({id: p.id, name: p.name, email: p.email, position: p.position, team: p.team})),
-        mode,
-        ...gameConfig
+        mode: mode,
+        canvasSize: gameConfig.canvasSize,
+        paddleSize: gameConfig.paddleSize,
+        paddleThickness: gameConfig.paddleThickness,
+        tournamentId: gameConfig.tournamentId || null 
     };
     io.to(room).emit('gameStart', gameStartPayload);
     return game;
@@ -180,7 +154,6 @@ function handleJoinMatchmaking(io, socket, state, payload) {
 
     const pool = state.waitingPlayers[mode];
     pool.push(socket);
-    console.log(`[Matchmaking] ${socket.user.email} -> ${mode} havuzuna eklendi. (Havuzda ${pool.length} kişi var)`);
     pool.forEach(p => p.emit('updateQueue', { queueSize: pool.length, requiredSize: mode === '1v1' ? 2 : 4 }));
 
     let playerSockets;
@@ -195,7 +168,7 @@ function handleJoinMatchmaking(io, socket, state, payload) {
             { ...p2.user, socketId: p2.id, position: 'right', team: 2, x: gameConfig.canvasSize - gameConfig.paddleThickness, y: (gameConfig.canvasSize / 2) - (gameConfig.paddleSize / 2) }
         ];
     }
-
+    
     if (mode === '2v2' && pool.length >= 4) {
         playerSockets = pool.splice(0, 4);
         shuffleArray(playerSockets);
@@ -231,7 +204,7 @@ function handleJoinMatchmaking(io, socket, state, payload) {
             sock.join(roomName);
             sock.gameRoom = { id: roomName, mode: mode };
         });
-        const game = startGameLoop(roomName, players, io, mode, gameConfig);
+        const game = startGameLoop(roomName, players, io, mode, gameConfig, null);
         state.gameRooms.set(roomName, game);
     }
 }

@@ -92,5 +92,8 @@
   "edit_profile_button": "Редактировать профиль",
   "leave_tournament": "Покинуть турнир",
   "leave_tournament_confirm": "Если вы покинете турнир, вы будете дисквалифицированы. Вы уверены, что хотите уйти?",
-  "leave_button": "Уйти"
+  "leave_button": "Уйти",
+  "return_to_tournament": "Вернуться в турнир",
+  "join_tournament": "Присоединиться к турниру",
+  "leave_tournament_lobby": "Покинуть турнир"
 }
