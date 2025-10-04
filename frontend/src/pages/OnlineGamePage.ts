@@ -4,8 +4,9 @@ import { getSocket } from '../socket';
 import type { Socket } from 'socket.io-client';
 import { jwt_decode } from '../utils';
 import { t } from '../i18n';
+import { navigateTo } from '../router';
 
-// Arayüz (interface) tanımlamaları aynı kalıyor
+// Arayüz tanımlamaları ve global değişkenler aynı kalıyor...
 interface Player { id: number; name: string; email: string; socketId: string; position: 'left' | 'right' | 'top' | 'bottom'; team: 1 | 2; x: number; y: number; }
 interface GameConfig { canvasSize: number; paddleSize: number; paddleThickness: number; mode: string; tournamentId?: string; }
 interface GameState { ballX?: number; ballY?: number; team1Score?: number; team2Score?: number; players?: Player[]; }
@@ -13,7 +14,6 @@ interface GameStartPayload extends GameConfig { players: Player[]; }
 interface UpdateQueuePayload { queueSize: number; requiredSize: number; }
 interface GameOverPayload { winners: Player[]; losers: Player[]; reason:string; }
 
-// Global değişkenler aynı kalıyor
 let socket: Socket | null = null;
 let canvas: HTMLCanvasElement;
 let context: CanvasRenderingContext2D;
@@ -21,8 +21,9 @@ let gameState: GameState = {};
 let gameConfig: GameConfig | null = null;
 let myPlayer: Player | null = null;
 let animationFrameId: number;
+let isTournamentMatch = false;
 
-// renderGame, gameLoop, handlePlayerMove, initializeGame fonksiyonları aynı kalıyor
+// Diğer fonksiyonlar (renderGame, gameLoop, vb.) aynı kalıyor
 function renderGame() {
     if (!context || !gameState.players || !gameConfig?.canvasSize) return;
     const { players, ballX, ballY, team1Score, team2Score } = gameState;
@@ -99,7 +100,7 @@ export function render(): string {
     <div class="h-screen w-screen bg-gray-900 flex flex-col items-center justify-center relative">
       <div id="game-status" class="text-3xl text-white mb-4"></div>
       <canvas id="pong-canvas" width="800" height="800" class="bg-black border border-white hidden"></canvas>
-      <a href="/lobby" data-link class="mt-4 text-blue-400 hover:text-blue-300">${t('leave_lobby')}</a>
+      <a id="main-leave-link" href="/lobby" class="mt-4 text-blue-400 hover:text-blue-300">${t('leave_lobby')}</a>
 
       <div id="game-over-modal" class="hidden absolute inset-0 bg-black bg-opacity-75 text-white">
         <div class="bg-gray-800 bg-opacity-90 p-10 rounded-lg shadow-2xl text-center max-w-lg">
@@ -125,6 +126,20 @@ export function render(): string {
             </div>
         </div>
       </div>
+      
+      <div id="leave-tournament-match-confirm-modal" class="hidden absolute inset-0 bg-black bg-opacity-75 z-50">
+            <div class="bg-gray-800 p-8 rounded-lg shadow-xl text-center max-w-sm">
+                <p class="text-lg mb-6">${t('leave_tournament_confirm')}</p>
+                <div class="flex justify-center space-x-4">
+                    <button id="cancel-leave-match-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded">
+                        ${t('cancel_button')}
+                    </button>
+                    <button id="confirm-leave-match-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded">
+                        ${t('leave_button')}
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
   `;
 }
@@ -137,6 +152,7 @@ export function afterRender() {
     const token = localStorage.getItem('token');
     const myUserId = token ? jwt_decode(token).userId : null;
     
+    // Maç sonu modal elementleri
     const gameOverModal = document.getElementById('game-over-modal')!;
     const gameOverText = document.getElementById('game-over-text')!;
     const regularGameOverButtons = document.getElementById('regular-game-over-buttons')!;
@@ -145,18 +161,57 @@ export function afterRender() {
     const returnToTournamentBtn = document.getElementById('return-to-tournament-btn') as HTMLAnchorElement;
     const returnToLobbyBtn = document.getElementById('return-to-lobby-btn') as HTMLAnchorElement;
 
-    // Arayüzü Sıfırlama
+    // Maçtan ayrılma onay penceresi elementleri
+    const mainLeaveLink = document.getElementById('main-leave-link')!;
+    const leaveMatchModal = document.getElementById('leave-tournament-match-confirm-modal')!;
+    const cancelLeaveMatchBtn = document.getElementById('cancel-leave-match-btn')!;
+    const confirmLeaveMatchBtn = document.getElementById('confirm-leave-match-btn')!;
+
+    // Arayüzü Sıfırla
     canvas.classList.add('hidden');
     statusDiv.textContent = t('waiting_for_opponent');
 
-    // DEĞİŞİKLİK: Modal gizlenirken flex sınıflarını da kaldırıyoruz.
     stayButton.addEventListener('click', () => {
         gameOverModal.classList.add('hidden');
         gameOverModal.classList.remove('flex', 'items-center', 'justify-center');
     });
 
+    // "Lobiye Dön" linkinin yeni davranışı
+    mainLeaveLink.addEventListener('click', (e) => {
+        e.preventDefault(); 
+        if (isTournamentMatch) {
+            // DEĞİŞİKLİK: Modal gösterilirken flex sınıfları ekleniyor
+            leaveMatchModal.classList.remove('hidden');
+            leaveMatchModal.classList.add('flex', 'items-center', 'justify-center');
+        } else {
+            navigateTo('/lobby');
+        }
+    });
+
+    // DEĞİŞİKLİK: Modal gizlenirken flex sınıfları kaldırılıyor
+    cancelLeaveMatchBtn.addEventListener('click', () => {
+        leaveMatchModal.classList.add('hidden');
+        leaveMatchModal.classList.remove('flex', 'items-center', 'justify-center');
+    });
+
+    // DEĞİŞİKLİK: Modal gizlenirken flex sınıfları kaldırılıyor
+    confirmLeaveMatchBtn.addEventListener('click', () => {
+        const tournamentId = sessionStorage.getItem('activeTournamentId');
+        if (tournamentId) {
+            socket?.emit('leave_tournament', { tournamentId });
+        }
+        leaveMatchModal.classList.add('hidden');
+        leaveMatchModal.classList.remove('flex', 'items-center', 'justify-center');
+        navigateTo('/lobby');
+    });
+
     socket.emit('client_ready_for_game');
-    socket.on('gameStart', (payload: GameStartPayload) => { initializeGame(payload); });
+    socket.on('gameStart', (payload: GameStartPayload) => { 
+        if (payload.tournamentId) {
+            isTournamentMatch = true;
+        }
+        initializeGame(payload);
+    });
     socket.on('updateQueue', ({ queueSize, requiredSize }: UpdateQueuePayload) => { statusDiv.textContent = `${t('waiting_for_opponent')} (${queueSize}/${requiredSize})`; });
     socket.on('gameStateUpdate', (newGameState: GameState) => { gameState = newGameState; });
 
@@ -169,7 +224,6 @@ export function afterRender() {
 
         gameOverText.textContent = isWinner ? t('you_win') : t('you_lose');
         
-        // DEĞİŞİKLİK: Modal gösterilirken flex sınıflarını ekliyoruz.
         gameOverModal.classList.remove('hidden');
         gameOverModal.classList.add('flex', 'items-center', 'justify-center');
         
@@ -207,4 +261,6 @@ export function cleanup() {
     myPlayer = null;
     gameConfig = null;
     gameState = {};
+    isTournamentMatch = false;
+    sessionStorage.removeItem('activeTournamentId');
 }
