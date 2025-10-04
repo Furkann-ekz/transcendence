@@ -4,6 +4,7 @@ import { t } from '../i18n';
 import { getSocket } from '../socket';
 import { getTournamentDetails } from '../api/tournaments';
 import { navigateTo } from '../router';
+import { jwt_decode } from '../utils';
 
 interface TournamentPlayer {
     user: { id: number; name: string; avatarUrl: string | null; };
@@ -55,16 +56,17 @@ export async function afterRender() {
     const socket = getSocket();
     const pathParts = window.location.pathname.split('/');
     const tournamentId = pathParts[2];
+    const token = localStorage.getItem('token');
+    const myId = token ? jwt_decode(token).userId : null;
 
     const playersListEl = document.getElementById('tournament-players-list');
     const matchStatusEl = document.getElementById('match-status-container');
-
     const leaveBtn = document.getElementById('leave-tournament-btn');
     const modal = document.getElementById('leave-confirm-modal');
     const cancelBtn = document.getElementById('cancel-leave-btn');
     const confirmBtn = document.getElementById('confirm-leave-btn');
 
-    if (!tournamentId || !socket) {
+    if (!tournamentId || !socket || !myId) {
         navigateTo('/lobby');
         return;
     }
@@ -79,14 +81,28 @@ export async function afterRender() {
         `).join('');
     };
 
-    leaveBtn?.addEventListener('click', () => {
-        modal?.classList.remove('hidden');
-        modal?.classList.add('flex');
+    leaveBtn?.addEventListener('click', async () => {
+        try {
+            const currentTournament = await getTournamentDetails(tournamentId);
+            const me = currentTournament.players.find((p: any) => p.user.id === myId);
+
+            if (me && !me.isEliminated) {
+                modal?.classList.remove('hidden');
+                modal?.classList.add('flex');
+            } else {
+                navigateTo('/dashboard');
+            }
+        } catch (error) {
+            console.error("Could not get tournament details before leaving:", error);
+            navigateTo('/dashboard');
+        }
     });
+
     cancelBtn?.addEventListener('click', () => {
         modal?.classList.add('hidden');
         modal?.classList.remove('flex');
     });
+
     confirmBtn?.addEventListener('click', () => {
         socket.emit('leave_tournament', { tournamentId });
         modal?.classList.add('hidden');
@@ -125,10 +141,8 @@ export async function afterRender() {
             countdownTimerEl.textContent = data.secondsLeft > 0 ? data.secondsLeft.toString() : "GO!";
         }
     });
-
-    // BU SATIR ÖNEMLİ: Sadece yönlendirme yapıyor.
+    
     socket.on('gameStart', () => {
-        console.log("Maç başlıyor sinyali alındı! Oyun ekranına yönlendiriliyor...");
         sessionStorage.setItem('activeTournamentId', tournamentId);
         navigateTo('/online-game');
     });

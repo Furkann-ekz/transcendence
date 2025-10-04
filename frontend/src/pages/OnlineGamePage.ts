@@ -165,7 +165,7 @@ export function afterRender() {
         gameOverText.textContent = isWinner ? t('you_win') : t('you_lose');
         gameOverModal.classList.remove('hidden');
         gameOverModal.classList.add('flex', 'flex-col');
-        
+
         // DEĞİŞİKLİK: Butonu, hafızadan okuduğumuz 'activeTournamentId'ye göre ayarla
         if (activeTournamentId) {
             returnLink.textContent = t('return_to_tournament');
