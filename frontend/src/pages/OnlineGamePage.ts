@@ -5,6 +5,7 @@ import type { Socket } from 'socket.io-client';
 import { jwt_decode } from '../utils';
 import { t } from '../i18n';
 
+// Arayüz (interface) tanımlamaları aynı kalıyor
 interface Player { id: number; name: string; email: string; socketId: string; position: 'left' | 'right' | 'top' | 'bottom'; team: 1 | 2; x: number; y: number; }
 interface GameConfig { canvasSize: number; paddleSize: number; paddleThickness: number; mode: string; tournamentId?: string; }
 interface GameState { ballX?: number; ballY?: number; team1Score?: number; team2Score?: number; players?: Player[]; }
@@ -12,6 +13,7 @@ interface GameStartPayload extends GameConfig { players: Player[]; }
 interface UpdateQueuePayload { queueSize: number; requiredSize: number; }
 interface GameOverPayload { winners: Player[]; losers: Player[]; reason:string; }
 
+// Global değişkenler aynı kalıyor
 let socket: Socket | null = null;
 let canvas: HTMLCanvasElement;
 let context: CanvasRenderingContext2D;
@@ -20,6 +22,7 @@ let gameConfig: GameConfig | null = null;
 let myPlayer: Player | null = null;
 let animationFrameId: number;
 
+// renderGame, gameLoop, handlePlayerMove, initializeGame fonksiyonları aynı kalıyor
 function renderGame() {
     if (!context || !gameState.players || !gameConfig?.canvasSize) return;
     const { players, ballX, ballY, team1Score, team2Score } = gameState;
@@ -90,6 +93,7 @@ function initializeGame(payload: GameStartPayload) {
     gameLoop();
 }
 
+
 export function render(): string {
     return `
     <div class="h-screen w-screen bg-gray-900 flex flex-col items-center justify-center relative">
@@ -97,15 +101,27 @@ export function render(): string {
       <canvas id="pong-canvas" width="800" height="800" class="bg-black border border-white hidden"></canvas>
       <a href="/lobby" data-link class="mt-4 text-blue-400 hover:text-blue-300">${t('leave_lobby')}</a>
 
-      <div id="game-over-modal" class="hidden absolute inset-0 bg-black bg-opacity-75 items-center justify-center text-white">
-        <h2 id="game-over-text" class="text-6xl font-bold mb-8"></h2>
-        <div id="rematch-prompt" class="hidden items-center flex-col">
-            <p class="text-xl mb-4">${t('rematch_question')}</p>
-            <div class="flex space-x-4">
-                <button id="stay-button" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded">${t('stay_on_page')}</button>
-                <a id="return-link" href="/lobby" data-link class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded">
+      <div id="game-over-modal" class="hidden absolute inset-0 bg-black bg-opacity-75 text-white">
+        <div class="bg-gray-800 bg-opacity-90 p-10 rounded-lg shadow-2xl text-center max-w-lg">
+            <h2 id="game-over-text" class="text-6xl font-bold mb-8"></h2>
+            
+            <div id="regular-game-over-buttons" class="hidden flex-col items-center space-y-4">
+                <p class="text-xl mb-4">${t('rematch_question')}</p>
+                <div class="flex space-x-4">
+                    <button id="stay-button" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded">${t('stay_on_page')}</button>
+                    <a href="/lobby" data-link class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded">
+                        ${t('return_to_lobby')}
+                    </a>
+                </div>
+            </div>
+
+            <div id="tournament-game-over-buttons" class="hidden flex-col items-center space-y-4">
+                 <a id="return-to-tournament-btn" href="#" data-link class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded text-center">
+                    ${t('return_to_tournament')}
+                 </a>
+                 <a id="return-to-lobby-btn" href="/lobby" data-link class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded text-center hidden">
                     ${t('return_to_lobby')}
-                </a>
+                 </a>
             </div>
         </div>
       </div>
@@ -115,75 +131,66 @@ export function render(): string {
 
 export function afterRender() {
     socket = getSocket()!;
-    const canvasEl = document.getElementById('pong-canvas') as HTMLCanvasElement;
-    canvas = canvasEl;
+    canvas = document.getElementById('pong-canvas') as HTMLCanvasElement;
     context = canvas.getContext('2d')!;
-    const gameOverModal = document.getElementById('game-over-modal')!;
-    const gameOverText = document.getElementById('game-over-text')!;
-    const rematchPrompt = document.getElementById('rematch-prompt')!;
-    const stayButton = document.getElementById('stay-button')!;
     const statusDiv = document.getElementById('game-status')!;
     const token = localStorage.getItem('token');
     const myUserId = token ? jwt_decode(token).userId : null;
-    const returnLink = document.getElementById('return-link') as HTMLAnchorElement;
+    
+    const gameOverModal = document.getElementById('game-over-modal')!;
+    const gameOverText = document.getElementById('game-over-text')!;
+    const regularGameOverButtons = document.getElementById('regular-game-over-buttons')!;
+    const tournamentGameOverButtons = document.getElementById('tournament-game-over-buttons')!;
+    const stayButton = document.getElementById('stay-button')!;
+    const returnToTournamentBtn = document.getElementById('return-to-tournament-btn') as HTMLAnchorElement;
+    const returnToLobbyBtn = document.getElementById('return-to-lobby-btn') as HTMLAnchorElement;
 
-    // DEĞİŞİKLİK: Turnuva ID'sini tarayıcı hafızasından oku
-    const activeTournamentId = sessionStorage.getItem('activeTournamentId');
-
-    // Arayüzü Sıfırla
-    gameOverModal.classList.add('hidden');
-    gameOverModal.classList.remove('flex', 'flex-col');
-    rematchPrompt.classList.add('hidden');
-    canvasEl.classList.add('hidden');
+    // Arayüzü Sıfırlama
+    canvas.classList.add('hidden');
     statusDiv.textContent = t('waiting_for_opponent');
 
+    // DEĞİŞİKLİK: Modal gizlenirken flex sınıflarını da kaldırıyoruz.
     stayButton.addEventListener('click', () => {
         gameOverModal.classList.add('hidden');
-        gameOverModal.classList.remove('flex', 'flex-col');
+        gameOverModal.classList.remove('flex', 'items-center', 'justify-center');
     });
 
     socket.emit('client_ready_for_game');
-
-    socket.on('gameStart', (payload: GameStartPayload) => {
-        initializeGame(payload);
-    });
-
-    socket.on('updateQueue', ({ queueSize, requiredSize }: UpdateQueuePayload) => {
-        statusDiv.textContent = `${t('waiting_for_opponent')} (${queueSize}/${requiredSize})`;
-    });
-
-    socket.on('gameStateUpdate', (newGameState: GameState) => {
-        gameState = newGameState;
-    });
+    socket.on('gameStart', (payload: GameStartPayload) => { initializeGame(payload); });
+    socket.on('updateQueue', ({ queueSize, requiredSize }: UpdateQueuePayload) => { statusDiv.textContent = `${t('waiting_for_opponent')} (${queueSize}/${requiredSize})`; });
+    socket.on('gameStateUpdate', (newGameState: GameState) => { gameState = newGameState; });
 
     socket.on('gameOver', ({ winners }: GameOverPayload) => {
         window.removeEventListener('keydown', handlePlayerMove);
         if (animationFrameId) cancelAnimationFrame(animationFrameId);
         
         const isWinner = winners.some((winner: Player) => winner.id === myUserId);
-        
-        gameOverText.textContent = isWinner ? t('you_win') : t('you_lose');
-        gameOverModal.classList.remove('hidden');
-        gameOverModal.classList.add('flex', 'flex-col');
+        const activeTournamentId = sessionStorage.getItem('activeTournamentId');
 
-        // DEĞİŞİKLİK: Butonu, hafızadan okuduğumuz 'activeTournamentId'ye göre ayarla
+        gameOverText.textContent = isWinner ? t('you_win') : t('you_lose');
+        
+        // DEĞİŞİKLİK: Modal gösterilirken flex sınıflarını ekliyoruz.
+        gameOverModal.classList.remove('hidden');
+        gameOverModal.classList.add('flex', 'items-center', 'justify-center');
+        
         if (activeTournamentId) {
-            returnLink.textContent = t('return_to_tournament');
-            returnLink.href = `/tournament/${activeTournamentId}/play`;
-            // Turnuva bittiğine göre hafızayı temizleyelim
+            tournamentGameOverButtons.classList.remove('hidden');
+            regularGameOverButtons.classList.add('hidden');
+            returnToTournamentBtn.href = `/tournament/${activeTournamentId}/play`;
+            if (isWinner) {
+                returnToLobbyBtn.classList.add('hidden');
+            } else {
+                returnToLobbyBtn.classList.remove('hidden');
+            }
             sessionStorage.removeItem('activeTournamentId');
         } else {
-            returnLink.textContent = t('return_to_lobby');
-            returnLink.href = '/lobby';
+            regularGameOverButtons.classList.remove('hidden');
+            tournamentGameOverButtons.classList.add('hidden');
         }
-
-        setTimeout(() => {
-            rematchPrompt.classList.remove('hidden');
-            rematchPrompt.classList.add('flex', 'flex-col');
-        }, 3000);
     });
 }
 
+// cleanup fonksiyonu aynı kalıyor
 export function cleanup() {
     if (socket) {
       socket.emit('leaveGameOrLobby');
