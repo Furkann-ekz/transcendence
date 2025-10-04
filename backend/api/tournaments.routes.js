@@ -2,37 +2,34 @@
 
 const prisma = require('../prisma/db');
 const authenticate = require('../middleware/authenticate');
-const { startNextMatch } = require('../websockets/tournamentHandler');
+const tournamentHandler = require('../websockets/tournamentHandler');
 
-async function tournamentRoutes(fastify, { io, onlineUsers, gameRooms }) {
-    
-    // Aktif, Lobi durumundaki turnuvaları listeler
+async function tournamentRoutes(fastify, { io }) {
     fastify.get('/tournaments', { preHandler: [authenticate] }, async (request, reply) => {
-		try {
-			const tournaments = await prisma.tournament.findMany({
-				where: { status: 'LOBBY' },
-				include: {
-					_count: {
-						select: { players: true },
-					},
-					host: {
-						select: { id: true, name: true }
-					},
-					// YENİ EKLENEN SATIR: Oyuncu listesini de dahil et
-					players: {
-						select: { userId: true }
-					}
-				},
-				orderBy: { createdAt: 'desc' }
-			});
-			return tournaments;
-		} catch (error) {
-			fastify.log.error(error);
-			return reply.code(500).send({ error: 'Could not fetch tournaments.' });
-		}
-	});
+        try {
+            const tournaments = await prisma.tournament.findMany({
+                where: { status: 'LOBBY' },
+                include: {
+                    _count: {
+                        select: { players: true },
+                    },
+                    host: {
+                        select: { id: true, name: true }
+                    },
+                    players: {
+                        select: { userId: true }
+                    }
+                },
+                orderBy: { createdAt: 'desc' }
+            });
+            return tournaments;
+        } catch (error) {
+            fastify.log.error(error);
+            return reply.code(500).send({ error: 'Could not fetch tournaments.' });
+        }
+    });
 
-	fastify.get('/tournaments/:id', { preHandler: [authenticate] }, async (request, reply) => {
+    fastify.get('/tournaments/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const tournamentId = request.params.id;
         try {
             const tournament = await prisma.tournament.findUnique({
@@ -55,7 +52,6 @@ async function tournamentRoutes(fastify, { io, onlineUsers, gameRooms }) {
         }
     });
 
-    // Yeni bir turnuva oluşturur
     fastify.post('/tournaments', { preHandler: [authenticate] }, async (request, reply) => {
         const hostId = request.user.userId;
         const host = await prisma.user.findUnique({ where: { id: hostId } });
@@ -65,20 +61,16 @@ async function tournamentRoutes(fastify, { io, onlineUsers, gameRooms }) {
         }
 
         try {
-            // Bu kullanıcının şimdiye kadar kurduğu tüm turnuvaları say
             const totalTournamentCount = await prisma.tournament.count({
-                where: {
-                    hostId: hostId,
-                }
+                where: { hostId: hostId }
             });
 
             const tournamentNumber = totalTournamentCount + 1;
-            // İsimlendirme kuralını burada uyguluyoruz
             const tournamentName = `${host.name}'s Tournament #${tournamentNumber}`;
 
             const newTournament = await prisma.tournament.create({
                 data: {
-                    name: tournamentName, // Veritabanına yeni oluşturulan ismi kaydet
+                    name: tournamentName,
                     hostId: hostId,
                     players: {
                         create: {
@@ -99,7 +91,6 @@ async function tournamentRoutes(fastify, { io, onlineUsers, gameRooms }) {
         }
     });
 
-    // Mevcut bir turnuvaya katılmayı sağlar
     fastify.post('/tournaments/:id/join', { preHandler: [authenticate] }, async (request, reply) => {
         const tournamentId = request.params.id;
         const userId = request.user.userId;
@@ -144,7 +135,6 @@ async function tournamentRoutes(fastify, { io, onlineUsers, gameRooms }) {
         }
     });
 
-    // Bir oyuncunun bir turnuvadan ayrılmasını sağlar
     fastify.delete('/tournaments/:id/leave', { preHandler: [authenticate] }, async (request, reply) => {
         const tournamentId = request.params.id;
         const userId = request.user.userId;
@@ -158,12 +148,10 @@ async function tournamentRoutes(fastify, { io, onlineUsers, gameRooms }) {
                 return reply.code(404).send({ error: 'Tournament not found.' });
             }
 
-            // Kurucu turnuvadan ayrılamaz, sadece iptal edebilir (bu özellik daha sonra eklenebilir)
             if (tournament.hostId === userId) {
                 return reply.code(403).send({ error: 'Host cannot leave the tournament.' });
             }
 
-            // Oyuncunun turnuvadaki kaydını sil
             await prisma.tournamentPlayer.deleteMany({
                 where: {
                     tournamentId: tournamentId,
@@ -171,7 +159,6 @@ async function tournamentRoutes(fastify, { io, onlineUsers, gameRooms }) {
                 }
             });
 
-            // Lobi ve turnuva listesi ekranlarını güncellemek için sinyal gönder
             io.to(tournamentId).emit('tournament_lobby_updated');
             io.emit('tournament_list_updated');
 
@@ -186,14 +173,13 @@ async function tournamentRoutes(fastify, { io, onlineUsers, gameRooms }) {
     fastify.post('/tournaments/:id/ready', { preHandler: [authenticate] }, async (request, reply) => {
         const tournamentId = request.params.id;
         const userId = request.user.userId;
-        const { isReady } = request.body; // Body'den { "isReady": true/false } bekleniyor
+        const { isReady } = request.body;
 
         if (typeof isReady !== 'boolean') {
             return reply.code(400).send({ error: 'isReady field must be a boolean.' });
         }
 
         try {
-            // Önce oyuncunun o turnuvada olup olmadığını kontrol edelim.
             const playerInTournament = await prisma.tournamentPlayer.findUnique({
                 where: {
                     tournamentId_userId: {
@@ -207,7 +193,6 @@ async function tournamentRoutes(fastify, { io, onlineUsers, gameRooms }) {
                 return reply.code(404).send({ error: 'You are not a player in this tournament.' });
             }
             
-            // Oyuncunun durumunu güncelle
             await prisma.tournamentPlayer.update({
                 where: {
                     id: playerInTournament.id
@@ -217,7 +202,6 @@ async function tournamentRoutes(fastify, { io, onlineUsers, gameRooms }) {
                 }
             });
 
-            // Lobi'deki diğer oyunculara durumun güncellendiğini bildir
             io.to(tournamentId).emit('tournament_lobby_updated');
             
             return reply.send({ success: true, message: `Ready status set to ${isReady}` });
@@ -233,7 +217,6 @@ async function tournamentRoutes(fastify, { io, onlineUsers, gameRooms }) {
         const userId = request.user.userId;
 
         try {
-            // 1. Turnuvayı ve oyuncularını veritabanından çek
             const tournament = await prisma.tournament.findUnique({
                 where: { id: tournamentId },
                 include: { players: true }
@@ -242,24 +225,17 @@ async function tournamentRoutes(fastify, { io, onlineUsers, gameRooms }) {
             if (!tournament) {
                 return reply.code(404).send({ error: 'Tournament not found.' });
             }
-
-            // 2. Yetki Kontrolü: Sadece kurucu başlatabilir
             if (tournament.hostId !== userId) {
                 return reply.code(403).send({ error: 'Only the host can start the tournament.' });
             }
-
-            // 3. Durum Kontrolü: Turnuva zaten başlamış mı?
             if (tournament.status !== 'LOBBY') {
                 return reply.code(409).send({ error: 'Tournament has already started or is finished.' });
             }
-
-            // 4. Başlatma Koşullarının Kontrolü
             const allPlayersReady = tournament.players.every(p => p.isReady);
             if (tournament.players.length < 4 || !allPlayersReady) {
                 return reply.code(400).send({ error: 'To start, there must be at least 4 players and all must be ready.' });
             }
 
-            // 5. Turnuvanın durumunu güncelle
             const updatedTournament = await prisma.tournament.update({
                 where: { id: tournamentId },
                 data: { status: 'IN_PROGRESS' },
@@ -272,11 +248,13 @@ async function tournamentRoutes(fastify, { io, onlineUsers, gameRooms }) {
                 }
             });
             
-            // 6. Lobi'deki herkese turnuvanın başladığını bildir
             io.to(tournamentId).emit('tournament_started', { tournament: updatedTournament });
             
-            // DEĞİŞİKLİK: Eksik olan onlineUsers ve gameRooms parametrelerini ekliyoruz.
-            startNextMatch(tournamentId, io, onlineUsers, gameRooms);
+            // --- DEĞİŞİKLİK BURADA ---
+            // Oyuncuların yeni sayfaya geçip odaya abone olmaları için 1 saniye bekle.
+            setTimeout(() => {
+                tournamentHandler.startNextMatch(tournamentId, io);
+            }, 2000); // 2 saniyelik gecikme
             
             return reply.send({ success: true, message: 'Tournament started!' });
 

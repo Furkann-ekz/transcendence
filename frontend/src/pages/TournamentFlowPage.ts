@@ -11,6 +11,7 @@ interface TournamentPlayer {
     isEliminated: boolean;
 }
 
+// render() fonksiyonu aynı kalıyor, değişiklik yok
 export function render(): string {
   return `
     <div class="min-h-screen bg-gray-900 text-white p-8">
@@ -29,7 +30,7 @@ export function render(): string {
             </div>
             <div class="md:col-span-2 bg-gray-800 p-6 rounded-lg">
                 <h2 class="text-2xl font-semibold mb-4 border-b border-gray-600 pb-2">Match Status</h2>
-                <div id="match-status-container" class="text-center text-xl">
+                <div id="match-status-container" class="text-center text-xl flex flex-col items-center justify-center h-full">
                     <p>Waiting for the next match to be announced...</p>
                 </div>
             </div>
@@ -52,6 +53,7 @@ export function render(): string {
   `;
 }
 
+// afterRender ve cleanup fonksiyonları güncellendi
 export async function afterRender() {
     const socket = getSocket();
     const pathParts = window.location.pathname.split('/');
@@ -71,6 +73,9 @@ export async function afterRender() {
         return;
     }
 
+    // --- YENİ EKLENEN SATIR: Sayfaya girer girmez odaya katılıyoruz ---
+    socket.emit('join_tournament_lobby', { tournamentId });
+
     const updatePlayerList = (players: TournamentPlayer[]) => {
         if (!playersListEl) return;
         playersListEl.innerHTML = players.map(p => `
@@ -85,7 +90,6 @@ export async function afterRender() {
         try {
             const currentTournament = await getTournamentDetails(tournamentId);
             const me = currentTournament.players.find((p: any) => p.user.id === myId);
-
             if (me && !me.isEliminated) {
                 modal?.classList.remove('hidden');
                 modal?.classList.add('flex');
@@ -122,16 +126,34 @@ export async function afterRender() {
     });
 
     socket.on('new_match_starting', (data) => {
-        if (matchStatusEl) {
-            matchStatusEl.innerHTML = `
-                <p class="mb-4">Next Match:</p>
-                <div class="flex justify-center items-center space-x-8">
-                    <span class="text-2xl font-bold text-blue-400">${data.player1.name}</span>
-                    <span class="text-gray-400 text-lg">vs</span>
-                    <span class="text-2xl font-bold text-red-400">${data.player2.name}</span>
-                </div>
-                <div id="countdown-timer" class="text-6xl font-bold mt-8"></div>
-            `;
+        if (!matchStatusEl) return;
+        const amIPlayerInMatch = data.player1.id === myId || data.player2.id === myId;
+        
+        matchStatusEl.innerHTML = `
+            <p class="mb-4">Next Match:</p>
+            <div class="flex justify-center items-center space-x-8">
+                <span class="text-2xl font-bold text-blue-400">${data.player1.name}</span>
+                <span class="text-gray-400 text-lg">vs</span>
+                <span class="text-2xl font-bold text-red-400">${data.player2.name}</span>
+            </div>
+            ${amIPlayerInMatch ? `
+                <button id="ready-for-match-btn" class="mt-8 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded">
+                    I'm Ready!
+                </button>
+            ` : `
+                <p class="mt-8 text-gray-400">Waiting for players to get ready...</p>
+            `}
+            <div id="countdown-timer" class="text-6xl font-bold mt-4"></div>
+        `;
+        
+        if (amIPlayerInMatch) {
+            const readyBtn = document.getElementById('ready-for-match-btn') as HTMLButtonElement | null;
+            readyBtn?.addEventListener('click', () => {
+                socket.emit('player_ready_for_next_match', { tournamentId });
+                readyBtn.textContent = "Waiting for opponent...";
+                readyBtn.disabled = true;
+                readyBtn.style.backgroundColor = '#4a5568';
+            });
         }
     });
 
@@ -159,9 +181,15 @@ export async function afterRender() {
     });
 }
 
+// YENİ EKLENEN cleanup FONKSİYONU
 export function cleanup() {
     const socket = getSocket();
-    if (socket) {
+    const pathParts = window.location.pathname.split('/');
+    const tournamentId = pathParts[2];
+    if (socket && tournamentId) {
+        // Sayfadan ayrılırken odadan çıkıyoruz
+        socket.emit('leave_tournament_lobby', { tournamentId });
+        // Bu sayfaya özgü listener'ları temizliyoruz
         socket.off('tournament_update');
         socket.off('new_match_starting');
         socket.off('tournament_finished');

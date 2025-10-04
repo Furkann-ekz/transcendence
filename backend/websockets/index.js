@@ -3,11 +3,12 @@ const jwt = require('jsonwebtoken');
 const prisma = require('../prisma/db');
 const chatHandler = require('./chatHandler');
 const { handleJoinMatchmaking, updatePlayerStats, saveMatch } = require('./gameHandler');
+// DEĞİŞİKLİK: Yeni turnuva mantığını import ediyoruz
+const tournamentHandler = require('./tournamentHandler');
 const JWT_SECRET = process.env.JWT_SECRET;
 
 function initializeSocket(io) {
     const onlineUsers = new Map();
-    // DEĞİŞİKLİK: gameState, fonksiyonun içinde tanımlı kalıyor.
     const gameState = {
         waitingPlayers: {
             '1v1': [],
@@ -55,6 +56,9 @@ function initializeSocket(io) {
         });
 
         chatHandler(io, socket, onlineUsers);
+
+        // DEĞİŞİKLİK: Yeni "Hazırım" olayını dinlemek için handler'ı çağırıyoruz
+        tournamentHandler.handlePlayerReady(socket, io, onlineUsers, gameState.gameRooms);
 
         socket.on('joinMatchmaking', (payload) => {
             console.log(`${socket.user.email} eşleştirme havuzuna katıldı. Mod: ${payload.mode}`);
@@ -137,13 +141,13 @@ function initializeSocket(io) {
             if (socket.gameRoom) {
                 const game = gameState.gameRooms.get(socket.gameRoom.id);
                 if (game) {
-                    // Oyuncuya oyunun başlangıç verilerini tekrar gönder
                     const gameStartPayload = {
                         players: game.players.map(p => ({id: p.id, name: p.name, email: p.email, position: p.position, team: p.team})),
                         mode: game.mode,
                         canvasSize: game.canvasSize,
                         paddleSize: game.paddleSize,
-                        paddleThickness: game.paddleThickness
+                        paddleThickness: game.paddleThickness,
+                        tournamentId: game.tournamentId || null
                     };
                     socket.emit('gameStart', gameStartPayload);
                 }
@@ -157,9 +161,8 @@ function initializeSocket(io) {
             const playerState = game.gameState.players.find(p => p.id === socket.user.id);
             if (!playerState) return;
 
-            // gameConfig'i game objesinden alıyoruz (bunu handler'a eklememiz gerekecek)
-            const canvasSize = game.canvasSize || 800; // Varsayılan değer
-            const paddleSize = game.paddleSize || 100; // Varsayılan değer
+            const canvasSize = game.canvasSize || 800;
+            const paddleSize = game.paddleSize || 100;
 
             const { newPosition } = data;
             let finalPosition = newPosition;
@@ -181,7 +184,6 @@ function initializeSocket(io) {
         });
     });
 
-    // BU SATIR ÖNEMLİ: Artık bir obje döndürüyor.
     return { onlineUsers, gameRooms: gameState.gameRooms };
 }
 
