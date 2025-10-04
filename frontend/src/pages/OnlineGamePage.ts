@@ -6,7 +6,7 @@ import { jwt_decode } from '../utils';
 import { t } from '../i18n';
 import { navigateTo } from '../router';
 
-// Arayüz tanımlamaları ve global değişkenler aynı kalıyor...
+// Arayüz tanımlamaları ve global değişkenler aynı kalıyor
 interface Player { id: number; name: string; email: string; socketId: string; position: 'left' | 'right' | 'top' | 'bottom'; team: 1 | 2; x: number; y: number; }
 interface GameConfig { canvasSize: number; paddleSize: number; paddleThickness: number; mode: string; tournamentId?: string; }
 interface GameState { ballX?: number; ballY?: number; team1Score?: number; team2Score?: number; players?: Player[]; }
@@ -21,9 +21,8 @@ let gameState: GameState = {};
 let gameConfig: GameConfig | null = null;
 let myPlayer: Player | null = null;
 let animationFrameId: number;
-let isTournamentMatch = false;
 
-// Diğer fonksiyonlar (renderGame, gameLoop, vb.) aynı kalıyor
+// renderGame, gameLoop, handlePlayerMove, initializeGame fonksiyonları aynı kalıyor
 function renderGame() {
     if (!context || !gameState.players || !gameConfig?.canvasSize) return;
     const { players, ballX, ballY, team1Score, team2Score } = gameState;
@@ -94,7 +93,6 @@ function initializeGame(payload: GameStartPayload) {
     gameLoop();
 }
 
-
 export function render(): string {
     return `
     <div class="h-screen w-screen bg-gray-900 flex flex-col items-center justify-center relative">
@@ -102,7 +100,7 @@ export function render(): string {
       <canvas id="pong-canvas" width="800" height="800" class="bg-black border border-white hidden"></canvas>
       <a id="main-leave-link" href="/lobby" class="mt-4 text-blue-400 hover:text-blue-300">${t('leave_lobby')}</a>
 
-      <div id="game-over-modal" class="hidden absolute inset-0 bg-black bg-opacity-75 text-white">
+      <div id="game-over-modal" class="hidden absolute inset-0 bg-black bg-opacity-75 items-center justify-center text-white">
         <div class="bg-gray-800 bg-opacity-90 p-10 rounded-lg shadow-2xl text-center max-w-lg">
             <h2 id="game-over-text" class="text-6xl font-bold mb-8"></h2>
             
@@ -110,9 +108,7 @@ export function render(): string {
                 <p class="text-xl mb-4">${t('rematch_question')}</p>
                 <div class="flex space-x-4">
                     <button id="stay-button" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded">${t('stay_on_page')}</button>
-                    <a href="/lobby" data-link class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded">
-                        ${t('return_to_lobby')}
-                    </a>
+                    <a href="/lobby" data-link class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded">${t('return_to_lobby')}</a>
                 </div>
             </div>
 
@@ -176,11 +172,11 @@ export function afterRender() {
         gameOverModal.classList.remove('flex', 'items-center', 'justify-center');
     });
 
-    // "Lobiye Dön" linkinin yeni davranışı
+    // --- DEĞİŞTİRİLEN VE GÜVENİLİR HALE GETİRİLEN BÖLÜM ---
     mainLeaveLink.addEventListener('click', (e) => {
         e.preventDefault(); 
-        if (isTournamentMatch) {
-            // DEĞİŞİKLİK: Modal gösterilirken flex sınıfları ekleniyor
+        // Kontrolü artık sessionStorage'dan yapıyoruz
+        if (sessionStorage.getItem('activeTournamentId')) {
             leaveMatchModal.classList.remove('hidden');
             leaveMatchModal.classList.add('flex', 'items-center', 'justify-center');
         } else {
@@ -188,30 +184,29 @@ export function afterRender() {
         }
     });
 
-    // DEĞİŞİKLİK: Modal gizlenirken flex sınıfları kaldırılıyor
     cancelLeaveMatchBtn.addEventListener('click', () => {
         leaveMatchModal.classList.add('hidden');
         leaveMatchModal.classList.remove('flex', 'items-center', 'justify-center');
     });
 
-    // DEĞİŞİKLİK: Modal gizlenirken flex sınıfları kaldırılıyor
     confirmLeaveMatchBtn.addEventListener('click', () => {
         const tournamentId = sessionStorage.getItem('activeTournamentId');
         if (tournamentId) {
+            // Sunucuya turnuvadan ayrılma isteği gönderiyoruz
             socket?.emit('leave_tournament', { tournamentId });
         }
         leaveMatchModal.classList.add('hidden');
         leaveMatchModal.classList.remove('flex', 'items-center', 'justify-center');
+        // Kullanıcıyı lobiye yönlendiriyoruz
         navigateTo('/lobby');
     });
 
     socket.emit('client_ready_for_game');
+
     socket.on('gameStart', (payload: GameStartPayload) => { 
-        if (payload.tournamentId) {
-            isTournamentMatch = true;
-        }
         initializeGame(payload);
     });
+
     socket.on('updateQueue', ({ queueSize, requiredSize }: UpdateQueuePayload) => { statusDiv.textContent = `${t('waiting_for_opponent')} (${queueSize}/${requiredSize})`; });
     socket.on('gameStateUpdate', (newGameState: GameState) => { gameState = newGameState; });
 
@@ -244,7 +239,6 @@ export function afterRender() {
     });
 }
 
-// cleanup fonksiyonu aynı kalıyor
 export function cleanup() {
     if (socket) {
       socket.emit('leaveGameOrLobby');
@@ -261,6 +255,7 @@ export function cleanup() {
     myPlayer = null;
     gameConfig = null;
     gameState = {};
-    isTournamentMatch = false;
+    
+    // Veri sızıntısını önlemek için kritik temizlik
     sessionStorage.removeItem('activeTournamentId');
 }
