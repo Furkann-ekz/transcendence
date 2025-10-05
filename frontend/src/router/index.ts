@@ -56,16 +56,10 @@ export async function handleLocation(forceReload = false) {
             return;
         }
 
-        let isSessionValid = false;
-
-        if (getSocket()?.connected) {
-            isSessionValid = true;
-        } 
-        else {
-            isSessionValid = await validateSessionOnServer();
-        }
+        const isSessionValid = await validateSessionOnServer();
 
         if (!isSessionValid) {
+            console.warn("Router detected invalid session via API. Logging out.");
             logoutAndRedirect();
             return;
         }
@@ -74,7 +68,7 @@ export async function handleLocation(forceReload = false) {
             try {
                 await connectSocket(token);
             } catch (error) {
-                console.error("Socket connection attempt failed, logging out.");
+                console.error("Socket connection attempt failed after session validation, logging out.");
                 logoutAndRedirect();
                 return;
             }

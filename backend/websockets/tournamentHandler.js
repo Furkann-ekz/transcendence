@@ -57,8 +57,10 @@ async function startNextMatch(tournamentId, io) {
     });
 }
 
-function handlePlayerReady(socket, io, onlineUsers, gameRooms) {
+function handlePlayerReady(socket, io, onlineUsers, gameRooms, isSocketSessionValid) {
     socket.on('player_ready_for_next_match', async ({ tournamentId }) => {
+        if (!await isSocketSessionValid(socket)) return;
+
         const userId = socket.user.id;
         const matchInfo = nextMatchReadyStatus[tournamentId];
         if (!matchInfo || !matchInfo.players.includes(userId) || matchInfo.ready.includes(userId)) { return; }
