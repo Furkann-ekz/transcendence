@@ -96,7 +96,6 @@ async function tournamentRoutes(fastify, { io }) {
         const userId = request.user.userId;
 
         try {
-            // --- YENİ EKLENEN KONTROL ---
             // Oyuncunun zaten başka bir aktif turnuvada olup olmadığını kontrol et
             const existingParticipation = await prisma.tournamentPlayer.findFirst({
                 where: {
@@ -110,8 +109,6 @@ async function tournamentRoutes(fastify, { io }) {
             if (existingParticipation) {
                 return reply.code(409).send({ error: 'You are already in another active tournament or lobby.' });
             }
-            // --- KONTROL SONU ---
-
 
             const tournament = await prisma.tournament.findUnique({
                 where: { id: tournamentId },
@@ -127,12 +124,7 @@ async function tournamentRoutes(fastify, { io }) {
             if (tournament.players.length >= 8) {
                 return reply.code(403).send({ error: 'Tournament is full.' });
             }
-            if (tournament.players.some(p => p.userId === userId)) {
-                // Bu kontrol aslında yukarıdaki `existingParticipation` ile gereksiz hale geldi,
-                // ama bir güvenlik katmanı olarak kalmasında sakınca yok.
-                return reply.code(409).send({ error: 'You have already joined this tournament.' });
-            }
-
+            
             const updatedTournament = await prisma.tournament.update({
                 where: { id: tournamentId },
                 data: {
@@ -159,6 +151,9 @@ async function tournamentRoutes(fastify, { io }) {
             const activePlayerInTournament = await prisma.tournamentPlayer.findFirst({
                 where: {
                     userId: request.user.userId,
+                    // --- ÖNEMLİ DEĞİŞİKLİK BURADA ---
+                    // Artık oyuncunun elenmemiş olduğunu da kontrol ediyoruz.
+                    isEliminated: false, 
                     tournament: {
                         status: 'IN_PROGRESS'
                     }
@@ -174,7 +169,7 @@ async function tournamentRoutes(fastify, { io }) {
                 return activePlayerInTournament.tournament;
             }
 
-            // Aktif turnuva yoksa boş cevap gönder
+            // Aktif ve elenmemiş bir turnuva yoksa boş cevap gönder
             return reply.code(204).send();
 
         } catch (error) {
