@@ -48,9 +48,8 @@ export async function afterRender() {
             returnButton.href = `/tournament/${activeTournament.id}/play`;
             returnButton.setAttribute('data-link', '');
             returnButton.className = 'bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 px-4 rounded';
-            returnButton.textContent = 'Return to Your Active Tournament'; // Bunu da dil dosyasına ekleyebiliriz, şimdilik böyle kalsın.
+            returnButton.textContent = t('return_to_active_tournament'); // <-- Metni t() fonksiyonu ile çeviriyoruz
 
-            // Butonu diğer butonların en üstüne ekle
             buttonsContainer.prepend(returnButton);
         }
     } catch (error) {

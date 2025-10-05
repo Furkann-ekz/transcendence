@@ -113,5 +113,8 @@
   "cancel_request_button": "Request Sent (Cancel)",
   "remove_friend_button": "Remove Friend",
   "block_user_button": "Block",
-  "unblock_user_button": "Unblock"
+  "unblock_user_button": "Unblock",
+  "error_already_in_tournament": "You are already in another active tournament or lobby.",
+  "confirm_leave_tournament_lobby": "Are you sure you want to leave the tournament?",
+  "return_to_active_tournament": "Return to Your Active Tournament"
 }

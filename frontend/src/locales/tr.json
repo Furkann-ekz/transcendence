@@ -20,7 +20,7 @@
   "send_button": "Gönder",
   "lobby_title": "Oyun Modunu Seç",
   "play_local_button": "Yerel Oyna (Aynı Bilgisayarda)",
-  "play_online_button": "Online Oyna (Rakip Bul)",
+  "play_online_button": "Çevrimiçi Oyna (Rakip Bul)",
   "return_to_chat": "Sohbete Geri Dön",
   "waiting_for_opponent": "Rakip Bekleniyor...",
   "leave_lobby": "Lobiden Ayrıl",
@@ -109,9 +109,12 @@
   "countdown_go": "BAŞLA!",
   "tournament_winner_is": "Kazanan: {name}!",
   "return_to_lobby_button": "Lobiye Dön",
-  "add_friend_button": "Добавить в друзья",
-  "cancel_request_button": "Запрос отправлен (Отменить)",
-  "remove_friend_button": "Удалить из друзей",
-  "block_user_button": "Заблокировать",
-  "unblock_user_button": "Разблокировать"
+  "add_friend_button": "Arkadaş Ekle",
+  "cancel_request_button": "İstek Gönderildi (İptal Et)",
+  "remove_friend_button": "Arkadaşlıktan Çıkar",
+  "block_user_button": "Engelle",
+  "unblock_user_button": "Engeli Kaldır",
+  "error_already_in_tournament": "Zaten başka bir aktif turnuvada veya lobidesiniz.",
+  "confirm_leave_tournament_lobby": "Turnuvadan ayrılmak istediğinize emin misiniz?",
+  "return_to_active_tournament": "Aktif Turnuvana Geri Dön"
 }

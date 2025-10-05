@@ -117,11 +117,11 @@ export async function afterRender() {
                 leaveButton.textContent = t('leave_tournament_lobby');
                 leaveButton.className = 'w-full font-bold py-2 px-4 rounded bg-red-600 hover:bg-red-700 text-white';
                 leaveButton.onclick = async () => {
-                    if (confirm('Turnuvadan ayrılmak istediğinize emin misiniz?')) {
+                    if (confirm(t('confirm_leave_tournament_lobby'))) { // <-- Metni t() fonksiyonu ile çeviriyoruz
                         try {
                             await leaveTournament(tournamentId);
                             navigateTo('/tournaments');
-                        } catch (error: any) { alert(error.message); }
+                        } catch (error: any) { alert(t(error.message)); } // Buradaki alert'i de çevirelim, her ihtimale karşı.
                     }
                 };
                 actionsEl.appendChild(leaveButton);

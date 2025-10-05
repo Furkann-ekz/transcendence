@@ -81,11 +81,11 @@ export async function afterRender() {
                     const tournamentId = target.dataset.tournamentId;
                     if (!tournamentId || target.disabled) return;
                     try {
-                        // Artık import ettiğimiz merkezi 'joinTournament' fonksiyonunu kullanıyoruz.
                         await joinTournament(tournamentId);
                         await renderList();
                     } catch (error: any) {
-                        alert(error.message);
+                        // Gelen hata mesajını (artık bir anahtar) t() fonksiyonu ile çeviriyoruz.
+                        alert(t(error.message)); 
                     }
                 });
             });

@@ -100,6 +100,7 @@ async function tournamentRoutes(fastify, { io }) {
             const existingParticipation = await prisma.tournamentPlayer.findFirst({
                 where: {
                     userId: userId,
+                    isEliminated: false,
                     tournament: {
                         status: { in: ['LOBBY', 'IN_PROGRESS'] }
                     }
@@ -107,7 +108,7 @@ async function tournamentRoutes(fastify, { io }) {
             });
 
             if (existingParticipation) {
-                return reply.code(409).send({ error: 'You are already in another active tournament or lobby.' });
+                return reply.code(409).send({ error: 'error_already_in_tournament' });
             }
 
             const tournament = await prisma.tournament.findUnique({

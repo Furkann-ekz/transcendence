@@ -89,6 +89,7 @@
   "edit_profile_title": "Редактировать профиль",
   "change_avatar_button": "Сменить аватар",
   "save_button": "Сохранить",
+  "cancel_button": "Отмена",
   "edit_profile_button": "Редактировать профиль",
   "leave_tournament": "Покинуть турнир",
   "leave_tournament_confirm": "Если вы покинете турнир, вы будете дисквалифицированы. Вы уверены, что хотите уйти?",
@@ -111,5 +112,8 @@
   "cancel_request_button": "Запрос отправлен (Отменить)",
   "remove_friend_button": "Удалить из друзей",
   "block_user_button": "Заблокировать",
-  "unblock_user_button": "Разблокировать"
+  "unblock_user_button": "Разблокировать",
+  "error_already_in_tournament": "Вы уже находитесь в другом активном турнире или лобби.",
+  "confirm_leave_tournament_lobby": "Вы уверены, что хотите покинуть турнир?",
+  "return_to_active_tournament": "Вернуться в активный турнир"
 }
