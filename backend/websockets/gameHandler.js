@@ -1,4 +1,5 @@
 // backend/websockets/gameHandler.js
+const { shuffleArray } = require('../utils/arrayUtils');
 
 const prisma = require('../prisma/db');
 
@@ -53,9 +54,9 @@ async function saveMatch(game, winnerTeam, wasForfeit = false) {
 
 function startGameLoop(room, players, io, mode, gameConfig, onMatchEnd) {
     const startTime = Date.now();
-    const WINNING_SCORE = 5;
+    const WINNING_SCORE = 20;
     const BALL_RADIUS = 10;
-    
+
     // --- DEĞİŞİKLİK BURADA ---
     // onMatchEnd callback'ini game objesine kaydediyoruz.
     const game = { 

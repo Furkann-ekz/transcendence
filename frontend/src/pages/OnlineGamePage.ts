@@ -21,6 +21,34 @@ let gameState: GameState = {};
 let gameConfig: GameConfig | null = null;
 let myPlayer: Player | null = null;
 let animationFrameId: number;
+let myUserId: number | null;
+
+const myPaddlePattern = createDottedPattern('#ffde59', '#333');
+
+// Desen oluşturmak için yardımcı fonksiyon
+function createDottedPattern(dotColor: string, bgColor: string): CanvasPattern | string {
+    // Küçük bir canvas oluşturarak deseni buraya çiziyoruz
+    const patternCanvas = document.createElement('canvas');
+    const patternContext = patternCanvas.getContext('2d');
+    
+    if (!patternContext) return bgColor; // Context alınamazsa düz renk dön
+
+    patternCanvas.width = 16;
+    patternCanvas.height = 16;
+
+    // Arka plan rengi
+    patternContext.fillStyle = bgColor;
+    patternContext.fillRect(0, 0, patternCanvas.width, patternCanvas.height);
+
+    // Benek
+    patternContext.beginPath();
+    patternContext.arc(8, 8, 3, 0, 2 * Math.PI); // Ortada 3 piksel yarıçaplı bir daire
+    patternContext.fillStyle = dotColor;
+    patternContext.fill();
+
+    // Bu küçük canvas'tan tekrarlanan bir desen oluştur ve geri döndür
+    return patternContext.createPattern(patternCanvas, 'repeat')!;
+}
 
 // renderGame, gameLoop, handlePlayerMove, initializeGame fonksiyonları aynı kalıyor
 function renderGame() {
@@ -35,7 +63,14 @@ function renderGame() {
     context.fillText(String(team1Score ?? 0), canvasSize / 4, canvasSize / 5);
     context.fillText(String(team2Score ?? 0), (canvasSize * 3) / 4, canvasSize / 5);
     players.forEach((player: Player) => {
-        context.fillStyle = player.team === 1 ? '#60a5fa' : '#f87171';
+        if (player.id === myUserId) {
+            // Eğer çizilen oyuncu 'ben' isem, oluşturduğumuz deseni kullan
+            context.fillStyle = myPaddlePattern;
+        } else {
+            // Değilse, normal takım rengini kullan
+            context.fillStyle = player.team === 1 ? '#60a5fa' : '#f87171';
+        }
+
         if (player.position === 'left' || player.position === 'right') {
             context.fillRect(player.x, player.y, paddleThickness, paddleSize);
         } else {
@@ -79,7 +114,7 @@ function handlePlayerMove(event: KeyboardEvent) {
 function initializeGame(payload: GameStartPayload) {
     const statusDiv = document.getElementById('game-status')!;
     const token = localStorage.getItem('token');
-    const myUserId = token ? jwt_decode(token).userId : null;
+    myUserId = token ? jwt_decode(token).userId : null;
     
     gameConfig = { ...payload };
     canvas.width = gameConfig.canvasSize;
