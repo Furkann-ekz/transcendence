@@ -2,23 +2,24 @@
 import { io, Socket } from "socket.io-client";
 
 let socket: Socket | null = null;
+let heartbeatInterval: number | null = null; // Heartbeat interval'ını tutmak için
 
-// disconnectSocket fonksiyonu burada tanımlanıyor ve export ediliyor.
-// Diğer dosyaların (örneğin router) bu fonksiyona erişebilmesi için export ediyoruz.
 export function disconnectSocket() {
+    // Bağlantı kesildiğinde heartbeat'i de durdur
+    if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
+    }
     if (socket) {
         socket.disconnect();
         socket = null;
     }
 }
 
-// Oturumu sonlandırmak ve kullanıcıyı çıkışa zorlamak için kullanılan dahili fonksiyon
-function forceLogout() {
-    console.warn("Forcing logout due to invalid session or authentication error.");
+function forceLogout(reason: string = "Session is invalid.") {
+    console.warn(`Forcing logout: ${reason}`);
     localStorage.removeItem('token');
-    // Yukarıda tanımlanan disconnectSocket fonksiyonunu çağırıyoruz.
     disconnectSocket(); 
-    // Sayfanın tamamen yenilenerek giriş ekranına gitmesini sağla.
     window.location.href = '/'; 
 }
 
@@ -34,28 +35,45 @@ export function connectSocket(token: string): Promise<Socket> {
         });
 
         newSocket.on('connect', () => {
-            console.log('Socket server connected successfully! ID:', newSocket.id);
+            console.log('Socket server connected! ID:', newSocket.id);
             socket = newSocket;
+
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
+            
+            // Her 15 saniyede bir sunucuya oturumun geçerli olup olmadığını sor
+            heartbeatInterval = window.setInterval(() => {
+                if (socket?.connected) {
+                    socket.emit('validate_session');
+                }
+            }, 15000); // 15 saniye
+
             resolve(newSocket);
         });
 
+        // Sunucudan gelen zorunlu çıkış sinyalini dinle
+        newSocket.on('force_logout', (reason) => {
+             forceLogout(reason);
+        });
+
         newSocket.on('forceDisconnect', (reason) => {
-            console.log(`Server forced disconnect: ${reason}`);
             alert('Another session was started from a different location. This session will be terminated.');
-            forceLogout();
+            forceLogout(reason);
         });
 
         newSocket.on('disconnect', () => {
-            console.log('Socket connection lost. Attempting to reconnect...');
+            console.log('Socket connection lost.');
+            // Bağlantı koptuğunda heartbeat'i durdur
+            if (heartbeatInterval) {
+                clearInterval(heartbeatInterval);
+                heartbeatInterval = null;
+            }
         });
 
         newSocket.on('connect_error', (err) => {
             console.error('Socket connection error:', err.message);
-            
             if (err.message === 'User not found' || err.message === 'Invalid token') {
-                forceLogout();
+                forceLogout(err.message);
             }
-
             reject(err);
         });
     });

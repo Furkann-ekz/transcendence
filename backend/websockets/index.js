@@ -9,17 +9,14 @@ const JWT_SECRET = process.env.JWT_SECRET;
 function initializeSocket(io) {
     const onlineUsers = new Map();
     const gameState = {
-        waitingPlayers: {
-            '1v1': [],
-            '2v2': []
-        },
+        waitingPlayers: { '1v1': [], '2v2': [] },
         gameRooms: new Map()
     };
 
     io.use(async (socket, next) => {
-        const token = socket.handshake.auth.token;
-        if (!token) return next(new Error('Authentication error'));
         try {
+            const token = socket.handshake.auth.token;
+            if (!token) return next(new Error('Authentication error'));
             const decoded = jwt.verify(token, JWT_SECRET);
             const user = await prisma.user.findUnique({
                 where: { id: decoded.userId },
@@ -44,43 +41,43 @@ function initializeSocket(io) {
         }
         onlineUsers.set(socket.user.id, { id: socket.user.id, socketId: socket.id, email: socket.user.email, name: socket.user.name });
         io.emit('update user list', Array.from(onlineUsers.values()));
-
-        socket.on('requestUserList', () => {
-            socket.emit('update user list', Array.from(onlineUsers.values()));
+        
+        // --- WEBSOCKET MIDDLEWARE: Aktif hayaletleri anında yakalar ---
+        socket.use(async ([event, ...args], next) => {
+            if (event === 'disconnecting') {
+                return next();
+            }
+            try {
+                const user = await prisma.user.findUnique({ where: { id: socket.user.id } });
+                if (!user) {
+                    console.log(`Ghost session event blocked for user ${socket.user.email}. Event: ${event}`);
+                    socket.emit('force_logout', 'Your session has expired.');
+                    socket.disconnect(true);
+                    return; 
+                }
+                next();
+            } catch (error) {
+                console.error("Middleware DB check error:", error);
+                next(new Error('An error occurred during session validation.'));
+            }
         });
 
-        chatHandler(io, socket, onlineUsers);
-        tournamentHandler.handlePlayerReady(socket, io, onlineUsers, gameState.gameRooms);
-        tournamentHandler.handleRequestCurrentMatch(socket);
-        socket.on('joinMatchmaking', (payload) => handleJoinMatchmaking(io, socket, gameState, payload));
-        socket.on('join_tournament_lobby', ({ tournamentId }) => { if (tournamentId) socket.join(tournamentId); });
-        socket.on('leave_tournament_lobby', ({ tournamentId }) => { if (tournamentId) socket.leave(tournamentId); });
-
         const cleanUpPlayer = async (sock) => {
-            if (!sock.gameRoom) {
-                return;
-            }
+            if (!sock.gameRoom) { return; }
             const gameRoom = sock.gameRoom;
             sock.gameRoom = null;
-
             const game = gameState.gameRooms.get(gameRoom.id);
             if (game) {
                 clearInterval(game.intervalId);
                 const leavingPlayer = game.players.find(p => p.socketId === sock.id);
-                
                 if (leavingPlayer) {
                     const losers = [leavingPlayer];
                     const winners = game.players.filter(p => p.id !== leavingPlayer.id);
-
                     winners.forEach(p => {
                         const winnerSocket = io.sockets.sockets.get(p.socketId);
-                        if (winnerSocket) {
-                            winnerSocket.emit('gameOver', { winners, losers, reason: 'forfeit' });
-                        }
+                        if (winnerSocket) { winnerSocket.emit('gameOver', { winners, losers, reason: 'forfeit' }); }
                     });
-
                     if (game.onMatchEnd) {
-                        console.log(`[Tournament] ${leavingPlayer.name} hükmen kaybetti. Turnuva devam ediyor.`);
                         await updatePlayerStats(winners.map(p => p.id), 'win');
                         await updatePlayerStats(losers.map(p => p.id), 'loss');
                         const winningTeam = winners.length > 0 ? winners[0].team : (leavingPlayer.team === 1 ? 2 : 1);
@@ -93,43 +90,49 @@ function initializeSocket(io) {
                         await saveMatch(game, winningTeam, true);
                     }
                 }
-                
                 gameState.gameRooms.delete(gameRoom.id);
             }
         };
 
+        // --- HEARTBEAT KONTROLÜ: Boşta bekleyen hayaletleri temizler ---
+        socket.on('validate_session', async () => {
+             try {
+                const user = await prisma.user.findUnique({ where: { id: socket.user.id } });
+                if (!user) {
+                    socket.emit('force_logout', 'Session is no longer valid in the database.');
+                    socket.disconnect(true);
+                }
+            } catch (error) {
+                console.error("Session validation error:", error);
+            }
+        });
+
+        // Diğer tüm listener'lar
+        socket.on('requestUserList', () => { socket.emit('update user list', Array.from(onlineUsers.values())); });
+        chatHandler(io, socket, onlineUsers);
+        tournamentHandler.handlePlayerReady(socket, io, onlineUsers, gameState.gameRooms);
+        tournamentHandler.handleRequestCurrentMatch(socket);
+        socket.on('joinMatchmaking', (payload) => handleJoinMatchmaking(io, socket, gameState, payload));
+        socket.on('join_tournament_lobby', ({ tournamentId }) => { if (tournamentId) socket.join(tournamentId); });
+        socket.on('leave_tournament_lobby', ({ tournamentId }) => { if (tournamentId) socket.leave(tournamentId); });
+
         socket.on('leave_tournament', async ({ tournamentId }) => {
             const userId = socket.user.id;
-            console.log(`[Tournament ${tournamentId}] Oyuncu ${socket.user.name} turnuvadan ayrılıyor.`);
-
             const matchInfo = tournamentHandler.nextMatchReadyStatus[tournamentId];
             let countdownCancelled = false;
             if (matchInfo && matchInfo.intervalId && matchInfo.players.includes(userId)) {
-                console.log(`[Tournament ${tournamentId}] Geri sayım sırasında ayrılma tespit edildi. Maç başlangıcı iptal ediliyor.`);
                 clearInterval(matchInfo.intervalId);
                 delete tournamentHandler.nextMatchReadyStatus[tournamentId];
                 countdownCancelled = true;
             }
-
-            await prisma.tournamentPlayer.updateMany({
-                where: { tournamentId: tournamentId, userId: userId },
-                data: { isEliminated: true }
-            });
-
+            await prisma.tournamentPlayer.updateMany({ where: { tournamentId: tournamentId, userId: userId }, data: { isEliminated: true } });
             if (socket.gameRoom) {
                 await cleanUpPlayer(socket);
             } 
             else if (countdownCancelled) {
-                console.log(`[Tournament ${tournamentId}] İptal edilen maç sonrası yeni tur başlatılıyor.`);
-                setTimeout(() => {
-                    tournamentHandler.startNextMatch(tournamentId, io);
-                }, 1000);
+                setTimeout(() => { tournamentHandler.startNextMatch(tournamentId, io); }, 1000);
             }
-
-            const updatedPlayers = await prisma.tournamentPlayer.findMany({
-                where: { tournamentId: tournamentId },
-                include: { user: { select: { id: true, name: true, avatarUrl: true } } }
-            });
+            const updatedPlayers = await prisma.tournamentPlayer.findMany({ where: { tournamentId: tournamentId }, include: { user: { select: { id: true, name: true, avatarUrl: true } } } });
             io.to(tournamentId).emit('tournament_update', { players: updatedPlayers });
         });
         
@@ -143,7 +146,6 @@ function initializeSocket(io) {
         });
 
         socket.on('leaveGameOrLobby', () => { cleanUpPlayer(socket); });
-
         socket.on('client_ready_for_game', () => {
              if (socket.gameRoom) {
                 const game = gameState.gameRooms.get(socket.gameRoom.id);
@@ -160,7 +162,6 @@ function initializeSocket(io) {
                 }
             }
         });
-
         socket.on('playerMove', (data) => {
             if (!socket.gameRoom) return;
             const game = gameState.gameRooms.get(socket.gameRoom.id);
