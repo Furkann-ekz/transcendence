@@ -3,7 +3,24 @@ import { io, Socket } from "socket.io-client";
 
 let socket: Socket | null = null;
 
-// frontend/src/socket.ts -> connectSocket fonksiyonu
+// disconnectSocket fonksiyonu burada tanımlanıyor ve export ediliyor.
+// Diğer dosyaların (örneğin router) bu fonksiyona erişebilmesi için export ediyoruz.
+export function disconnectSocket() {
+    if (socket) {
+        socket.disconnect();
+        socket = null;
+    }
+}
+
+// Oturumu sonlandırmak ve kullanıcıyı çıkışa zorlamak için kullanılan dahili fonksiyon
+function forceLogout() {
+    console.warn("Forcing logout due to invalid session or authentication error.");
+    localStorage.removeItem('token');
+    // Yukarıda tanımlanan disconnectSocket fonksiyonunu çağırıyoruz.
+    disconnectSocket(); 
+    // Sayfanın tamamen yenilenerek giriş ekranına gitmesini sağla.
+    window.location.href = '/'; 
+}
 
 export function connectSocket(token: string): Promise<Socket> {
     return new Promise((resolve, reject) => {
@@ -11,50 +28,39 @@ export function connectSocket(token: string): Promise<Socket> {
             return resolve(socket);
         }
 
-        const newSocket = io({ // URL belirtmiyoruz, mevcut adresi kullanacak
-            path: '/api/socket.io', // Backend'de belirttiğimiz yolla eşleştiriyoruz
+        const newSocket = io({
+            path: '/api/socket.io',
             auth: { token }
         });
 
         newSocket.on('connect', () => {
-            console.log('Socket sunucuya başarıyla bağlandı! ID:', newSocket.id);
+            console.log('Socket server connected successfully! ID:', newSocket.id);
             socket = newSocket;
             resolve(newSocket);
         });
 
-        // --- YENİ EKLENECEK DİNLEYİCİ ---
         newSocket.on('forceDisconnect', (reason) => {
-            console.log(`Sunucu tarafından bağlantı sonlandırıldı: ${reason}`);
-            alert('Başka bir konumdan giriş yapıldığı için bu oturum sonlandırıldı.');
-            
-            // Yerel durumu temizle
-            localStorage.removeItem('token');
-            // 'disconnectSocket' fonksiyonu socket'i null yapar ve bağlantıyı kapatır.
-            disconnectSocket(); 
-            // Kullanıcıyı login sayfasına yönlendir. Sayfa yenilemesi en garanti yöntemdir.
-            window.location.href = '/'; 
+            console.log(`Server forced disconnect: ${reason}`);
+            alert('Another session was started from a different location. This session will be terminated.');
+            forceLogout();
         });
-        // --- YENİ BLOĞUN SONU ---
 
         newSocket.on('disconnect', () => {
-            console.log('Socket bağlantısı kesildi. Yeniden bağlanmaya çalışılıyor...');
+            console.log('Socket connection lost. Attempting to reconnect...');
         });
 
         newSocket.on('connect_error', (err) => {
-            console.error('Socket bağlantı hatası:', err.message);
+            console.error('Socket connection error:', err.message);
+            
+            if (err.message === 'User not found' || err.message === 'Invalid token') {
+                forceLogout();
+            }
+
             reject(err);
         });
     });
 }
 
-// getSocket ve disconnectSocket fonksiyonları aynı kalabilir.
 export function getSocket(): Socket | null {
     return socket;
-}
-
-export function disconnectSocket() {
-    if (socket) {
-        socket.disconnect();
-        socket = null;
-    }
 }

@@ -2,6 +2,7 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const prisma = require('../prisma/db');
+const authenticate = require('../middleware/authenticate');
 const SALT_ROUNDS = 10;
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -34,6 +35,13 @@ async function authRoutes(fastify, options) {
             fastify.log.error(error);
             return reply.code(500).send({ error: 'Internal Server Error' });
         }
+    });
+
+    fastify.get('/auth/validate', { preHandler: [authenticate] }, async (request, reply) => {
+        // 'authenticate' ara katmanı (middleware) bizim için tüm işi yapıyor.
+        // Token'ı doğrulayıp kullanıcıyı veritabanında buluyor.
+        // Kod buraya kadar gelebildiyse, oturum geçerlidir.
+        return reply.code(200).send({ message: 'Session is valid' });
     });
 }
 module.exports = authRoutes;

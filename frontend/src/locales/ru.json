@@ -106,5 +106,6 @@
   "waiting_for_opponent_button": "Ожидание соперника...",
   "countdown_go": "ВПЕРЕД!",
   "tournament_winner_is": "Победитель: {name}!",
-  "return_to_lobby_button": "Вернуться в лобби"
+  "return_to_lobby_button": "Вернуться в лобби",
+  "cancel_button": "Отмена"
 }

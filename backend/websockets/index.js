@@ -9,12 +9,14 @@ const JWT_SECRET = process.env.JWT_SECRET;
 function initializeSocket(io) {
     const onlineUsers = new Map();
     const gameState = {
-        waitingPlayers: { '1v1': [], '2v2': [] },
+        waitingPlayers: {
+            '1v1': [],
+            '2v2': []
+        },
         gameRooms: new Map()
     };
 
     io.use(async (socket, next) => {
-        // ... io.use kısmı aynı ...
         const token = socket.handshake.auth.token;
         if (!token) return next(new Error('Authentication error'));
         try {
@@ -32,7 +34,6 @@ function initializeSocket(io) {
     });
 
     io.on('connection', (socket) => {
-        // ... bağlantı başlangıcı ve diğer listenerlar aynı ...
         if (onlineUsers.has(socket.user.id)) {
             const oldSocketId = onlineUsers.get(socket.user.id).socketId;
             const oldSocket = io.sockets.sockets.get(oldSocketId);
@@ -43,9 +44,11 @@ function initializeSocket(io) {
         }
         onlineUsers.set(socket.user.id, { id: socket.user.id, socketId: socket.id, email: socket.user.email, name: socket.user.name });
         io.emit('update user list', Array.from(onlineUsers.values()));
+
         socket.on('requestUserList', () => {
             socket.emit('update user list', Array.from(onlineUsers.values()));
         });
+
         chatHandler(io, socket, onlineUsers);
         tournamentHandler.handlePlayerReady(socket, io, onlineUsers, gameState.gameRooms);
         tournamentHandler.handleRequestCurrentMatch(socket);
@@ -53,18 +56,12 @@ function initializeSocket(io) {
         socket.on('join_tournament_lobby', ({ tournamentId }) => { if (tournamentId) socket.join(tournamentId); });
         socket.on('leave_tournament_lobby', ({ tournamentId }) => { if (tournamentId) socket.leave(tournamentId); });
 
-
-        // --- DEĞİŞTİRİLEN BÖLÜM: cleanUpPlayer & leave_tournament ---
-
         const cleanUpPlayer = async (sock) => {
-            // Adım 1: Oyuncunun bir oyun odasında olup olmadığını kontrol et. Değilse, hiçbir şey yapma.
             if (!sock.gameRoom) {
                 return;
             }
-
-            // Adım 2: Yarış durumunu önlemek için oda bilgisini hemen al ve sıfırla.
-            const gameRoom = sock.gameRoom; // Bilgiyi yerel bir değişkene kopyala.
-            sock.gameRoom = null;           // Socket üzerindeki bilgiyi hemen null yap.
+            const gameRoom = sock.gameRoom;
+            sock.gameRoom = null;
 
             const game = gameState.gameRooms.get(gameRoom.id);
             if (game) {
@@ -105,28 +102,35 @@ function initializeSocket(io) {
             const userId = socket.user.id;
             console.log(`[Tournament ${tournamentId}] Oyuncu ${socket.user.name} turnuvadan ayrılıyor.`);
 
-            if (socket.gameRoom) {
-                const game = gameState.gameRooms.get(socket.gameRoom.id);
-                if (game && game.onMatchEnd) {
-                    console.log(`[Tournament] Aktif maçtan ayrılma tespit edildi. Hükmen mağlubiyet işleniyor.`);
-                    await cleanUpPlayer(socket);
-                    return;
-                }
+            const matchInfo = tournamentHandler.nextMatchReadyStatus[tournamentId];
+            let countdownCancelled = false;
+            if (matchInfo && matchInfo.intervalId && matchInfo.players.includes(userId)) {
+                console.log(`[Tournament ${tournamentId}] Geri sayım sırasında ayrılma tespit edildi. Maç başlangıcı iptal ediliyor.`);
+                clearInterval(matchInfo.intervalId);
+                delete tournamentHandler.nextMatchReadyStatus[tournamentId];
+                countdownCancelled = true;
             }
 
-            try {
-                await prisma.tournamentPlayer.updateMany({
-                    where: { tournamentId: tournamentId, userId: userId },
-                    data: { isEliminated: true }
-                });
-                const updatedPlayers = await prisma.tournamentPlayer.findMany({
-                    where: { tournamentId: tournamentId },
-                    include: { user: { select: { id: true, name: true, avatarUrl: true } } }
-                });
-                io.to(tournamentId).emit('tournament_update', { players: updatedPlayers });
-            } catch (error) {
-                console.error(`[Tournament ${tournamentId}] İzleyici ayrılırken hata oluştu:`, error);
+            await prisma.tournamentPlayer.updateMany({
+                where: { tournamentId: tournamentId, userId: userId },
+                data: { isEliminated: true }
+            });
+
+            if (socket.gameRoom) {
+                await cleanUpPlayer(socket);
+            } 
+            else if (countdownCancelled) {
+                console.log(`[Tournament ${tournamentId}] İptal edilen maç sonrası yeni tur başlatılıyor.`);
+                setTimeout(() => {
+                    tournamentHandler.startNextMatch(tournamentId, io);
+                }, 1000);
             }
+
+            const updatedPlayers = await prisma.tournamentPlayer.findMany({
+                where: { tournamentId: tournamentId },
+                include: { user: { select: { id: true, name: true, avatarUrl: true } } }
+            });
+            io.to(tournamentId).emit('tournament_update', { players: updatedPlayers });
         });
         
         socket.on('disconnect', () => {
@@ -138,8 +142,8 @@ function initializeSocket(io) {
             cleanUpPlayer(socket);
         });
 
-        // ... dosyanın geri kalanı aynı ...
         socket.on('leaveGameOrLobby', () => { cleanUpPlayer(socket); });
+
         socket.on('client_ready_for_game', () => {
              if (socket.gameRoom) {
                 const game = gameState.gameRooms.get(socket.gameRoom.id);
@@ -156,6 +160,7 @@ function initializeSocket(io) {
                 }
             }
         });
+
         socket.on('playerMove', (data) => {
             if (!socket.gameRoom) return;
             const game = gameState.gameRooms.get(socket.gameRoom.id);

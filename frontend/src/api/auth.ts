@@ -34,3 +34,18 @@ export async function registerUser(email: string, password: string, name: string
 
   return response.json();
 }
+
+export async function validateSessionOnServer(): Promise<boolean> {
+    const token = localStorage.getItem('token');
+    if (!token) return false;
+
+    try {
+        const response = await fetch(`${API_URL}/auth/validate`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+        });
+        return response.ok; // 200 OK dönerse true, 401 Unauthorized gibi durumlarda false döner.
+    } catch (error) {
+        console.error("Session validation request failed:", error);
+        return false;
+    }
+}
