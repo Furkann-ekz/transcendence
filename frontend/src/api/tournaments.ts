@@ -92,3 +92,16 @@ export async function startTournament(tournamentId: string) {
     return response.json();
 }
 
+export async function getMyActiveTournament() {
+    const response = await fetch(`${API_URL}/my-active-tournament`, {
+        headers: getAuthHeaders()
+    });
+    if (!response.ok) {
+        throw new Error('Could not check for active tournament.');
+    }
+    // Eğer cevap boşsa (204 No Content), null döndür
+    if (response.status === 204) {
+        return null;
+    }
+    return response.json();
+}

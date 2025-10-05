@@ -97,5 +97,16 @@
   "leave_button": "Ayrıl",
   "return_to_tournament": "Turnuvaya Dön",
   "join_tournament": "Turnuvaya Katıl",
-  "leave_tournament_lobby": "Turnuvadan Ayrıl"
+  "leave_tournament_lobby": "Turnuvadan Ayrıl",
+  "tournament_flow_title": "🏆 Turnuva Devam Ediyor 🏆",
+  "players_title": "Oyuncular",
+  "match_status_title": "Maç Durumu",
+  "waiting_for_next_match": "Sıradaki maçın anons edilmesi bekleniyor...",
+  "next_match": "Sıradaki Maç:",
+  "waiting_for_players_ready": "Oyuncuların hazır olması bekleniyor...",
+  "im_ready_button": "Hazırım!",
+  "waiting_for_opponent_button": "Rakip bekleniyor...",
+  "countdown_go": "BAŞLA!",
+  "tournament_winner_is": "Kazanan: {name}!",
+  "return_to_lobby_button": "Lobiye Dön"
 }

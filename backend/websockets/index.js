@@ -48,6 +48,7 @@ function initializeSocket(io) {
         });
         chatHandler(io, socket, onlineUsers);
         tournamentHandler.handlePlayerReady(socket, io, onlineUsers, gameState.gameRooms);
+        tournamentHandler.handleRequestCurrentMatch(socket);
         socket.on('joinMatchmaking', (payload) => handleJoinMatchmaking(io, socket, gameState, payload));
         socket.on('join_tournament_lobby', ({ tournamentId }) => { if (tournamentId) socket.join(tournamentId); });
         socket.on('leave_tournament_lobby', ({ tournamentId }) => { if (tournamentId) socket.leave(tournamentId); });

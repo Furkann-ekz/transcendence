@@ -96,6 +96,23 @@ async function tournamentRoutes(fastify, { io }) {
         const userId = request.user.userId;
 
         try {
+            // --- YENİ EKLENEN KONTROL ---
+            // Oyuncunun zaten başka bir aktif turnuvada olup olmadığını kontrol et
+            const existingParticipation = await prisma.tournamentPlayer.findFirst({
+                where: {
+                    userId: userId,
+                    tournament: {
+                        status: { in: ['LOBBY', 'IN_PROGRESS'] }
+                    }
+                }
+            });
+
+            if (existingParticipation) {
+                return reply.code(409).send({ error: 'You are already in another active tournament or lobby.' });
+            }
+            // --- KONTROL SONU ---
+
+
             const tournament = await prisma.tournament.findUnique({
                 where: { id: tournamentId },
                 include: { players: true }
@@ -111,6 +128,8 @@ async function tournamentRoutes(fastify, { io }) {
                 return reply.code(403).send({ error: 'Tournament is full.' });
             }
             if (tournament.players.some(p => p.userId === userId)) {
+                // Bu kontrol aslında yukarıdaki `existingParticipation` ile gereksiz hale geldi,
+                // ama bir güvenlik katmanı olarak kalmasında sakınca yok.
                 return reply.code(409).send({ error: 'You have already joined this tournament.' });
             }
 
@@ -132,6 +151,35 @@ async function tournamentRoutes(fastify, { io }) {
         } catch (error) {
             fastify.log.error(error);
             return reply.code(500).send({ error: 'Could not join tournament.' });
+        }
+    });
+
+    fastify.get('/tournaments/my-active-tournament', { preHandler: [authenticate] }, async (request, reply) => {
+        try {
+            const activePlayerInTournament = await prisma.tournamentPlayer.findFirst({
+                where: {
+                    userId: request.user.userId,
+                    tournament: {
+                        status: 'IN_PROGRESS'
+                    }
+                },
+                select: {
+                    tournament: {
+                        select: { id: true }
+                    }
+                }
+            });
+
+            if (activePlayerInTournament) {
+                return activePlayerInTournament.tournament;
+            }
+
+            // Aktif turnuva yoksa boş cevap gönder
+            return reply.code(204).send();
+
+        } catch (error) {
+            fastify.log.error('Error fetching active tournament:', error);
+            return reply.code(500).send({ error: 'Could not check for active tournament.' });
         }
     });
 

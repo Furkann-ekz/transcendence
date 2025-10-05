@@ -11,11 +11,10 @@ interface TournamentPlayer {
     isEliminated: boolean;
 }
 
-// render() fonksiyonu aynı kalıyor, değişiklik yok
 export function render(): string {
   return `
     <div class="min-h-screen bg-gray-900 text-white p-8">
-        <h1 class="text-4xl font-bold mb-4 text-center">🏆 Tournament In Progress 🏆</h1>
+        <h1 class="text-4xl font-bold mb-4 text-center">${t('tournament_flow_title')}</h1>
         
         <div class="text-center mb-4">
             <button id="leave-tournament-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded text-sm">
@@ -25,13 +24,13 @@ export function render(): string {
 
         <div class="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
             <div class="md:col-span-1 bg-gray-800 p-6 rounded-lg">
-                <h2 class="text-2xl font-semibold mb-4 border-b border-gray-600 pb-2">${t('players')}</h2>
+                <h2 class="text-2xl font-semibold mb-4 border-b border-gray-600 pb-2">${t('players_title')}</h2>
                 <ul id="tournament-players-list" class="space-y-3"></ul>
             </div>
             <div class="md:col-span-2 bg-gray-800 p-6 rounded-lg">
-                <h2 class="text-2xl font-semibold mb-4 border-b border-gray-600 pb-2">Match Status</h2>
+                <h2 class="text-2xl font-semibold mb-4 border-b border-gray-600 pb-2">${t('match_status_title')}</h2>
                 <div id="match-status-container" class="text-center text-xl flex flex-col items-center justify-center h-full">
-                    <p>Waiting for the next match to be announced...</p>
+                    <p>${t('waiting_for_next_match')}</p>
                 </div>
             </div>
         </div>
@@ -82,9 +81,9 @@ export async function afterRender() {
         `).join('');
     };
 
-    // --- ÖNEMLİ DEĞİŞİKLİK: Kod Sırası Değiştirildi ---
+    // --- DÜZELTİLMİŞ KOD SIRALAMASI ---
 
-    // Adım 1: Tüm WebSocket dinleyicilerini hemen, beklemeden bağla.
+    // Adım 1: Tüm WebSocket dinleyicilerini beklemeden, en başta kur.
     socket.on('tournament_update', (data) => {
         updatePlayerList(data.players);
     });
@@ -94,7 +93,7 @@ export async function afterRender() {
         const amIPlayerInMatch = data.player1.id === myId || data.player2.id === myId;
         
         matchStatusEl.innerHTML = `
-            <p class="mb-4">Next Match:</p>
+            <p class="mb-4">${t('next_match')}</p>
             <div class="flex justify-center items-center space-x-8">
                 <span class="text-2xl font-bold text-blue-400">${data.player1.name}</span>
                 <span class="text-gray-400 text-lg">vs</span>
@@ -102,10 +101,10 @@ export async function afterRender() {
             </div>
             ${amIPlayerInMatch ? `
                 <button id="ready-for-match-btn" class="mt-8 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded">
-                    I'm Ready!
+                    ${t('im_ready_button')}
                 </button>
             ` : `
-                <p class="mt-8 text-gray-400">Waiting for players to get ready...</p>
+                <p class="mt-8 text-gray-400">${t('waiting_for_players_ready')}</p>
             `}
             <div id="countdown-timer" class="text-6xl font-bold mt-4"></div>
         `;
@@ -114,7 +113,7 @@ export async function afterRender() {
             const readyBtn = document.getElementById('ready-for-match-btn') as HTMLButtonElement | null;
             readyBtn?.addEventListener('click', () => {
                 socket.emit('player_ready_for_next_match', { tournamentId });
-                readyBtn.textContent = "Waiting for opponent...";
+                readyBtn.textContent = t('waiting_for_opponent_button');
                 readyBtn.disabled = true;
                 readyBtn.style.backgroundColor = '#4a5568';
             });
@@ -124,7 +123,7 @@ export async function afterRender() {
     socket.on('match_countdown', (data) => {
         const countdownTimerEl = document.getElementById('countdown-timer');
         if (countdownTimerEl) {
-            countdownTimerEl.textContent = data.secondsLeft > 0 ? data.secondsLeft.toString() : "GO!";
+            countdownTimerEl.textContent = data.secondsLeft > 0 ? data.secondsLeft.toString() : t('countdown_go');
         }
     });
     
@@ -136,18 +135,19 @@ export async function afterRender() {
     socket.on('tournament_finished', (data) => {
         if (matchStatusEl) {
             matchStatusEl.innerHTML = `
-                <p class="text-3xl font-bold text-yellow-400">Winner is ${data.winner.name}!</p>
+                <p class="text-3xl font-bold text-yellow-400">${t('tournament_winner_is').replace('{name}', data.winner.name)}</p>
                 <a href="/lobby" data-link class="mt-4 inline-block bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">
-                    Return to Lobby
+                    ${t('return_to_lobby_button')}
                 </a>
             `;
         }
     });
 
-    // Adım 2: Odaya katılma sinyalini gönder.
+    // Adım 2: Odaya katıl ve mevcut durumu sunucudan iste.
     socket.emit('join_tournament_lobby', { tournamentId });
+    socket.emit('request_current_match', { tournamentId });
 
-    // Adım 3: Şimdi, bekleme içeren HTTP isteğini yapabilirsin.
+    // Adım 3: Sayfanın ilk halini doldurmak için HTTP isteğini yap.
     try {
         const initialTournament = await getTournamentDetails(tournamentId);
         updatePlayerList(initialTournament.players);
@@ -155,7 +155,7 @@ export async function afterRender() {
         console.error("Could not fetch initial tournament state:", error);
     }
 
-    // Adım 4: Diğer click event listener'larını bağla.
+    // Adım 4: Tıklama olaylarını dinlemeye başla.
     leaveBtn?.addEventListener('click', async () => {
         try {
             const currentTournament = await getTournamentDetails(tournamentId);
