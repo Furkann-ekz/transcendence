@@ -53,7 +53,6 @@ export function render(): string {
   `;
 }
 
-// afterRender ve cleanup fonksiyonları güncellendi
 export async function afterRender() {
     const socket = getSocket();
     const pathParts = window.location.pathname.split('/');
@@ -73,9 +72,6 @@ export async function afterRender() {
         return;
     }
 
-    // --- YENİ EKLENEN SATIR: Sayfaya girer girmez odaya katılıyoruz ---
-    socket.emit('join_tournament_lobby', { tournamentId });
-
     const updatePlayerList = (players: TournamentPlayer[]) => {
         if (!playersListEl) return;
         playersListEl.innerHTML = players.map(p => `
@@ -86,41 +82,9 @@ export async function afterRender() {
         `).join('');
     };
 
-    leaveBtn?.addEventListener('click', async () => {
-        try {
-            const currentTournament = await getTournamentDetails(tournamentId);
-            const me = currentTournament.players.find((p: any) => p.user.id === myId);
-            if (me && !me.isEliminated) {
-                modal?.classList.remove('hidden');
-                modal?.classList.add('flex');
-            } else {
-                navigateTo('/dashboard');
-            }
-        } catch (error) {
-            console.error("Could not get tournament details before leaving:", error);
-            navigateTo('/dashboard');
-        }
-    });
+    // --- ÖNEMLİ DEĞİŞİKLİK: Kod Sırası Değiştirildi ---
 
-    cancelBtn?.addEventListener('click', () => {
-        modal?.classList.add('hidden');
-        modal?.classList.remove('flex');
-    });
-
-    confirmBtn?.addEventListener('click', () => {
-        socket.emit('leave_tournament', { tournamentId });
-        modal?.classList.add('hidden');
-        modal?.classList.remove('flex');
-        navigateTo('/dashboard');
-    });
-    
-    try {
-        const initialTournament = await getTournamentDetails(tournamentId);
-        updatePlayerList(initialTournament.players);
-    } catch (error) {
-        console.error("Could not fetch initial tournament state:", error);
-    }
-
+    // Adım 1: Tüm WebSocket dinleyicilerini hemen, beklemeden bağla.
     socket.on('tournament_update', (data) => {
         updatePlayerList(data.players);
     });
@@ -164,7 +128,7 @@ export async function afterRender() {
         }
     });
     
-    socket.on('gameStart', () => {
+    socket.on('go_to_match', () => {
         sessionStorage.setItem('activeTournamentId', tournamentId);
         navigateTo('/online-game');
     });
@@ -179,21 +143,58 @@ export async function afterRender() {
             `;
         }
     });
+
+    // Adım 2: Odaya katılma sinyalini gönder.
+    socket.emit('join_tournament_lobby', { tournamentId });
+
+    // Adım 3: Şimdi, bekleme içeren HTTP isteğini yapabilirsin.
+    try {
+        const initialTournament = await getTournamentDetails(tournamentId);
+        updatePlayerList(initialTournament.players);
+    } catch (error) {
+        console.error("Could not fetch initial tournament state:", error);
+    }
+
+    // Adım 4: Diğer click event listener'larını bağla.
+    leaveBtn?.addEventListener('click', async () => {
+        try {
+            const currentTournament = await getTournamentDetails(tournamentId);
+            const me = currentTournament.players.find((p: any) => p.user.id === myId);
+            if (me && !me.isEliminated) {
+                modal?.classList.remove('hidden');
+                modal?.classList.add('flex');
+            } else {
+                navigateTo('/dashboard');
+            }
+        } catch (error) {
+            console.error("Could not get tournament details before leaving:", error);
+            navigateTo('/dashboard');
+        }
+    });
+
+    cancelBtn?.addEventListener('click', () => {
+        modal?.classList.add('hidden');
+        modal?.classList.remove('flex');
+    });
+
+    confirmBtn?.addEventListener('click', () => {
+        socket.emit('leave_tournament', { tournamentId });
+        modal?.classList.add('hidden');
+        modal?.classList.remove('flex');
+        navigateTo('/dashboard');
+    });
 }
 
-// YENİ EKLENEN cleanup FONKSİYONU
 export function cleanup() {
     const socket = getSocket();
     const pathParts = window.location.pathname.split('/');
     const tournamentId = pathParts[2];
     if (socket && tournamentId) {
-        // Sayfadan ayrılırken odadan çıkıyoruz
         socket.emit('leave_tournament_lobby', { tournamentId });
-        // Bu sayfaya özgü listener'ları temizliyoruz
         socket.off('tournament_update');
         socket.off('new_match_starting');
         socket.off('tournament_finished');
         socket.off('match_countdown');
-        socket.off('gameStart');
+        socket.off('go_to_match');
     }
 }

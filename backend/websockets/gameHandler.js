@@ -56,7 +56,17 @@ function startGameLoop(room, players, io, mode, gameConfig, onMatchEnd) {
     const WINNING_SCORE = 5;
     const BALL_RADIUS = 10;
     
-    const game = { players, mode, gameState: {}, intervalId: null, startTime: startTime, ...gameConfig };
+    // --- DEĞİŞİKLİK BURADA ---
+    // onMatchEnd callback'ini game objesine kaydediyoruz.
+    const game = { 
+        players, 
+        mode, 
+        gameState: {}, 
+        intervalId: null, 
+        startTime: startTime, 
+        onMatchEnd: onMatchEnd, // Bu satır eklendi
+        ...gameConfig 
+    };
 
     let gameState = {
         ballX: gameConfig.canvasSize / 2, ballY: gameConfig.canvasSize / 2, ballSpeedX: 6, ballSpeedY: 6,
