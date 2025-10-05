@@ -108,5 +108,10 @@
   "waiting_for_opponent_button": "Rakip bekleniyor...",
   "countdown_go": "BAŞLA!",
   "tournament_winner_is": "Kazanan: {name}!",
-  "return_to_lobby_button": "Lobiye Dön"
+  "return_to_lobby_button": "Lobiye Dön",
+  "add_friend_button": "Добавить в друзья",
+  "cancel_request_button": "Запрос отправлен (Отменить)",
+  "remove_friend_button": "Удалить из друзей",
+  "block_user_button": "Заблокировать",
+  "unblock_user_button": "Разблокировать"
 }

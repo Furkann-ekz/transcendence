@@ -108,5 +108,10 @@
   "waiting_for_opponent_button": "Waiting for opponent...",
   "countdown_go": "GO!",
   "tournament_winner_is": "Winner is {name}!",
-  "return_to_lobby_button": "Return to Lobby"
+  "return_to_lobby_button": "Return to Lobby",
+  "add_friend_button": "Add Friend",
+  "cancel_request_button": "Request Sent (Cancel)",
+  "remove_friend_button": "Remove Friend",
+  "block_user_button": "Block",
+  "unblock_user_button": "Unblock"
 }

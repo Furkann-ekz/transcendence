@@ -6,6 +6,7 @@ import * as DashboardPage from '../pages/DashboardPage';
 import * as LobbyPage from '../pages/LobbyPage';
 import * as LocalGamePage from '../pages/LocalGamePage';
 import * as OnlineGamePage from '../pages/OnlineGamePage';
+import { connectSocket, getSocket } from '../socket';
 import * as OnlineLobbyPage from '../pages/OnlineLobbyPage';
 import * as MatchHistoryPage from '../pages/MatchHistoryPage';
 import * as ProfileEditPage from '../pages/ProfileEditPage';
@@ -13,8 +14,6 @@ import * as ProfilePage from '../pages/ProfilePage';
 import * as TournamentLobbyPage from '../pages/TournamentLobbyPage';
 import * as TournamentListPage from '../pages/TournamentListPage';
 import * as TournamentFlowPage from '../pages/TournamentFlowPage';
-import { connectSocket, getSocket, disconnectSocket } from '../socket';
-import { validateSessionOnServer } from '../api/auth';
 
 interface Route {
   render: () => string;
@@ -38,83 +37,73 @@ const routes: { [key: string]: Route } = {
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
 export async function handleLocation(forceReload = false) {
-    const path = window.location.pathname;
-    const token = localStorage.getItem('token');
+  const path = window.location.pathname;
+  const token = localStorage.getItem('token');
 
-    const logoutAndRedirect = () => {
+  const protectedPaths = ['/dashboard', '/lobby', '/online-lobby', '/local-game', '/online-game', '/profile/edit', '/tournaments'];
+  // DEĞİŞİKLİK: Yeni turnuva akış sayfasının yolunu da korumalı olarak işaretliyoruz.
+  const isProtectedRoute = protectedPaths.includes(path) || path.startsWith('/profile/') || path.startsWith('/tournaments/') || path.startsWith('/tournament/');
+
+  if (isProtectedRoute) {
+    if (!token) {
+      navigateTo('/');
+      return;
+    }
+    if (!getSocket() || !getSocket()?.connected) {
+      try {
+        await connectSocket(token);
+      } catch (error) {
+        console.error("Geçersiz token ile giriş denemesi engellendi, çıkış yapılıyor.");
         localStorage.removeItem('token');
-        disconnectSocket();
         navigateTo('/');
-    };
-
-    const protectedPaths = ['/dashboard', '/lobby', '/online-lobby', '/local-game', '/online-game', '/profile/edit', '/tournaments'];
-    const isProtectedRoute = protectedPaths.includes(path) || path.startsWith('/profile/') || path.startsWith('/tournaments/') || path.startsWith('/tournament/');
-
-    if (isProtectedRoute) {
-        if (!token) {
-            navigateTo('/');
-            return;
-        }
-
-        const isSessionValid = await validateSessionOnServer();
-
-        if (!isSessionValid) {
-            console.warn("Router detected invalid session via API. Logging out.");
-            logoutAndRedirect();
-            return;
-        }
-
-        if (!getSocket()?.connected) {
-            try {
-                await connectSocket(token);
-            } catch (error) {
-                console.error("Socket connection attempt failed after session validation, logging out.");
-                logoutAndRedirect();
-                return;
-            }
-        }
-    } 
-    else if (token) {
-        navigateTo('/dashboard');
         return;
+      }
     }
+  } 
+  else if (token) {
+    navigateTo('/dashboard');
+    return;
+  }
 
-    let routeToRender: Route | null = null;
+  let routeToRender: Route | null = null;
   
-    if (routes[path]) {
-        routeToRender = routes[path];
-    } 
-    else if (path.startsWith('/tournaments/')) {
-        routeToRender = TournamentLobbyPage;
-    }
-    else if (path.startsWith('/tournament/') && path.endsWith('/play')) {
-        routeToRender = TournamentFlowPage;
-    }
-    else if (path.startsWith('/profile/') && path.endsWith('/history')) {
-        routeToRender = MatchHistoryPage;
-    }
-    else if (path.startsWith('/profile/')) {
-        routeToRender = ProfilePage;
-    }
-    else {
-        routeToRender = routes['/'];
-    }
+  // Önce statik rotaları kontrol et
+  if (routes[path]) {
+    routeToRender = routes[path];
+  } 
+  // Sonra dinamik (parametre içeren) rotaları kontrol et
+  else if (path.startsWith('/tournaments/')) {
+    routeToRender = TournamentLobbyPage;
+  }
+  else if (path.startsWith('/tournament/') && path.endsWith('/play')) {
+    routeToRender = TournamentFlowPage;
+  }
+  else if (path.startsWith('/profile/') && path.endsWith('/history')) {
+    routeToRender = MatchHistoryPage;
+  }
+  else if (path.startsWith('/profile/')) {
+    routeToRender = ProfilePage;
+  }
+  // Hiçbiri eşleşmezse ana sayfayı göster
+  else {
+    routeToRender = routes['/'];
+  }
   
-    if (!routeToRender) {
-        app.innerHTML = '<h1>404 Not Found</h1>';
-        return;
-    }
+  if (!routeToRender) {
+    app.innerHTML = '<h1>404 Not Found</h1>';
+    return;
+  }
 
-    if (currentRoute !== routeToRender || forceReload) {
-        if (currentRoute && currentRoute.cleanup) {
-            currentRoute.cleanup();
-        }
-        app.innerHTML = routeToRender.render();
-        if (routeToRender.afterRender) {
-            void routeToRender.afterRender();
-        }
-        currentRoute = routeToRender;
+  if (currentRoute !== routeToRender || forceReload) {
+    if (currentRoute && currentRoute.cleanup) {
+      currentRoute.cleanup();
     }
+    app.innerHTML = routeToRender.render();
+    if (routeToRender.afterRender) {
+      void routeToRender.afterRender();
+    }
+    currentRoute = routeToRender;
+  }
 }
 
 export async function navigateTo(path: string) {

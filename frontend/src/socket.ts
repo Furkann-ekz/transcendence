@@ -2,26 +2,8 @@
 import { io, Socket } from "socket.io-client";
 
 let socket: Socket | null = null;
-let heartbeatInterval: number | null = null; // Heartbeat interval'ını tutmak için
 
-export function disconnectSocket() {
-    // Bağlantı kesildiğinde heartbeat'i de durdur
-    if (heartbeatInterval) {
-        clearInterval(heartbeatInterval);
-        heartbeatInterval = null;
-    }
-    if (socket) {
-        socket.disconnect();
-        socket = null;
-    }
-}
-
-function forceLogout(reason: string = "Session is invalid.") {
-    console.warn(`Forcing logout: ${reason}`);
-    localStorage.removeItem('token');
-    disconnectSocket(); 
-    window.location.href = '/'; 
-}
+// frontend/src/socket.ts -> connectSocket fonksiyonu
 
 export function connectSocket(token: string): Promise<Socket> {
     return new Promise((resolve, reject) => {
@@ -29,56 +11,50 @@ export function connectSocket(token: string): Promise<Socket> {
             return resolve(socket);
         }
 
-        const newSocket = io({
-            path: '/api/socket.io',
+        const newSocket = io({ // URL belirtmiyoruz, mevcut adresi kullanacak
+            path: '/api/socket.io', // Backend'de belirttiğimiz yolla eşleştiriyoruz
             auth: { token }
         });
 
         newSocket.on('connect', () => {
-            console.log('Socket server connected! ID:', newSocket.id);
+            console.log('Socket sunucuya başarıyla bağlandı! ID:', newSocket.id);
             socket = newSocket;
-
-            if (heartbeatInterval) clearInterval(heartbeatInterval);
-            
-            // Her 15 saniyede bir sunucuya oturumun geçerli olup olmadığını sor
-            heartbeatInterval = window.setInterval(() => {
-                if (socket?.connected) {
-                    socket.emit('validate_session');
-                }
-            }, 15000); // 15 saniye
-
             resolve(newSocket);
         });
 
-        // Sunucudan gelen zorunlu çıkış sinyalini dinle
-        newSocket.on('force_logout', (reason) => {
-             forceLogout(reason);
-        });
-
+        // --- YENİ EKLENECEK DİNLEYİCİ ---
         newSocket.on('forceDisconnect', (reason) => {
-            alert('Another session was started from a different location. This session will be terminated.');
-            forceLogout(reason);
+            console.log(`Sunucu tarafından bağlantı sonlandırıldı: ${reason}`);
+            alert('Başka bir konumdan giriş yapıldığı için bu oturum sonlandırıldı.');
+            
+            // Yerel durumu temizle
+            localStorage.removeItem('token');
+            // 'disconnectSocket' fonksiyonu socket'i null yapar ve bağlantıyı kapatır.
+            disconnectSocket(); 
+            // Kullanıcıyı login sayfasına yönlendir. Sayfa yenilemesi en garanti yöntemdir.
+            window.location.href = '/'; 
         });
+        // --- YENİ BLOĞUN SONU ---
 
         newSocket.on('disconnect', () => {
-            console.log('Socket connection lost.');
-            // Bağlantı koptuğunda heartbeat'i durdur
-            if (heartbeatInterval) {
-                clearInterval(heartbeatInterval);
-                heartbeatInterval = null;
-            }
+            console.log('Socket bağlantısı kesildi. Yeniden bağlanmaya çalışılıyor...');
         });
 
         newSocket.on('connect_error', (err) => {
-            console.error('Socket connection error:', err.message);
-            if (err.message === 'User not found' || err.message === 'Invalid token') {
-                forceLogout(err.message);
-            }
+            console.error('Socket bağlantı hatası:', err.message);
             reject(err);
         });
     });
 }
 
+// getSocket ve disconnectSocket fonksiyonları aynı kalabilir.
 export function getSocket(): Socket | null {
     return socket;
+}
+
+export function disconnectSocket() {
+    if (socket) {
+        socket.disconnect();
+        socket = null;
+    }
 }

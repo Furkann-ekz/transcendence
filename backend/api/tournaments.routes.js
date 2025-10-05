@@ -5,7 +5,6 @@ const authenticate = require('../middleware/authenticate');
 const tournamentHandler = require('../websockets/tournamentHandler');
 
 async function tournamentRoutes(fastify, { io }) {
-    
     fastify.get('/tournaments', { preHandler: [authenticate] }, async (request, reply) => {
         try {
             const tournaments = await prisma.tournament.findMany({
@@ -53,56 +52,19 @@ async function tournamentRoutes(fastify, { io }) {
         }
     });
 
-    fastify.get('/tournaments/my-active-tournament', { preHandler: [authenticate] }, async (request, reply) => {
-        try {
-            const activePlayerInTournament = await prisma.tournamentPlayer.findFirst({
-                where: {
-                    userId: request.user.userId,
-                    isEliminated: false, 
-                    tournament: {
-                        status: 'IN_PROGRESS'
-                    }
-                },
-                select: {
-                    tournament: {
-                        select: { id: true }
-                    }
-                }
-            });
-            if (activePlayerInTournament) {
-                return activePlayerInTournament.tournament;
-            }
-            return reply.code(204).send();
-        } catch (error) {
-            fastify.log.error('Error fetching active tournament:', error);
-            return reply.code(500).send({ error: 'Could not check for active tournament.' });
-        }
-    });
-
     fastify.post('/tournaments', { preHandler: [authenticate] }, async (request, reply) => {
         const hostId = request.user.userId;
+        const host = await prisma.user.findUnique({ where: { id: hostId } });
+
+        if (!host) {
+            return reply.code(404).send({ error: 'Host user not found.' });
+        }
+
         try {
-            // DÜZELTME: Oyuncunun aktif ve elenmemiş olduğu başka bir turnuva var mı kontrolü
-            const existingParticipation = await prisma.tournamentPlayer.findFirst({
-                where: {
-                    userId: hostId,
-                    isEliminated: false,
-                    tournament: {
-                        status: { in: ['LOBBY', 'IN_PROGRESS'] }
-                    }
-                }
+            const totalTournamentCount = await prisma.tournament.count({
+                where: { hostId: hostId }
             });
 
-            if (existingParticipation) {
-                return reply.code(409).send({ error: 'You cannot create a new tournament while in an active one.' });
-            }
-
-            const host = await prisma.user.findUnique({ where: { id: hostId } });
-            if (!host) {
-                return reply.code(404).send({ error: 'Host user not found.' });
-            }
-
-            const totalTournamentCount = await prisma.tournament.count({ where: { hostId: hostId } });
             const tournamentNumber = totalTournamentCount + 1;
             const tournamentName = `${host.name}'s Tournament #${tournamentNumber}`;
 
@@ -110,7 +72,12 @@ async function tournamentRoutes(fastify, { io }) {
                 data: {
                     name: tournamentName,
                     hostId: hostId,
-                    players: { create: { userId: hostId, isReady: false } }
+                    players: {
+                        create: {
+                            userId: hostId,
+                            isReady: false,
+                        }
+                    }
                 },
                 include: {
                     players: { include: { user: { select: { id: true, name: true } } } }
@@ -129,11 +96,10 @@ async function tournamentRoutes(fastify, { io }) {
         const userId = request.user.userId;
 
         try {
-            // DÜZELTME: Oyuncunun aktif ve elenmemiş olduğu başka bir turnuva var mı kontrolü
+            // Oyuncunun zaten başka bir aktif turnuvada olup olmadığını kontrol et
             const existingParticipation = await prisma.tournamentPlayer.findFirst({
                 where: {
                     userId: userId,
-                    isEliminated: false,
                     tournament: {
                         status: { in: ['LOBBY', 'IN_PROGRESS'] }
                     }
@@ -149,14 +115,26 @@ async function tournamentRoutes(fastify, { io }) {
                 include: { players: true }
             });
 
-            if (!tournament) { return reply.code(404).send({ error: 'Tournament not found.' }); }
-            if (tournament.status !== 'LOBBY') { return reply.code(403).send({ error: 'Tournament is not open for joining.' }); }
-            if (tournament.players.length >= 8) { return reply.code(403).send({ error: 'Tournament is full.' }); }
+            if (!tournament) {
+                return reply.code(404).send({ error: 'Tournament not found.' });
+            }
+            if (tournament.status !== 'LOBBY') {
+                return reply.code(403).send({ error: 'Tournament is not open for joining.' });
+            }
+            if (tournament.players.length >= 8) {
+                return reply.code(403).send({ error: 'Tournament is full.' });
+            }
             
             const updatedTournament = await prisma.tournament.update({
                 where: { id: tournamentId },
-                data: { players: { create: { userId: userId } } },
-                include: { players: { include: { user: { select: { id: true, name: true } } } } }
+                data: {
+                    players: {
+                        create: { userId: userId }
+                    }
+                },
+                include: {
+                    players: { include: { user: { select: { id: true, name: true } } } }
+                }
             });
             io.to(tournamentId).emit('tournament_lobby_updated');
             io.emit('tournament_list_updated');
@@ -168,17 +146,67 @@ async function tournamentRoutes(fastify, { io }) {
         }
     });
 
+    fastify.get('/tournaments/my-active-tournament', { preHandler: [authenticate] }, async (request, reply) => {
+        try {
+            const activePlayerInTournament = await prisma.tournamentPlayer.findFirst({
+                where: {
+                    userId: request.user.userId,
+                    // --- ÖNEMLİ DEĞİŞİKLİK BURADA ---
+                    // Artık oyuncunun elenmemiş olduğunu da kontrol ediyoruz.
+                    isEliminated: false, 
+                    tournament: {
+                        status: 'IN_PROGRESS'
+                    }
+                },
+                select: {
+                    tournament: {
+                        select: { id: true }
+                    }
+                }
+            });
+
+            if (activePlayerInTournament) {
+                return activePlayerInTournament.tournament;
+            }
+
+            // Aktif ve elenmemiş bir turnuva yoksa boş cevap gönder
+            return reply.code(204).send();
+
+        } catch (error) {
+            fastify.log.error('Error fetching active tournament:', error);
+            return reply.code(500).send({ error: 'Could not check for active tournament.' });
+        }
+    });
+
     fastify.delete('/tournaments/:id/leave', { preHandler: [authenticate] }, async (request, reply) => {
         const tournamentId = request.params.id;
         const userId = request.user.userId;
+
         try {
-            const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
-            if (!tournament) { return reply.code(404).send({ error: 'Tournament not found.' }); }
-            if (tournament.hostId === userId) { return reply.code(403).send({ error: 'Host cannot leave the tournament.' }); }
-            await prisma.tournamentPlayer.deleteMany({ where: { tournamentId: tournamentId, userId: userId } });
+            const tournament = await prisma.tournament.findUnique({
+                where: { id: tournamentId },
+            });
+
+            if (!tournament) {
+                return reply.code(404).send({ error: 'Tournament not found.' });
+            }
+
+            if (tournament.hostId === userId) {
+                return reply.code(403).send({ error: 'Host cannot leave the tournament.' });
+            }
+
+            await prisma.tournamentPlayer.deleteMany({
+                where: {
+                    tournamentId: tournamentId,
+                    userId: userId,
+                }
+            });
+
             io.to(tournamentId).emit('tournament_lobby_updated');
             io.emit('tournament_list_updated');
+
             return reply.send({ success: true, message: 'Successfully left the tournament.' });
+
         } catch (error) {
             fastify.log.error(error);
             return reply.code(500).send({ error: 'Could not leave tournament.' });
@@ -189,13 +217,38 @@ async function tournamentRoutes(fastify, { io }) {
         const tournamentId = request.params.id;
         const userId = request.user.userId;
         const { isReady } = request.body;
-        if (typeof isReady !== 'boolean') { return reply.code(400).send({ error: 'isReady field must be a boolean.' }); }
+
+        if (typeof isReady !== 'boolean') {
+            return reply.code(400).send({ error: 'isReady field must be a boolean.' });
+        }
+
         try {
-            const playerInTournament = await prisma.tournamentPlayer.findUnique({ where: { tournamentId_userId: { tournamentId: tournamentId, userId: userId } } });
-            if (!playerInTournament) { return reply.code(404).send({ error: 'You are not a player in this tournament.' }); }
-            await prisma.tournamentPlayer.update({ where: { id: playerInTournament.id }, data: { isReady: isReady } });
+            const playerInTournament = await prisma.tournamentPlayer.findUnique({
+                where: {
+                    tournamentId_userId: {
+                        tournamentId: tournamentId,
+                        userId: userId
+                    }
+                }
+            });
+
+            if (!playerInTournament) {
+                return reply.code(404).send({ error: 'You are not a player in this tournament.' });
+            }
+            
+            await prisma.tournamentPlayer.update({
+                where: {
+                    id: playerInTournament.id
+                },
+                data: {
+                    isReady: isReady
+                }
+            });
+
             io.to(tournamentId).emit('tournament_lobby_updated');
+            
             return reply.send({ success: true, message: `Ready status set to ${isReady}` });
+
         } catch (error) {
             fastify.log.error(error);
             return reply.code(500).send({ error: 'Could not update ready status.' });
@@ -205,23 +258,49 @@ async function tournamentRoutes(fastify, { io }) {
     fastify.post('/tournaments/:id/start', { preHandler: [authenticate] }, async (request, reply) => {
         const tournamentId = request.params.id;
         const userId = request.user.userId;
+
         try {
-            const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId }, include: { players: true } });
-            if (!tournament) { return reply.code(404).send({ error: 'Tournament not found.' }); }
-            if (tournament.hostId !== userId) { return reply.code(403).send({ error: 'Only the host can start the tournament.' }); }
-            if (tournament.status !== 'LOBBY') { return reply.code(409).send({ error: 'Tournament has already started or is finished.' }); }
+            const tournament = await prisma.tournament.findUnique({
+                where: { id: tournamentId },
+                include: { players: true }
+            });
+
+            if (!tournament) {
+                return reply.code(404).send({ error: 'Tournament not found.' });
+            }
+            if (tournament.hostId !== userId) {
+                return reply.code(403).send({ error: 'Only the host can start the tournament.' });
+            }
+            if (tournament.status !== 'LOBBY') {
+                return reply.code(409).send({ error: 'Tournament has already started or is finished.' });
+            }
             const allPlayersReady = tournament.players.every(p => p.isReady);
-            if (tournament.players.length < 4 || !allPlayersReady) { return reply.code(400).send({ error: 'To start, there must be at least 4 players and all must be ready.' }); }
+            if (tournament.players.length < 4 || !allPlayersReady) {
+                return reply.code(400).send({ error: 'To start, there must be at least 4 players and all must be ready.' });
+            }
+
             const updatedTournament = await prisma.tournament.update({
                 where: { id: tournamentId },
                 data: { status: 'IN_PROGRESS' },
-                include: { players: { include: { user: { select: { id: true, name: true, avatarUrl: true } } } } }
+                include: {
+                    players: {
+                        include: {
+                            user: { select: { id: true, name: true, avatarUrl: true } }
+                        }
+                    }
+                }
             });
+            
             io.to(tournamentId).emit('tournament_started', { tournament: updatedTournament });
+            
+            // --- DEĞİŞİKLİK BURADA ---
+            // Oyuncuların yeni sayfaya geçip odaya abone olmaları için 1 saniye bekle.
             setTimeout(() => {
                 tournamentHandler.startNextMatch(tournamentId, io);
-            }, 1000);
+            }, 2000); // 2 saniyelik gecikme
+            
             return reply.send({ success: true, message: 'Tournament started!' });
+
         } catch (error) {
             fastify.log.error(error);
             return reply.code(500).send({ error: 'Could not start the tournament.' });
