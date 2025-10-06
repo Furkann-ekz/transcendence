@@ -55,19 +55,37 @@ function renderGame() {
     if (!context || !gameState.players || !gameConfig?.canvasSize) return;
     const { players, ballX, ballY, team1Score, team2Score } = gameState;
     const { canvasSize, paddleSize, paddleThickness } = gameConfig;
+
+    // Arka planı çiz
     context.fillStyle = 'black';
     context.fillRect(0, 0, canvasSize, canvasSize);
+
+    // Skorları çiz
     context.fillStyle = 'white';
     context.font = "75px fantasy";
     context.textAlign = 'center';
     context.fillText(String(team1Score ?? 0), canvasSize / 4, canvasSize / 5);
     context.fillText(String(team2Score ?? 0), (canvasSize * 3) / 4, canvasSize / 5);
+
+    // --- YENİ BÖLÜM: Oyuncu İsimlerini Çizme ---
+    context.font = "16px Arial";
+    const team1Players = players.filter(p => p.team === 1).map(p => p.name).join(' & ');
+    const team2Players = players.filter(p => p.team === 2).map(p => p.name).join(' & ');
+
+    context.fillStyle = '#60a5fa'; // Takım 1 rengi (mavi)
+    context.textAlign = 'left';
+    context.fillText(team1Players, 20, 30);
+
+    context.fillStyle = '#f87171'; // Takım 2 rengi (kırmızı)
+    context.textAlign = 'right';
+    context.fillText(team2Players, canvasSize - 20, 30);
+    // --- YENİ BÖLÜM SONU ---
+
+    // Raketleri çiz
     players.forEach((player: Player) => {
         if (player.id === myUserId) {
-            // Eğer çizilen oyuncu 'ben' isem, oluşturduğumuz deseni kullan
             context.fillStyle = myPaddlePattern;
         } else {
-            // Değilse, normal takım rengini kullan
             context.fillStyle = player.team === 1 ? '#60a5fa' : '#f87171';
         }
 
@@ -77,6 +95,8 @@ function renderGame() {
             context.fillRect(player.x, player.y, paddleSize, paddleThickness);
         }
     });
+
+    // Topu çiz
     if (ballX !== undefined && ballY !== undefined) {
       context.fillStyle = 'white';
       context.beginPath();
