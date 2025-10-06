@@ -116,5 +116,12 @@
   "unblock_user_button": "Unblock",
   "error_already_in_tournament": "You are already in another active tournament or lobby.",
   "confirm_leave_tournament_lobby": "Are you sure you want to leave the tournament?",
-  "return_to_active_tournament": "Return to Your Active Tournament"
+  "return_to_active_tournament": "Return to Your Active Tournament",
+  "friends_list_title": "My Friends",
+  "no_friends_message": "You have no friends yet.",
+  "my_profile_button": "My Profile",
+  "game_invitation_text": "is inviting you to a Pong match. Do you accept?",
+  "invitation_declined_text": "declined your game invitation.",
+  "invite_button": "Invite",
+  "invitation_sent": "Game invitation sent!"
 }

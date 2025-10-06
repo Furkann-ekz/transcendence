@@ -1,9 +1,9 @@
 // frontend/src/socket.ts
 import { io, Socket } from "socket.io-client";
+import { t } from './i18n'; // Gerekli fonksiyonları en başta import ediyoruz
+import { navigateTo } from './router'; // Gerekli fonksiyonları en başta import ediyoruz
 
 let socket: Socket | null = null;
-
-// frontend/src/socket.ts -> connectSocket fonksiyonu
 
 export function connectSocket(token: string): Promise<Socket> {
     return new Promise((resolve, reject) => {
@@ -11,8 +11,8 @@ export function connectSocket(token: string): Promise<Socket> {
             return resolve(socket);
         }
 
-        const newSocket = io({ // URL belirtmiyoruz, mevcut adresi kullanacak
-            path: '/api/socket.io', // Backend'de belirttiğimiz yolla eşleştiriyoruz
+        const newSocket = io({
+            path: '/api/socket.io',
             auth: { token }
         });
 
@@ -22,22 +22,35 @@ export function connectSocket(token: string): Promise<Socket> {
             resolve(newSocket);
         });
 
-        // --- YENİ EKLENECEK DİNLEYİCİ ---
+        newSocket.on('game_invitation', ({ inviter }) => {
+            if (confirm(`${inviter.name} ${t('game_invitation_text')}`)) {
+                newSocket.emit('invitation_response', { inviterId: inviter.id, accepted: true });
+            } else {
+                newSocket.emit('invitation_response', { inviterId: inviter.id, accepted: false });
+            }
+        });
+
+        newSocket.on('go_to_invited_game', () => {
+            // 'require' yerine doğrudan import ettiğimiz fonksiyonu kullanıyoruz
+            navigateTo('/online-game');
+        });
+
+        newSocket.on('invitation_declined', ({ recipient }) => {
+            // 'require' yerine doğrudan import ettiğimiz fonksiyonu kullanıyoruz
+            alert(`${recipient.name} ${t('invitation_declined_text')}`);
+        });
+
         newSocket.on('forceDisconnect', (reason) => {
             console.log(`Sunucu tarafından bağlantı sonlandırıldı: ${reason}`);
             alert('Başka bir konumdan giriş yapıldığı için bu oturum sonlandırıldı.');
             
-            // Yerel durumu temizle
             localStorage.removeItem('token');
-            // 'disconnectSocket' fonksiyonu socket'i null yapar ve bağlantıyı kapatır.
             disconnectSocket(); 
-            // Kullanıcıyı login sayfasına yönlendir. Sayfa yenilemesi en garanti yöntemdir.
             window.location.href = '/'; 
         });
-        // --- YENİ BLOĞUN SONU ---
 
         newSocket.on('disconnect', () => {
-            console.log('Socket bağlantısı kesildi. Yeniden bağlanmaya çalışılıyor...');
+            console.log('Socket bağlantısı kesildi.');
         });
 
         newSocket.on('connect_error', (err) => {
@@ -47,7 +60,6 @@ export function connectSocket(token: string): Promise<Socket> {
     });
 }
 
-// getSocket ve disconnectSocket fonksiyonları aynı kalabilir.
 export function getSocket(): Socket | null {
     return socket;
 }

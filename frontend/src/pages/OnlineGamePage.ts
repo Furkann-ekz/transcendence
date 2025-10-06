@@ -286,11 +286,10 @@ export function cleanup() {
     if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
     }
+    // clearMessages(); // EĞER BURADA BÖYLE BİR SATIR VARSA, SİL VEYA YORUMA AL!
     animationFrameId = 0;
     myPlayer = null;
     gameConfig = null;
     gameState = {};
-    
-    // Veri sızıntısını önlemek için kritik temizlik
     sessionStorage.removeItem('activeTournamentId');
 }

@@ -24,11 +24,18 @@ async function startNextMatch(tournamentId, io) {
     if (activePlayers.length <= 1) {
         const winner = activePlayers.length > 0 ? activePlayers[0] : null;
         console.log(`[Tournament ${tournamentId}] Turnuva bitti. Kazanan: ${winner?.name}`);
-        await prisma.tournament.update({
+        
+        // --- GÜNCELLEME BAŞLANGICI ---
+        // Veritabanında turnuvanın durumunu 'FINISHED' olarak GÜNCELLE
+        const finishedTournament = await prisma.tournament.update({
             where: { id: tournamentId },
             data: { status: 'FINISHED', winnerId: winner?.id }
         });
+        
+        // Bu olayı TÜM turnuva odasına (lobby) gönder.
         io.to(tournamentId).emit('tournament_finished', { winner });
+        // --- GÜNCELLEME SONU ---
+        
         delete nextMatchReadyStatus[tournamentId];
         return;
     }
@@ -87,6 +94,21 @@ function handlePlayerReady(socket, io, onlineUsers, gameRooms) {
                 countdown--;
                 if (countdown < 0) {
                     clearInterval(countdownInterval);
+                    const playersStatus = await prisma.tournamentPlayer.findMany({
+                        where: {
+                            tournamentId: tournamentId,
+                            userId: { in: matchInfo.players }
+                        }
+                    });
+
+                    const allPlayersStillActive = playersStatus.length === 2 && playersStatus.every(p => !p.isEliminated);
+
+                    if (!allPlayersStillActive) {
+                        console.log(`[Tournament ${tournamentId}] Maç, oyunculardan biri ayrıldığı için başlatılamadı.`);
+                        // Bir oyuncu ayrıldığı için turu yeniden başlat, elenen oyuncu otomatik olarak dahil edilmeyecek.
+                        startNextMatch(tournamentId, io);
+                        return; // Maç başlatma işlemini burada durdur.
+                    }
                     player1Socket.emit('go_to_match');
                     player2Socket.emit('go_to_match');
                     const gameConfig = { canvasSize: 800, paddleSize: 100, paddleThickness: 15, tournamentId: tournamentId };

@@ -115,5 +115,12 @@
   "unblock_user_button": "Разблокировать",
   "error_already_in_tournament": "Вы уже находитесь в другом активном турнире или лобби.",
   "confirm_leave_tournament_lobby": "Вы уверены, что хотите покинуть турнир?",
-  "return_to_active_tournament": "Вернуться в активный турнир"
+  "return_to_active_tournament": "Вернуться в активный турнир",
+  "friends_list_title": "Мои друзья",
+  "no_friends_message": "У вас пока нет друзей.",
+  "my_profile_button": "Мой профиль",
+  "game_invitation_text": "приглашает вас на матч в Понг. Вы принимаете?",
+  "invitation_declined_text": "отклонил(а) ваше приглашение в игру.",
+  "invite_button": "Пригласить",
+  "invitation_sent": "Приглашение в игру отправлено!"
 }

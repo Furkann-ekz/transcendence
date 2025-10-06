@@ -171,6 +171,57 @@ function initializeSocket(io) {
             if (playerState.position === 'left' || playerState.position === 'right') playerState.y = finalPosition;
             if (playerState.position === 'top' || playerState.position === 'bottom') playerState.x = finalPosition;
         });
+
+        socket.on('invite_to_game', ({ recipientId }) => {
+            const recipientSocketInfo = onlineUsers.get(recipientId);
+            if (recipientSocketInfo) {
+                const recipientSocket = io.sockets.sockets.get(recipientSocketInfo.socketId);
+                if (recipientSocket) {
+                    // Davet edilen kişiye daveti gönder
+                    recipientSocket.emit('game_invitation', {
+                        inviter: { id: socket.user.id, name: socket.user.name }
+                    });
+                }
+            }
+        });
+
+        socket.on('invitation_response', ({ inviterId, accepted }) => {
+            const inviterSocketInfo = onlineUsers.get(inviterId);
+            if (inviterSocketInfo) {
+                const inviterSocket = io.sockets.sockets.get(inviterSocketInfo.socketId);
+                if (inviterSocket) {
+                    if (accepted) {
+                        // KABUL EDİLDİ: İki oyuncu için de yeni bir oyun başlat
+                        const recipientSocket = socket; // Cevabı veren kişi alıcıdır
+                        
+                        const roomName = `game_invite_${Date.now()}`;
+                        const gameConfig = { canvasSize: 800, paddleSize: 100, paddleThickness: 15 };
+                        
+                        const players = [
+                            { ...inviterSocket.user, socketId: inviterSocket.id, position: 'left', team: 1, x: 0, y: (gameConfig.canvasSize / 2) - (gameConfig.paddleSize / 2) },
+                            { ...recipientSocket.user, socketId: recipientSocket.id, position: 'right', team: 2, x: gameConfig.canvasSize - gameConfig.paddleThickness, y: (gameConfig.canvasSize / 2) - (gameConfig.paddleSize / 2) }
+                        ];
+
+                        [inviterSocket, recipientSocket].forEach(sock => {
+                            sock.join(roomName);
+                            sock.gameRoom = { id: roomName, mode: '1v1-invite' };
+                            // Her iki oyuncuya da oyuna gitmeleri için sinyal gönder
+                            sock.emit('go_to_invited_game');
+                        });
+                        
+                        const { startGameLoop } = require('./gameHandler'); // Gerekli fonksiyonu import et
+                        const game = startGameLoop(roomName, players, io, '1v1', gameConfig, null);
+                        gameState.gameRooms.set(roomName, game);
+
+                    } else {
+                        // REDDEDİLDİ: Davet eden kişiye bildir
+                        inviterSocket.emit('invitation_declined', {
+                            recipient: { id: socket.user.id, name: socket.user.name }
+                        });
+                    }
+                }
+            }
+        });
     });
 
     return { onlineUsers, gameRooms: gameState.gameRooms };

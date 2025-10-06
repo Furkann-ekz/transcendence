@@ -152,18 +152,13 @@ async function tournamentRoutes(fastify, { io }) {
             const activePlayerInTournament = await prisma.tournamentPlayer.findFirst({
                 where: {
                     userId: request.user.userId,
-                    // --- ÖNEMLİ DEĞİŞİKLİK BURADA ---
                     // Artık oyuncunun elenmemiş olduğunu da kontrol ediyoruz.
                     isEliminated: false, 
                     tournament: {
-                        status: 'IN_PROGRESS'
+                        status: { in: ['LOBBY', 'IN_PROGRESS'] } // Lobi durumunu da kontrol edebiliriz
                     }
                 },
-                select: {
-                    tournament: {
-                        select: { id: true }
-                    }
-                }
+                select: { tournament: { select: { id: true } } }
             });
 
             if (activePlayerInTournament) {

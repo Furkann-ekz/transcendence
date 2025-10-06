@@ -116,5 +116,12 @@
   "unblock_user_button": "Engeli Kaldır",
   "error_already_in_tournament": "Zaten başka bir aktif turnuvada veya lobidesiniz.",
   "confirm_leave_tournament_lobby": "Turnuvadan ayrılmak istediğinize emin misiniz?",
-  "return_to_active_tournament": "Aktif Turnuvana Geri Dön"
+  "return_to_active_tournament": "Aktif Turnuvana Geri Dön",
+  "friends_list_title": "Arkadaşlarım",
+  "no_friends_message": "Hiç arkadaşın yok.",
+  "my_profile_button": "Profilim",
+  "game_invitation_text": "sizi bir Pong maçına davet ediyor. Kabul ediyor musunuz?",
+  "invitation_declined_text": "oyun davetinizi reddetti.",
+  "invite_button": "Davet Et",
+  "invitation_sent": "Oyun daveti gönderildi!"
 }
