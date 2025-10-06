@@ -5,8 +5,6 @@ const fs = require('fs');
 const path = require('path');
 
 async function userRoutes(fastify, { io, onlineUsers }) {
-    // --- TEMEL KULLANICI İŞLEMLERİ ---
-
     // Belirtilen kullanıcıya bildirim gönderir
     const notifyUser = (userId) => {
         const userSocketInfo = onlineUsers.get(userId);
@@ -15,24 +13,20 @@ async function userRoutes(fastify, { io, onlineUsers }) {
         }
     };
 
+    // --- TEMEL KULLANICI İŞLEMLERİ (DEĞİŞİKLİK YOK) ---
     fastify.post('/profile/avatar', { preHandler: [authenticate] }, async (request, reply) => {
         const data = await request.file();
         if (!data) {
             return reply.code(400).send({ error: 'No file uploaded.' });
         }
-
         const uploadDir = path.join(__dirname, '..', 'uploads', 'avatars');
         await fs.promises.mkdir(uploadDir, { recursive: true });
-
         const filename = `avatar-${request.user.userId}${path.extname(data.filename)}`;
         const filepath = path.join(uploadDir, filename);
         const avatarUrl = `/uploads/avatars/${filename}`;
-
         try {
-            // DEĞİŞİKLİK: Dosyayı stream etmek yerine buffer'a alıp tek seferde yazıyoruz.
             const buffer = await data.toBuffer();
             await fs.promises.writeFile(filepath, buffer);
-
             await prisma.user.update({
                 where: { id: request.user.userId },
                 data: { avatarUrl },
@@ -43,24 +37,14 @@ async function userRoutes(fastify, { io, onlineUsers }) {
             return reply.code(500).send({ error: 'Could not process file upload.' });
         }
     });
-
     fastify.get('/profile', { preHandler: [authenticate] }, async (request, reply) => {
         const userProfile = await prisma.user.findUnique({
             where: { id: request.user.userId },
-            select: { 
-                id: true, 
-                email: true, 
-                name: true, 
-                createdAt: true, 
-                wins: true, 
-                losses: true,
-                avatarUrl: true
-            },
+            select: { id: true, email: true, name: true, createdAt: true, wins: true, losses: true, avatarUrl: true },
         });
         if (!userProfile) return reply.code(404).send({ error: 'User not found' });
         return userProfile;
     });
-
     fastify.patch('/profile', { preHandler: [authenticate] }, async (request, reply) => {
         const { name } = request.body;
         const userId = request.user.userId;
@@ -79,7 +63,6 @@ async function userRoutes(fastify, { io, onlineUsers }) {
             return reply.code(500).send({ error: 'Could not update user profile' });
         }
     });
-
     fastify.post('/profile/change-password', { preHandler: [authenticate] }, async (request, reply) => {
         const { currentPassword, newPassword } = request.body;
         const userId = request.user.userId;
@@ -106,25 +89,16 @@ async function userRoutes(fastify, { io, onlineUsers }) {
             return reply.code(500).send({ error: 'Could not change password' });
         }
     });
-    
     fastify.get('/users/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const userId = parseInt(request.params.id, 10);
         if (isNaN(userId)) { return reply.code(400).send({ error: 'Invalid user ID' }); }
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            select: { 
-                id: true, 
-                name: true, 
-                createdAt: true, 
-                wins: true, 
-                losses: true,
-                avatarUrl: true
-            }
+            select: { id: true, name: true, createdAt: true, wins: true, losses: true, avatarUrl: true }
         });
         if (!user) { return reply.code(404).send({ error: 'User not found' }); }
         return user;
     });
-
     fastify.get('/users/:id/matches', { preHandler: [authenticate] }, async (request, reply) => {
         const userId = parseInt(request.params.id, 10);
         if (isNaN(userId)) { return reply.code(400).send({ error: 'Invalid user ID' }); }
@@ -146,7 +120,6 @@ async function userRoutes(fastify, { io, onlineUsers }) {
     });
 
     // --- ARKADAŞLIK SİSTEMİ ENDPOINT'LERİ ---
-
     fastify.get('/friends', { preHandler: [authenticate] }, async (request, reply) => {
         const userId = request.user.userId;
         try {
@@ -157,31 +130,21 @@ async function userRoutes(fastify, { io, onlineUsers }) {
                     receiver: { select: { id: true, name: true } },
                 }
             });
-
             const pendingRequests = await prisma.friendship.findMany({
                 where: { receiverId: userId, status: 'PENDING' },
                 include: { requester: { select: { id: true, name: true } } }
             });
-            
             const sentRequests = await prisma.friendship.findMany({
                 where: { requesterId: userId, status: 'PENDING' },
                 include: { receiver: { select: { id: true, name: true } } }
             });
-
             const acceptedFriends = friends.map(f => f.requesterId === userId ? f.receiver : f.requester);
-
-            return {
-                friends: acceptedFriends,
-                pendingRequests,
-                sentRequests
-            };
-
+            return { friends: acceptedFriends, pendingRequests, sentRequests };
         } catch (error) {
             fastify.log.error(error);
             return reply.code(500).send({ error: 'Could not fetch friends list.' });
         }
     });
-
     fastify.get('/friends/status/:targetId', { preHandler: [authenticate] }, async (request, reply) => {
         const myId = request.user.userId;
         const targetId = parseInt(request.params.targetId, 10);
@@ -220,18 +183,12 @@ async function userRoutes(fastify, { io, onlineUsers }) {
             return reply.code(500).send({ error: "Could not fetch friendship status." });
         }
     });
-
-    
     fastify.post('/friends/request/:targetId', { preHandler: [authenticate] }, async (request, reply) => {
         const requesterId = request.user.userId;
         const receiverId = parseInt(request.params.targetId, 10);
-        
-        if (requesterId === receiverId) { 
-            return reply.code(400).send({ error: "Cannot friend yourself." }); 
+        if (requesterId === receiverId) {
+            return reply.code(400).send({ error: "Cannot friend yourself." });
         }
-
-        // --- YENİ EKLENEN KONTROL ---
-        // Kullanıcılardan herhangi biri diğerini engellemiş mi diye kontrol et.
         const blockExists = await prisma.block.findFirst({
             where: {
                 OR: [
@@ -240,26 +197,23 @@ async function userRoutes(fastify, { io, onlineUsers }) {
                 ]
             }
         });
-
         if (blockExists) {
             return reply.code(403).send({ error: "Cannot send friend request. A block is active between users." });
         }
-        // --- KONTROL SONU ---
-
         const existingFriendship = await prisma.friendship.findFirst({
             where: { OR: [{ requesterId, receiverId }, { requesterId: receiverId, receiverId: requesterId }] }
         });
-        if (existingFriendship) { 
-            return reply.code(409).send({ error: "Friendship already exists or is pending." }); 
+        if (existingFriendship) {
+            return reply.code(409).send({ error: "Friendship already exists or is pending." });
         }
-
         const newRequest = await prisma.friendship.create({ data: { requesterId, receiverId } });
         notifyUser(receiverId);
         return reply.code(201).send(newRequest);
     });
 
+    // --- DEĞİŞİKLİĞİN OLDUĞU YER ---
     fastify.post('/friends/respond/:friendshipId', { preHandler: [authenticate] }, async (request, reply) => {
-        const userId = request.user.userId;
+        const userId = request.user.userId; // Bu, isteği kabul eden kişi (receiver)
         const friendshipId = parseInt(request.params.friendshipId, 10);
         const { accept } = request.body;
         const friendship = await prisma.friendship.findFirst({ where: { id: friendshipId, receiverId: userId, status: 'PENDING' } });
@@ -271,7 +225,11 @@ async function userRoutes(fastify, { io, onlineUsers }) {
         } else {
             updatedFriendship = await prisma.friendship.delete({ where: { id: friendshipId } });
         }
-        notifyUser(friendship.requesterId); // İsteği gönderen kullanıcıya bildirim gönder
+
+        // --- GÜNCELLEME BURADA ---
+        // Artık hem isteği göndereni (requester) hem de isteği kabul edeni (receiver/mevcut kullanıcı) bilgilendiriyoruz.
+        notifyUser(friendship.requesterId); 
+        notifyUser(userId); 
 
         return updatedFriendship;
     });
@@ -287,32 +245,28 @@ async function userRoutes(fastify, { io, onlineUsers }) {
         }
         await prisma.friendship.delete({ where: { id: friendship.id } });
         const otherUserId = friendship.requesterId === userId ? friendship.receiverId : friendship.requesterId;
+        
+        // --- GÜNCELLEME BURADA ---
+        // Arkadaşlık silindiğinde de her iki tarafı bilgilendiriyoruz.
         notifyUser(otherUserId); 
+        notifyUser(userId);
         
         return { message: "Friendship removed." };
     });
 
-    // --- KULLANICI ENGELLEME ENDPOINT'LERİ ---
-
+    // --- KULLANICI ENGELLEME (DEĞİŞİKLİK YOK) ---
      fastify.post('/users/:targetId/block', { preHandler: [authenticate] }, async (request, reply) => {
         const blockerId = request.user.userId;
         const blockedId = parseInt(request.params.targetId, 10);
-
         if (blockerId === blockedId) { 
             return reply.code(400).send({ error: "Cannot block yourself." }); 
         }
-        
         const existingBlock = await prisma.block.findUnique({ 
             where: { blockerId_blockedId: { blockerId, blockedId } } 
         });
         if (existingBlock) { 
             return reply.code(409).send({ error: "User already blocked." }); 
         }
-        
-        // --- YENİ MANTIK BURADA BAŞLIYOR ---
-
-        // 1. Önce bekleyen arkadaşlık isteğini sil.
-        // İki kullanıcı arasındaki PENDING durumundaki tüm istekleri siler.
         await prisma.friendship.deleteMany({
             where: {
                 status: 'PENDING',
@@ -322,37 +276,24 @@ async function userRoutes(fastify, { io, onlineUsers }) {
                 ]
             }
         });
-
-        // 2. Sonra engelleme kaydını oluştur.
         const newBlock = await prisma.block.create({ 
             data: { blockerId, blockedId } 
         });
-
-        // 3. Her iki kullanıcıya da durumun güncellendiğine dair bildirim gönder.
-        // Bu sayede ekranları anında güncellenir.
         notifyUser(blockerId);
         notifyUser(blockedId);
-        
         return reply.code(201).send(newBlock);
     });
-
     fastify.delete('/users/:targetId/unblock', { preHandler: [authenticate] }, async (request, reply) => {
         const blockerId = request.user.userId;
         const blockedId = parseInt(request.params.targetId, 10);
-
         try {
             await prisma.block.delete({ 
                 where: { blockerId_blockedId: { blockerId, blockedId } } 
             });
-
-            // --- YENİ EKLENEN SATIRLAR ---
-            // Her iki kullanıcıya da durumun güncellendiğini bildir.
             notifyUser(blockerId);
             notifyUser(blockedId);
-
             return { message: "User unblocked." };
         } catch (error) {
-            // Engelleme ilişkisi bulunamazsa 404 hatası döner.
             return reply.code(404).send({ error: "Block relationship not found." });
         }
     });

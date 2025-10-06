@@ -1,7 +1,8 @@
 // frontend/src/socket.ts
 import { io, Socket } from "socket.io-client";
-import { t } from './i18n'; // Gerekli fonksiyonları en başta import ediyoruz
-import { navigateTo } from './router'; // Gerekli fonksiyonları en başta import ediyoruz
+import { t } from './i18n';
+import { navigateTo } from './router';
+import { showToast, showConfirmationModal } from './utils/notifications'; // Yeni import
 
 let socket: Socket | null = null;
 
@@ -22,31 +23,37 @@ export function connectSocket(token: string): Promise<Socket> {
             resolve(newSocket);
         });
 
+        // DEĞİŞİKLİK BURADA: 'confirm' yerine kendi modal'ımızı kullanıyoruz.
         newSocket.on('game_invitation', ({ inviter }) => {
-            if (confirm(`${inviter.name} ${t('game_invitation_text')}`)) {
+            const message = `${inviter.name} ${t('game_invitation_text')}`;
+            const onConfirm = () => {
                 newSocket.emit('invitation_response', { inviterId: inviter.id, accepted: true });
-            } else {
+            };
+            const onDecline = () => {
                 newSocket.emit('invitation_response', { inviterId: inviter.id, accepted: false });
-            }
+            };
+            showConfirmationModal(message, onConfirm, onDecline);
         });
 
         newSocket.on('go_to_invited_game', () => {
-            // 'require' yerine doğrudan import ettiğimiz fonksiyonu kullanıyoruz
             navigateTo('/online-game');
         });
 
+        // DEĞİŞİKLİK BURADA: 'alert' yerine 'showToast' kullanıyoruz.
         newSocket.on('invitation_declined', ({ recipient }) => {
-            // 'require' yerine doğrudan import ettiğimiz fonksiyonu kullanıyoruz
-            alert(`${recipient.name} ${t('invitation_declined_text')}`);
+            const message = `${recipient.name} ${t('invitation_declined_text')}`;
+            showToast(message);
         });
 
         newSocket.on('forceDisconnect', (reason) => {
             console.log(`Sunucu tarafından bağlantı sonlandırıldı: ${reason}`);
-            alert('Başka bir konumdan giriş yapıldığı için bu oturum sonlandırıldı.');
+            showToast('Başka bir konumdan giriş yapıldığı için bu oturum sonlandırıldı.', 5000);
             
-            localStorage.removeItem('token');
-            disconnectSocket(); 
-            window.location.href = '/'; 
+            setTimeout(() => {
+                localStorage.removeItem('token');
+                disconnectSocket(); 
+                window.location.href = '/'; 
+            }, 5000);
         });
 
         newSocket.on('disconnect', () => {
@@ -59,6 +66,7 @@ export function connectSocket(token: string): Promise<Socket> {
         });
     });
 }
+
 
 export function getSocket(): Socket | null {
     return socket;
