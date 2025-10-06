@@ -28,7 +28,7 @@ export function render(): string {
                 <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
                 ${t('save_button')}
                 </button>
-                <a id="back-to-profile-link" href="#" class="inline-block align-baseline font-bold text-sm text-gray-500 hover:text-gray-800" data-link>
+                <a id="back-to-profile-link" href="#" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" data-link>
                 ${t('back_button')}
                 </a>
             </div>

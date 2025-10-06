@@ -1,47 +1,32 @@
-// frontend/src/api/tournaments.ts -> DÜZELTİLMİŞ VERSİYON
+// frontend/src/api/tournaments.ts
+import { apiFetch } from './api';
 
 const API_URL = `/api/tournaments`;
-const getAuthHeaders = () => ({
-    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-    'Content-Type': 'application/json'
-});
 
-// Aktif turnuvaların listesini getirir.
 export async function getTournaments() {
-    const response = await fetch(API_URL, {
-        headers: getAuthHeaders()
-    });
+    const response = await apiFetch(API_URL);
     if (!response.ok) throw new Error('Turnuvalar yüklenemedi.');
     return response.json();
 }
 
-// Belirli bir turnuvanın detaylarını getirir.
 export async function getTournamentDetails(id: string) {
-    const response = await fetch(`${API_URL}/${id}`, {
-        headers: getAuthHeaders()
-    });
+    const response = await apiFetch(`${API_URL}/${id}`);
     if (!response.ok) throw new Error('Turnuva detayları alınamadı.');
     return response.json();
 }
 
-// Yeni bir turnuva oluşturur.
 export async function createTournament() {
-    const response = await fetch(API_URL, {
+    const response = await apiFetch(API_URL, {
         method: 'POST',
-        headers: getAuthHeaders(),
-        // EKLENEN SATIR: Boş da olsa geçerli bir JSON gövdesi ekliyoruz.
         body: JSON.stringify({}) 
     });
     if (!response.ok) throw new Error('Turnuva oluşturulamadı.');
     return response.json();
 }
 
-// Bir turnuvaya katılır/kayıt olur.
 export async function joinTournament(tournamentId: string) {
-    const response = await fetch(`${API_URL}/${tournamentId}/join`, {
+    const response = await apiFetch(`${API_URL}/${tournamentId}/join`, {
         method: 'POST',
-        headers: getAuthHeaders(),
-        // EKLENEN SATIR: Bu istek de POST olduğu için buna da ekleyelim.
         body: JSON.stringify({})
     });
     if (!response.ok) {
@@ -52,10 +37,9 @@ export async function joinTournament(tournamentId: string) {
 }
 
 export async function setReadyStatus(tournamentId: string, isReady: boolean) {
-    const response = await fetch(`${API_URL}/${tournamentId}/ready`, {
+    const response = await apiFetch(`${API_URL}/${tournamentId}/ready`, {
         method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ isReady }) // Body'de durumu gönderiyoruz
+        body: JSON.stringify({ isReady })
     });
     if (!response.ok) {
         const error = await response.json();
@@ -64,12 +48,9 @@ export async function setReadyStatus(tournamentId: string, isReady: boolean) {
     return response.json();
 }
 
-// Bir turnuvadan ayrılmayı sağlar.
 export async function leaveTournament(tournamentId: string) {
-    const response = await fetch(`${API_URL}/${tournamentId}/leave`, {
+    const response = await apiFetch(`${API_URL}/${tournamentId}/leave`, {
         method: 'DELETE',
-        headers: getAuthHeaders(),
-        // EKLENEN SATIR: Boş da olsa geçerli bir JSON gövdesi ekliyoruz.
         body: JSON.stringify({})
     });
     if (!response.ok) {
@@ -80,9 +61,8 @@ export async function leaveTournament(tournamentId: string) {
 }
 
 export async function startTournament(tournamentId: string) {
-    const response = await fetch(`${API_URL}/${tournamentId}/start`, {
+    const response = await apiFetch(`${API_URL}/${tournamentId}/start`, {
         method: 'POST',
-        headers: getAuthHeaders(),
         body: JSON.stringify({})
     });
     if (!response.ok) {
@@ -93,13 +73,10 @@ export async function startTournament(tournamentId: string) {
 }
 
 export async function getMyActiveTournament() {
-    const response = await fetch(`${API_URL}/my-active-tournament`, {
-        headers: getAuthHeaders()
-    });
+    const response = await apiFetch(`${API_URL}/my-active-tournament`);
     if (!response.ok) {
         throw new Error('Could not check for active tournament.');
     }
-    // Eğer cevap boşsa (204 No Content), null döndür
     if (response.status === 204) {
         return null;
     }
