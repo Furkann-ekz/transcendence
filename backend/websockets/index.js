@@ -13,6 +13,28 @@ function initializeSocket(io) {
         gameRooms: new Map()
     };
 
+    // --- YENİ FONKSİYON: Kullanıcıyı tüm bekleme sıralarından kaldırır ---
+    const removeFromAllQueues = (socket) => {
+        let updated = false;
+        for (const mode in gameState.waitingPlayers) {
+            const index = gameState.waitingPlayers[mode].findIndex(p => p.id === socket.id);
+            if (index !== -1) {
+                gameState.waitingPlayers[mode].splice(index, 1);
+                console.log(`[Matchmaking] ${socket.user.email}, ${mode} sırasından kaldırıldı.`);
+                updated = true;
+            }
+        }
+        // Eğer bir listeden kaldırıldıysa, kalanlara güncel sırayı bildir.
+        if (updated) {
+            for (const mode in gameState.waitingPlayers) {
+                gameState.waitingPlayers[mode].forEach(p => p.emit('updateQueue', {
+                    queueSize: gameState.waitingPlayers[mode].length,
+                    requiredSize: mode === '1v1' ? 2 : 4
+                }));
+            }
+        }
+    };
+
     io.use(async (socket, next) => {
         // ... io.use kısmı aynı ...
         const token = socket.handshake.auth.token;
@@ -131,6 +153,7 @@ function initializeSocket(io) {
         
         socket.on('disconnect', () => {
             console.log(`${socket.user.email} bağlantısı kesildi.`);
+            removeFromAllQueues(socket); // Bağlantı koptuğunda da sıralardan kaldır
             if (onlineUsers.has(socket.user.id) && onlineUsers.get(socket.user.id).socketId === socket.id) {
                 onlineUsers.delete(socket.user.id);
                 io.emit('update user list', Array.from(onlineUsers.values()));
@@ -138,8 +161,11 @@ function initializeSocket(io) {
             cleanUpPlayer(socket);
         });
 
-        // ... dosyanın geri kalanı aynı ...
-        socket.on('leaveGameOrLobby', () => { cleanUpPlayer(socket); });
+        socket.on('leaveGameOrLobby', () => {
+            removeFromAllQueues(socket);
+            cleanUpPlayer(socket); // Mevcut oyun odası temizliğini de yap
+        });
+
         socket.on('client_ready_for_game', () => {
              if (socket.gameRoom) {
                 const game = gameState.gameRooms.get(socket.gameRoom.id);
