@@ -122,5 +122,7 @@
   "game_invitation_text": "приглашает вас на матч в Понг. Вы принимаете?",
   "invitation_declined_text": "отклонил(а) ваше приглашение в игру.",
   "invite_button": "Пригласить",
-  "invitation_sent": "Приглашение в игру отправлено!"
+  "invitation_sent": "Приглашение в игру отправлено!",
+  "private_to": "Кому:",
+  "private_from": "От:"
 }

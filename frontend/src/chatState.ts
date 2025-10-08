@@ -1,6 +1,7 @@
 interface ChatMessage {
   type: 'public' | 'private';
-  sender: string;
+  sender: { id: number; name: string; } | string;
+  recipient?: { id: number; name: string; };
   content: string;
 }
 

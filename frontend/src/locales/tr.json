@@ -123,5 +123,7 @@
   "game_invitation_text": "sizi bir Pong maçına davet ediyor. Kabul ediyor musunuz?",
   "invitation_declined_text": "oyun davetinizi reddetti.",
   "invite_button": "Davet Et",
-  "invitation_sent": "Oyun daveti gönderildi!"
+  "invitation_sent": "Oyun daveti gönderildi!",
+  "private_to": "Kime:",
+  "private_from": "Kimden:"
 }

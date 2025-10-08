@@ -123,5 +123,7 @@
   "game_invitation_text": "is inviting you to a Pong match. Do you accept?",
   "invitation_declined_text": "declined your game invitation.",
   "invite_button": "Invite",
-  "invitation_sent": "Game invitation sent!"
+  "invitation_sent": "Game invitation sent!",
+  "private_to": "To:",
+  "private_from": "From:"
 }

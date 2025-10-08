@@ -30,39 +30,33 @@ async function chatHandler(io, socket, onlineUsers) {
     // --- ÖZEL MESAJLAR İÇİN GÜNCELLENMİŞ MANTIK ---
     socket.on('private message', async ({ recipientId, message }) => {
         const senderId = socket.user.id;
-        const recipientSocketInfo = onlineUsers.get(recipientId);
+        const recipientInfo = onlineUsers.get(recipientId);
         
-        if (!recipientSocketInfo || senderId === recipientId) {
+        if (!recipientInfo || senderId === recipientId) {
             return;
         }
 
-        // Adım 1: Mesaj objesini oluştur ve gönderenin kendi geçmişinde görmesi için ANINDA geri gönder.
+        // --- DEĞİŞİKLİK BURADA: Daha zengin bir mesaj objesi oluşturuyoruz ---
         const messageObject = {
             type: 'private',
-            sender: socket.user.name || socket.user.email,
+            sender: { id: senderId, name: socket.user.name || socket.user.email },
+            recipient: { id: recipientId, name: recipientInfo.name || recipientInfo.email },
             content: message
         };
+        // Gönderenin kendi geçmişinde görmesi için ANINDA geri gönder.
         socket.emit('chat message', messageObject);
 
-        // Adım 2: Gönderen ve alıcı arasında bir engelleme olup olmadığını kontrol et.
         const blockExists = await prisma.block.findFirst({
-            where: {
-                OR: [
-                    { blockerId: senderId, blockedId: recipientId },
-                    { blockerId: recipientId, blockedId: senderId },
-                ]
-            }
+            where: { OR: [ { blockerId: senderId, blockedId: recipientId }, { blockerId: recipientId, blockedId: senderId } ] }
         });
 
-        // Adım 3: Eğer engel YOKSA, mesajı alıcıya da ilet.
         if (!blockExists) {
-            const recipientSocket = io.sockets.sockets.get(recipientSocketInfo.socketId);
+            const recipientSocket = io.sockets.sockets.get(recipientInfo.socketId);
             if (recipientSocket) {
-                // Alıcıya gönderirken aynı mesaj objesini kullanıyoruz.
+                // Alıcıya da aynı zengin obje'yi gönder.
                 recipientSocket.emit('chat message', messageObject);
             }
         }
-        // Engel varsa, başka hiçbir şey yapma. Mesaj gönderilmiş gibi göründü ama alıcıya hiç ulaşmadı.
     });
 }
 
