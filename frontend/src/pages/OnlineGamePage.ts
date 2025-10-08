@@ -201,9 +201,8 @@ export function afterRender() {
     context = canvas.getContext('2d')!;
     const statusDiv = document.getElementById('game-status')!;
     const token = localStorage.getItem('token');
-    const myUserId = token ? jwt_decode(token).userId : null;
+    myUserId = token ? jwt_decode(token).userId : null;
     
-    // Maç sonu modal elementleri
     const gameOverModal = document.getElementById('game-over-modal')!;
     const gameOverText = document.getElementById('game-over-text')!;
     const regularGameOverButtons = document.getElementById('regular-game-over-buttons')!;
@@ -219,7 +218,12 @@ export function afterRender() {
     const confirmLeaveMatchBtn = document.getElementById('confirm-leave-match-btn')!;
 
     // Arayüzü Sıfırla
+    // Sayfa her yüklendiğinde, önceki oyundan kalmış olabilecek tüm
+    // pencereleri gizle ve durumu başlangıç haline getir.
+    gameOverModal.classList.add('hidden');
+    gameOverModal.classList.remove('flex');
     canvas.classList.add('hidden');
+    statusDiv.classList.remove('hidden');
     statusDiv.textContent = t('waiting_for_opponent');
 
     stayButton.addEventListener('click', () => {
@@ -259,11 +263,19 @@ export function afterRender() {
     socket.emit('client_ready_for_game');
 
     socket.on('gameStart', (payload: GameStartPayload) => { 
+        // gameStart olduğunda canvas'ı göster, status'u gizle
+        statusDiv.classList.add('hidden');
+        canvas.classList.remove('hidden');
         initializeGame(payload);
     });
 
-    socket.on('updateQueue', ({ queueSize, requiredSize }: UpdateQueuePayload) => { statusDiv.textContent = `${t('waiting_for_opponent')} (${queueSize}/${requiredSize})`; });
-    socket.on('gameStateUpdate', (newGameState: GameState) => { gameState = newGameState; });
+    socket.on('updateQueue', ({ queueSize, requiredSize }: UpdateQueuePayload) => {
+        statusDiv.textContent = `${t('waiting_for_opponent')} (${queueSize}/${requiredSize})`;
+    });
+
+    socket.on('gameStateUpdate', (newGameState: GameState) => {
+        gameState = newGameState;
+    });
 
     socket.on('gameOver', ({ winners }: GameOverPayload) => {
         window.removeEventListener('keydown', handlePlayerMove);

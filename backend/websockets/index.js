@@ -2,7 +2,7 @@
 const jwt = require('jsonwebtoken');
 const prisma = require('../prisma/db');
 const chatHandler = require('./chatHandler');
-const { handleJoinMatchmaking, updatePlayerStats, saveMatch } = require('./gameHandler');
+const { handleJoinMatchmaking, cleanUpPlayer } = require('./gameHandler');
 const tournamentHandler = require('./tournamentHandler');
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -13,30 +13,22 @@ function initializeSocket(io) {
         gameRooms: new Map()
     };
 
-    // --- YENİ FONKSİYON: Kullanıcıyı tüm bekleme sıralarından kaldırır ---
     const removeFromAllQueues = (socket) => {
         let updated = false;
         for (const mode in gameState.waitingPlayers) {
-            const index = gameState.waitingPlayers[mode].findIndex(p => p.id === socket.id);
+            const pool = gameState.waitingPlayers[mode];
+            const index = pool.findIndex(p => p.id === socket.id);
             if (index !== -1) {
-                gameState.waitingPlayers[mode].splice(index, 1);
+                pool.splice(index, 1);
                 console.log(`[Matchmaking] ${socket.user.email}, ${mode} sırasından kaldırıldı.`);
                 updated = true;
-            }
-        }
-        // Eğer bir listeden kaldırıldıysa, kalanlara güncel sırayı bildir.
-        if (updated) {
-            for (const mode in gameState.waitingPlayers) {
-                gameState.waitingPlayers[mode].forEach(p => p.emit('updateQueue', {
-                    queueSize: gameState.waitingPlayers[mode].length,
-                    requiredSize: mode === '1v1' ? 2 : 4
-                }));
+                // Sıradaki diğer oyunculara güncel durumu bildir
+                pool.forEach(p => p.emit('updateQueue', { queueSize: pool.length, requiredSize: mode === '1v1' ? 2 : 4 }));
             }
         }
     };
 
     io.use(async (socket, next) => {
-        // ... io.use kısmı aynı ...
         const token = socket.handshake.auth.token;
         if (!token) return next(new Error('Authentication error'));
         try {
@@ -75,68 +67,11 @@ function initializeSocket(io) {
         socket.on('join_tournament_lobby', ({ tournamentId }) => { if (tournamentId) socket.join(tournamentId); });
         socket.on('leave_tournament_lobby', ({ tournamentId }) => { if (tournamentId) socket.leave(tournamentId); });
 
-
-        // --- DEĞİŞTİRİLEN BÖLÜM: cleanUpPlayer & leave_tournament ---
-
-        const cleanUpPlayer = async (sock) => {
-            // Adım 1: Oyuncunun bir oyun odasında olup olmadığını kontrol et. Değilse, hiçbir şey yapma.
-            if (!sock.gameRoom) {
+        socket.on('leave_tournament', async ({ tournamentId }) => {
+            if (socket.gameRoom) {
+                await cleanUpPlayer(socket, io, gameState.gameRooms);
                 return;
             }
-
-            // Adım 2: Yarış durumunu önlemek için oda bilgisini hemen al ve sıfırla.
-            const gameRoom = sock.gameRoom; // Bilgiyi yerel bir değişkene kopyala.
-            sock.gameRoom = null;           // Socket üzerindeki bilgiyi hemen null yap.
-
-            const game = gameState.gameRooms.get(gameRoom.id);
-            if (game) {
-                clearInterval(game.intervalId);
-                const leavingPlayer = game.players.find(p => p.socketId === sock.id);
-                
-                if (leavingPlayer) {
-                    const losers = [leavingPlayer];
-                    const winners = game.players.filter(p => p.id !== leavingPlayer.id);
-
-                    winners.forEach(p => {
-                        const winnerSocket = io.sockets.sockets.get(p.socketId);
-                        if (winnerSocket) {
-                            winnerSocket.emit('gameOver', { winners, losers, reason: 'forfeit' });
-                        }
-                    });
-
-                    if (game.onMatchEnd) {
-                        console.log(`[Tournament] ${leavingPlayer.name} hükmen kaybetti. Turnuva devam ediyor.`);
-                        await updatePlayerStats(winners.map(p => p.id), 'win');
-                        await updatePlayerStats(losers.map(p => p.id), 'loss');
-                        const winningTeam = winners.length > 0 ? winners[0].team : (leavingPlayer.team === 1 ? 2 : 1);
-                        await saveMatch(game, winningTeam, true);
-                        await game.onMatchEnd(losers);
-                    } else {
-                        const winningTeam = winners.length > 0 ? winners[0].team : (leavingPlayer.team === 1 ? 2 : 1);
-                        await updatePlayerStats(winners.map(p => p.id), 'win');
-                        await updatePlayerStats(losers.map(p => p.id), 'loss');
-                        await saveMatch(game, winningTeam, true);
-                    }
-                }
-                
-                gameState.gameRooms.delete(gameRoom.id);
-            }
-        };
-
-        socket.on('leave_tournament', async ({ tournamentId }) => {
-            const userId = socket.user.id;
-            console.log(`[Tournament ${tournamentId}] Oyuncu ${socket.user.name} turnuvadan ayrılıyor.`);
-
-            if (socket.gameRoom) {
-                const game = gameState.gameRooms.get(socket.gameRoom.id);
-                if (game && game.onMatchEnd) {
-                    console.log(`[Tournament] Aktif maçtan ayrılma tespit edildi. Hükmen mağlubiyet işleniyor.`);
-                    await cleanUpPlayer(socket);
-                    // cleanUpPlayer zaten onMatchEnd -> startNextMatch zincirini tetiklediği için burada ek bir şeye gerek yok.
-                    return;
-                }
-            }
-
             try {
                 // Oyuncuyu veritabanında 'elenmiş' olarak işaretle
                 await prisma.tournamentPlayer.updateMany({
@@ -161,19 +96,66 @@ function initializeSocket(io) {
             }
         });
         
-        socket.on('disconnect', () => {
+        socket.on('disconnect', async () => {
             console.log(`${socket.user.email} bağlantısı kesildi.`);
-            removeFromAllQueues(socket); // Bağlantı koptuğunda da sıralardan kaldır
+            removeFromAllQueues(socket);
             if (onlineUsers.has(socket.user.id) && onlineUsers.get(socket.user.id).socketId === socket.id) {
                 onlineUsers.delete(socket.user.id);
                 io.emit('update user list', Array.from(onlineUsers.values()));
             }
-            cleanUpPlayer(socket);
+
+            // Artık doğru, import edilmiş fonksiyonu çağırıyoruz
+            await cleanUpPlayer(socket, io, gameState.gameRooms);
+
+            try {
+                // Bağlantısı kopan oyuncu, devam eden bir turnuvada mı diye kontrol et
+                const playerInTournament = await prisma.tournamentPlayer.findFirst({
+                    where: {
+                        userId: socket.user.id,
+                        isEliminated: false,
+                        tournament: {
+                            status: 'IN_PROGRESS'
+                        }
+                    },
+                    select: {
+                        tournamentId: true
+                    }
+                });
+
+                // Eğer evet ise, oyuncuyu diskalifiye et
+                if (playerInTournament) {
+                    const { tournamentId } = playerInTournament;
+                    console.log(`[Tournament ${tournamentId}] Oyuncu ${socket.user.name} bağlantısı koptuğu için diskalifiye ediliyor.`);
+                    
+                    await prisma.tournamentPlayer.updateMany({
+                        where: {
+                            tournamentId: tournamentId,
+                            userId: socket.user.id,
+                        },
+                        data: {
+                            isEliminated: true
+                        }
+                    });
+
+                    // Diğer istemcilere oyuncu listesinin güncellendiğini bildir
+                    const updatedPlayers = await prisma.tournamentPlayer.findMany({
+                        where: { tournamentId: tournamentId },
+                        include: { user: { select: { id: true, name: true, avatarUrl: true } } }
+                    });
+                    io.to(tournamentId).emit('tournament_update', { players: updatedPlayers });
+
+                    // Turnuva mantığını yeniden değerlendirmesi için ana fonksiyonu tetikle
+                    tournamentHandler.startNextMatch(tournamentId, io);
+                }
+            } catch (error) {
+                console.error('Disconnect sırasında turnuva kontrolü hatası:', error);
+            }
         });
 
         socket.on('leaveGameOrLobby', () => {
             removeFromAllQueues(socket);
-            cleanUpPlayer(socket); // Mevcut oyun odası temizliğini de yap
+            // Artık doğru, import edilmiş fonksiyonu çağırıyoruz
+            cleanUpPlayer(socket, io, gameState.gameRooms);
         });
 
         socket.on('client_ready_for_game', () => {
@@ -221,40 +203,47 @@ function initializeSocket(io) {
             }
         });
 
-        socket.on('invitation_response', ({ inviterId, accepted }) => {
+        socket.on('invitation_response', async ({ inviterId, accepted }) => { // Fonksiyonu async yap
             const inviterSocketInfo = onlineUsers.get(inviterId);
             if (inviterSocketInfo) {
                 const inviterSocket = io.sockets.sockets.get(inviterSocketInfo.socketId);
-                if (inviterSocket) {
-                    if (accepted) {
-                        // KABUL EDİLDİ: İki oyuncu için de yeni bir oyun başlat
-                        const recipientSocket = socket; // Cevabı veren kişi alıcıdır
-                        
-                        const roomName = `game_invite_${Date.now()}`;
-                        const gameConfig = { canvasSize: 800, paddleSize: 100, paddleThickness: 15 };
-                        
-                        const players = [
-                            { ...inviterSocket.user, socketId: inviterSocket.id, position: 'left', team: 1, x: 0, y: (gameConfig.canvasSize / 2) - (gameConfig.paddleSize / 2) },
-                            { ...recipientSocket.user, socketId: recipientSocket.id, position: 'right', team: 2, x: gameConfig.canvasSize - gameConfig.paddleThickness, y: (gameConfig.canvasSize / 2) - (gameConfig.paddleSize / 2) }
-                        ];
+                const recipientSocket = socket; // Cevabı veren kişi alıcıdır
 
-                        [inviterSocket, recipientSocket].forEach(sock => {
+                if (inviterSocket && accepted) {
+                    // --- YENİ TEMİZLİK ADIMI BAŞLANGICI ---
+                    // Yeni oyuna başlamadan önce, her iki oyuncunun da mevcut olabilecek
+                    // eski oyunlarını sonlandır ve temizle.
+                    console.log(`[Game Invite] ${inviterSocket.user.name} ve ${recipientSocket.user.name} için eski oyunlar temizleniyor...`);
+                    await cleanUpPlayer(inviterSocket, io, gameState.gameRooms);
+                    await cleanUpPlayer(recipientSocket, io, gameState.gameRooms);
+                    // --- YENİ TEMİZLİK ADIMI SONU ---
+
+                    // KABUL EDİLDİ: İki oyuncu için de yeni bir oyun başlat
+                    const roomName = `game_invite_${Date.now()}`;
+                    const gameConfig = { canvasSize: 800, paddleSize: 100, paddleThickness: 15 };
+                    
+                    const players = [
+                        { ...inviterSocket.user, socketId: inviterSocket.id, position: 'left', team: 1, x: 0, y: (gameConfig.canvasSize / 2) - (gameConfig.paddleSize / 2) },
+                        { ...recipientSocket.user, socketId: recipientSocket.id, position: 'right', team: 2, x: gameConfig.canvasSize - gameConfig.paddleThickness, y: (gameConfig.canvasSize / 2) - (gameConfig.paddleSize / 2) }
+                    ];
+
+                    [inviterSocket, recipientSocket].forEach(sock => {
+                        if (sock) {
                             sock.join(roomName);
                             sock.gameRoom = { id: roomName, mode: '1v1-invite' };
-                            // Her iki oyuncuya da oyuna gitmeleri için sinyal gönder
                             sock.emit('go_to_invited_game');
-                        });
-                        
-                        const { startGameLoop } = require('./gameHandler'); // Gerekli fonksiyonu import et
-                        const game = startGameLoop(roomName, players, io, '1v1', gameConfig, null);
-                        gameState.gameRooms.set(roomName, game);
+                        }
+                    });
+                    
+                    const { startGameLoop } = require('./gameHandler');
+                    const game = startGameLoop(roomName, players, io, '1v1', gameConfig, null);
+                    gameState.gameRooms.set(roomName, game);
 
-                    } else {
-                        // REDDEDİLDİ: Davet eden kişiye bildir
-                        inviterSocket.emit('invitation_declined', {
-                            recipient: { id: socket.user.id, name: socket.user.name }
-                        });
-                    }
+                } else if (inviterSocket && !accepted) {
+                    // REDDEDİLDİ: Davet eden kişiye bildir
+                    inviterSocket.emit('invitation_declined', {
+                        recipient: { id: recipientSocket.user.id, name: recipientSocket.user.name }
+                    });
                 }
             }
         });

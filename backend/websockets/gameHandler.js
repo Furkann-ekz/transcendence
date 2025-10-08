@@ -1,6 +1,4 @@
-// backend/websockets/gameHandler.js
 const { shuffleArray } = require('../utils/arrayUtils');
-
 const prisma = require('../prisma/db');
 
 async function updatePlayerStats(playerIds, outcome) {
@@ -22,12 +20,17 @@ async function saveMatch(game, winnerTeam, wasForfeit = false) {
     const team2 = players.filter(p => p.team === 2);
     
     if (team1.length === 0 || team2.length === 0) {
-        console.error("Cannot save match, one or both teams are empty.");
+        if (!wasForfeit) console.error("Cannot save match, one or both teams are empty.");
         return;
     }
     
-    const player1Id = team1[0].id;
-    const player2Id = team2[0].id;
+    const player1Id = team1[0]?.id;
+    const player2Id = team2[0]?.id;
+    if (!player1Id || !player2Id) {
+        console.error("Cannot save match, player IDs are missing.");
+        return;
+    }
+
     const durationInSeconds = Math.floor((Date.now() - game.startTime) / 1000);
 
     try {
@@ -49,6 +52,47 @@ async function saveMatch(game, winnerTeam, wasForfeit = false) {
         console.log("Maç başarıyla kaydedildi.");
     } catch (error) { 
         console.error("Maç kaydedilemedi:", error); 
+    }
+}
+
+async function cleanUpPlayer(sock, io, gameRooms) {
+    if (!sock || !sock.gameRoom) {
+        return;
+    }
+
+    const gameRoomId = sock.gameRoom.id;
+    sock.gameRoom = null;
+
+    const game = gameRooms.get(gameRoomId);
+    if (game) {
+        clearInterval(game.intervalId);
+        const leavingPlayer = game.players.find(p => p.socketId === sock.id);
+        
+        if (leavingPlayer) {
+            const losers = [leavingPlayer];
+            const winners = game.players.filter(p => p.id !== leavingPlayer.id);
+
+            winners.forEach(p => {
+                const winnerSocket = io.sockets.sockets.get(p.socketId);
+                if (winnerSocket) {
+                    winnerSocket.emit('gameOver', { winners, losers, reason: 'forfeit' });
+                }
+            });
+
+            const winningTeam = winners.length > 0 ? winners[0].team : (leavingPlayer.team === 1 ? 2 : 1);
+            
+            await updatePlayerStats(winners.map(p => p.id), 'win');
+            await updatePlayerStats(losers.map(p => p.id), 'loss');
+            await saveMatch(game, winningTeam, true);
+            
+            if (game.onMatchEnd) {
+                console.log(`[Tournament] ${leavingPlayer.name} hükmen kaybetti. Turnuva devam ediyor.`);
+                await game.onMatchEnd(losers);
+            }
+        }
+        
+        gameRooms.delete(gameRoomId);
+        console.log(`[Game] Oda ${gameRoomId} temizlendi.`);
     }
 }
 
@@ -224,5 +268,6 @@ module.exports = {
     handleJoinMatchmaking,
     updatePlayerStats,
     saveMatch,
-    startGameLoop
+    startGameLoop,
+    cleanUpPlayer
 };
