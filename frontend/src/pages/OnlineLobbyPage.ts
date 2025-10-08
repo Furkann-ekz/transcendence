@@ -25,20 +25,32 @@ export function render(): string {
 }
 
 // afterRender fonksiyonu aynı kalıyor
+let button1v1Handler: (() => void) | null = null;
+let button2v2Handler: (() => void) | null = null;
+
 export function afterRender() {
-  const socket = getSocket();
+    const socket = getSocket();
 
-  document.getElementById('1v1-button')?.addEventListener('click', () => {
-    if (socket) {
-      socket.emit('joinMatchmaking', { mode: '1v1' });
-    }
-    navigateTo('/online-game');
-  });
+    button1v1Handler = () => {
+        if (socket) socket.emit('joinMatchmaking', { mode: '1v1' });
+        navigateTo('/online-game');
+    };
+    button2v2Handler = () => {
+        if (socket) socket.emit('joinMatchmaking', { mode: '2v2' });
+        navigateTo('/online-game');
+    };
 
-  document.getElementById('2v2-button')?.addEventListener('click', () => {
-    if (socket) {
-      socket.emit('joinMatchmaking', { mode: '2v2' });
+    document.getElementById('1v1-button')?.addEventListener('click', button1v1Handler);
+    document.getElementById('2v2-button')?.addEventListener('click', button2v2Handler);
+}
+
+export function cleanup() {
+    if (button1v1Handler) {
+        document.getElementById('1v1-button')?.removeEventListener('click', button1v1Handler);
+        button1v1Handler = null;
     }
-    navigateTo('/online-game');
-  });
+    if (button2v2Handler) {
+        document.getElementById('2v2-button')?.removeEventListener('click', button2v2Handler);
+        button2v2Handler = null;
+    }
 }

@@ -177,3 +177,14 @@ export async function afterRender() {
     }
   });
 }
+
+export function cleanup() {
+    // Bu sayfadaki listener'lar formlara ve butonlara ekleniyor.
+    // En temiz yöntem, bu formları DOM'dan tamamen kaldırmaktır.
+    // Router zaten innerHTML'i temizlediği için bu genellikle yeterlidir,
+    // ancak garantiye almak için bu fonksiyonu eklemek en iyi pratiktir.
+    const editForm = document.getElementById('edit-profile-form');
+    const passForm = document.getElementById('change-password-form');
+    if (editForm) editForm.innerHTML = '';
+    if (passForm) passForm.innerHTML = '';
+}

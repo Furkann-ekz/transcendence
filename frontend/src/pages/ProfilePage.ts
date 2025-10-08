@@ -188,8 +188,15 @@ export async function afterRender() {
 
 // --- YENİ: Sayfadan ayrılırken dinleyiciyi temizlemek için cleanup fonksiyonu ---
 export function cleanup() {
-    console.log("%c--- ProfilePage CLEANUP ---", "color: blue; font-weight: bold;"); // BU SATIRI EKLE
+    console.log("%c--- ProfilePage CLEANUP ---", "color: blue; font-weight: bold;");
     if (socket) {
         socket.off('friendship_updated');
+    }
+    // --- YENİ EKLENEN SATIR ---
+    // Sayfadan ayrılırken, dinamik olarak oluşturulan ve olay dinleyicisi
+    // eklenen butonları içeren kapsayıcıyı temizleyerek sızıntıyı önle.
+    const actionsContainer = document.getElementById('profile-actions-dynamic');
+    if (actionsContainer) {
+        actionsContainer.innerHTML = '';
     }
 }

@@ -166,4 +166,9 @@ export function cleanup() {
         socket.off('tournament_lobby_updated');
         socket.off('tournament_started');
     }
+    // --- YENİ EKLENEN SATIR ---
+    const actionsEl = document.getElementById('lobby-actions');
+    if (actionsEl) {
+        actionsEl.innerHTML = '';
+    }
 }

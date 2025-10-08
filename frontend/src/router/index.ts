@@ -26,10 +26,10 @@ const routes: { [key: string]: Route } = {
   '/': { render: LoginPage.render, afterRender: LoginPage.afterRender },
   '/register': { render: RegisterPage.render, afterRender: RegisterPage.afterRender },
   '/dashboard': { render: DashboardPage.render, afterRender: DashboardPage.afterRender, cleanup: DashboardPage.cleanup },
-  '/lobby': { render: LobbyPage.render, afterRender: LobbyPage.afterRender },
-  '/online-lobby': { render: OnlineLobbyPage.render, afterRender: OnlineLobbyPage.afterRender },
+  '/lobby': { render: LobbyPage.render, afterRender: LobbyPage.afterRender, cleanup: LobbyPage.cleanup }, // cleanup eklendi
+  '/online-lobby': { render: OnlineLobbyPage.render, afterRender: OnlineLobbyPage.afterRender, cleanup: OnlineLobbyPage.cleanup }, // cleanup eklendi
   '/local-game': { render: LocalGamePage.render, afterRender: LocalGamePage.afterRender, cleanup: LocalGamePage.cleanup },
-  '/profile/edit': { render: ProfileEditPage.render, afterRender: ProfileEditPage.afterRender },
+  '/profile/edit': { render: ProfileEditPage.render, afterRender: ProfileEditPage.afterRender, cleanup: ProfileEditPage.cleanup }, // cleanup eklendi
   '/online-game': { render: OnlineGamePage.render, afterRender: OnlineGamePage.afterRender, cleanup: OnlineGamePage.cleanup },
   '/tournaments': { render: TournamentListPage.render, afterRender: TournamentListPage.afterRender, cleanup: TournamentListPage.cleanup },
 };

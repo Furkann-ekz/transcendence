@@ -29,43 +29,46 @@ export function render() {
   `;
 }
 
+let onlineButtonHandler: ((e: Event) => void) | null = null;
+
 export async function afterRender() {
-    const onlineButton = document.querySelector('a[href="/online-lobby"]');
-    onlineButton?.addEventListener('click', (e) => {
+    onlineButtonHandler = (e: Event) => {
         e.preventDefault();
         navigateTo('/online-lobby');
-    });
+    };
+    document.querySelector('a[href="/online-lobby"]')?.addEventListener('click', onlineButtonHandler);
 
     const buttonsContainer = document.getElementById('lobby-buttons-container');
     if (!buttonsContainer) return;
 
     try {
         const activeTournament = await getMyActiveTournament();
-        
-        // Eğer bir turnuva varsa (LOBI veya DEVAM EDİYOR)
         if (activeTournament && activeTournament.id) {
             const returnButton = document.createElement('a');
             returnButton.setAttribute('data-link', '');
 
-            // --- DEĞİŞİKLİK BURADA: Gelen status'e göre karar veriyoruz ---
             if (activeTournament.status === 'IN_PROGRESS') {
-                // Turnuva başladıysa: "Devam Eden Turnuvaya Dön" butonu
                 returnButton.href = `/tournament/${activeTournament.id}/play`;
                 returnButton.className = 'bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 px-4 rounded';
                 returnButton.textContent = t('return_to_active_tournament');
             } else if (activeTournament.status === 'LOBBY') {
-                // Turnuva lobi aşamasındaysa: "Turnuva Lobisine Dön" butonu
                 returnButton.href = `/tournaments/${activeTournament.id}`;
                 returnButton.className = 'bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded';
-                returnButton.textContent = t('return_to_tournament_lobby'); // Yeni çeviri anahtarı
+                returnButton.textContent = t('return_to_tournament_lobby');
             }
 
-            // Oluşturulan butonu diğer butonların en üstüne ekle
             if (returnButton.textContent) {
                 buttonsContainer.prepend(returnButton);
             }
         }
     } catch (error) {
         console.error("Failed to check for active tournament:", error);
+    }
+}
+
+export function cleanup() {
+    if (onlineButtonHandler) {
+        document.querySelector('a[href="/online-lobby"]')?.removeEventListener('click', onlineButtonHandler);
+        onlineButtonHandler = null;
     }
 }
