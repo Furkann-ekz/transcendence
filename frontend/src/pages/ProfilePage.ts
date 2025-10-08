@@ -188,6 +188,7 @@ export async function afterRender() {
 
 // --- YENİ: Sayfadan ayrılırken dinleyiciyi temizlemek için cleanup fonksiyonu ---
 export function cleanup() {
+    console.log("%c--- ProfilePage CLEANUP ---", "color: blue; font-weight: bold;"); // BU SATIRI EKLE
     if (socket) {
         socket.off('friendship_updated');
     }

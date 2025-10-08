@@ -8,22 +8,24 @@ import { addMessage, getMessages, clearMessages } from '../chatState';
 import { getFriends, respondToFriendRequest } from '../api/users';
 import { showToast } from '../utils/notifications';
 
+// --- Arayüzler ve global değişkenler ---
 interface OnlineUser { id: number; email: string; name: string; }
 interface FriendRequest { id: number; requester: { id: number; name: string; email: string; }; }
-
-// Düzeltilmiş ChatMessage Arayüzü
 interface ChatMessage {
   type: 'public' | 'private';
   sender: { id: number; name: string; } | string;
   recipient?: { id: number; name: string; };
   content: string;
 }
-// chatState.ts dosyasındaki arayüzün de bununla aynı olduğundan emin ol.
 
 let socket: Socket | null = null;
 let myId: number | null = null;
 let selectedRecipient: { id: number | 'all', name: string } | null = null;
+
+// --- Düzeltme: Olay dinleyicilerini dışarıda tanımlıyoruz ki cleanup'ta kaldırabilelim ---
 let appClickListener: ((event: MouseEvent) => void) | null = null;
+let logoutClickListener: (() => void) | null = null;
+let chatFormSubmitListener: ((event: SubmitEvent) => void) | null = null;
 
 export function render(): string {
     const token = localStorage.getItem('token');
@@ -178,14 +180,16 @@ export function afterRender() {
         }
     }
 
-    document.getElementById('logout-button')?.addEventListener('click', () => {
+    // --- OLAY DİNLEYİCİLERİ (İsimli Fonksiyonlar Olarak Tanımlandı) ---
+
+    logoutClickListener = () => {
         clearMessages();
         localStorage.removeItem('token');
         disconnectSocket();
         navigateTo('/');
-    });
+    };
 
-    document.getElementById('chat-form')?.addEventListener('submit', (e) => {
+    chatFormSubmitListener = (e: SubmitEvent) => {
         e.preventDefault();
         const chatInput = document.getElementById('chat-input') as HTMLInputElement;
         if (chatInput.value && socket) {
@@ -196,7 +200,7 @@ export function afterRender() {
             }
             chatInput.value = '';
         }
-    });
+    };
 
     appClickListener = async (event: MouseEvent) => {
         const target = event.target as HTMLElement;
@@ -224,7 +228,12 @@ export function afterRender() {
             }
         }
     };
+
+    // Dinleyicileri Ekleme
+    document.getElementById('logout-button')?.addEventListener('click', logoutClickListener);
+    document.getElementById('chat-form')?.addEventListener('submit', chatFormSubmitListener);
     document.getElementById('app')?.addEventListener('click', appClickListener);
+
 
     socket.on('update user list', (users: OnlineUser[]) => {
         onlineUsers = users;
@@ -250,14 +259,27 @@ export function afterRender() {
 }
 
 export function cleanup() {
+    console.log("%c--- DashboardPage CLEANUP ---", "color: red; font-weight: bold;");
     if (socket) {
         socket.off('update user list');
         socket.off('chat message');
         socket.off('friendship_updated');
         socket.off('chat_error');
     }
+
+    // --- DÜZELTME: EKLENEN TÜM DİNLEYİCİLERİ KALDIRIYORUZ ---
+    const appElement = document.getElementById('app');
     if (appClickListener) {
-        document.getElementById('app')?.removeEventListener('click', appClickListener);
+        appElement?.removeEventListener('click', appClickListener);
         appClickListener = null;
     }
+    if (logoutClickListener) {
+        document.getElementById('logout-button')?.removeEventListener('click', logoutClickListener);
+        logoutClickListener = null;
+    }
+    if (chatFormSubmitListener) {
+        document.getElementById('chat-form')?.removeEventListener('submit', chatFormSubmitListener);
+        chatFormSubmitListener = null;
+    }
 }
+

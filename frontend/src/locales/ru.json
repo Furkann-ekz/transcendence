@@ -125,5 +125,6 @@
   "invitation_sent": "Приглашение в игру отправлено!",
   "private_to": "Кому:",
   "private_from": "От:",
-  "return_to_tournament_lobby": "Вернуться в лобби турнира"
+  "return_to_tournament_lobby": "Вернуться в лобби турнира",
+  "profile_update_success": "Профиль успешно обновлен!"
 }
