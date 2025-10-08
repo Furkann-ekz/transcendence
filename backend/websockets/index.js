@@ -132,22 +132,32 @@ function initializeSocket(io) {
                 if (game && game.onMatchEnd) {
                     console.log(`[Tournament] Aktif maçtan ayrılma tespit edildi. Hükmen mağlubiyet işleniyor.`);
                     await cleanUpPlayer(socket);
+                    // cleanUpPlayer zaten onMatchEnd -> startNextMatch zincirini tetiklediği için burada ek bir şeye gerek yok.
                     return;
                 }
             }
 
             try {
+                // Oyuncuyu veritabanında 'elenmiş' olarak işaretle
                 await prisma.tournamentPlayer.updateMany({
                     where: { tournamentId: tournamentId, userId: userId },
                     data: { isEliminated: true }
                 });
+                
+                // Arayüzdeki oyuncu listesini güncellemek için olayı yayınla
                 const updatedPlayers = await prisma.tournamentPlayer.findMany({
                     where: { tournamentId: tournamentId },
                     include: { user: { select: { id: true, name: true, avatarUrl: true } } }
                 });
                 io.to(tournamentId).emit('tournament_update', { players: updatedPlayers });
+
+                // --- KRİTİK GÜNCELLEME BURADA ---
+                // Oyuncu elendikten sonra, turnuva durumunu yeniden değerlendirmek için
+                // ana turnuva fonksiyonunu tekrar çağırıyoruz.
+                tournamentHandler.startNextMatch(tournamentId, io);
+                
             } catch (error) {
-                console.error(`[Tournament ${tournamentId}] İzleyici ayrılırken hata oluştu:`, error);
+                console.error(`[Tournament ${tournamentId}] Oyuncu ayrılırken hata oluştu:`, error);
             }
         });
         
