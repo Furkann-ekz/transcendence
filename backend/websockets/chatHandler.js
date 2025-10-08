@@ -1,56 +1,50 @@
-// backend/websockets/chatHandler.js - GÜNCELLENMİŞ HALİ
+// backend/websockets/chatHandler.js
 const prisma = require('../prisma/db');
 
 async function chatHandler(io, socket, onlineUsers) {
     
-    // Genel mesaj gönderildiğinde tetiklenir
+    // Genel mesajlar için mantık değişmiyor.
     socket.on('chat message', async (msg) => {
         const senderId = socket.user.id;
-
         const messageObject = {
             type: 'public',
             sender: socket.user.name || socket.user.email,
             content: msg
         };
 
-        // Herkese göndermek yerine, online olan her kullanıcı için kontrol yap
         for (const recipientSocket of io.sockets.sockets.values()) {
             const recipientId = recipientSocket.user.id;
-            
-            // Kullanıcı kendine mesaj gönderebilir, kontrol etmeye gerek yok
             if (senderId === recipientId) {
                 recipientSocket.emit('chat message', messageObject);
                 continue;
             }
-
-            // Gönderen ve alıcı arasında herhangi bir yönde engelleme var mı diye kontrol et
             const blockExists = await prisma.block.findFirst({
-                where: {
-                    OR: [
-                        { blockerId: senderId, blockedId: recipientId },
-                        { blockerId: recipientId, blockedId: senderId },
-                    ]
-                }
+                where: { OR: [ { blockerId: senderId, blockedId: recipientId }, { blockerId: recipientId, blockedId: senderId } ] }
             });
-
-            // Eğer engelleme yoksa, mesajı bu kullanıcıya gönder
             if (!blockExists) {
                 recipientSocket.emit('chat message', messageObject);
             }
         }
     });
     
-    // Özel mesaj gönderildiğinde tetiklenir
+    // --- ÖZEL MESAJLAR İÇİN GÜNCELLENMİŞ MANTIK ---
     socket.on('private message', async ({ recipientId, message }) => {
         const senderId = socket.user.id;
         const recipientSocketInfo = onlineUsers.get(recipientId);
         
-        // Alıcı online değilse veya gönderen kendine mesaj atmaya çalışıyorsa işlem yapma
         if (!recipientSocketInfo || senderId === recipientId) {
             return;
         }
 
-        // Gönderen ve alıcı arasında herhangi bir yönde engelleme var mı diye kontrol et
+        // Adım 1: Mesaj objesini oluştur ve gönderenin kendi geçmişinde görmesi için ANINDA geri gönder.
+        const messageObject = {
+            type: 'private',
+            sender: socket.user.name || socket.user.email,
+            content: message
+        };
+        socket.emit('chat message', messageObject);
+
+        // Adım 2: Gönderen ve alıcı arasında bir engelleme olup olmadığını kontrol et.
         const blockExists = await prisma.block.findFirst({
             where: {
                 OR: [
@@ -60,22 +54,15 @@ async function chatHandler(io, socket, onlineUsers) {
             }
         });
 
-        // Eğer engelleme yoksa, mesajı gönder
+        // Adım 3: Eğer engel YOKSA, mesajı alıcıya da ilet.
         if (!blockExists) {
             const recipientSocket = io.sockets.sockets.get(recipientSocketInfo.socketId);
             if (recipientSocket) {
-                const messageObject = {
-                    type: 'private',
-                    sender: socket.user.name || socket.user.email,
-                    content: message
-                };
-                recipientSocket.emit('chat message', messageObject); // Alıcıya gönder
-                socket.emit('chat message', messageObject); // Gönderene de gönder (sohbet geçmişi için)
+                // Alıcıya gönderirken aynı mesaj objesini kullanıyoruz.
+                recipientSocket.emit('chat message', messageObject);
             }
-        } else {
-            // İsteğe bağlı: Engellenen kullanıcıya mesaj gönderemediğine dair bir bildirim
-            socket.emit('chat_error', { message: 'Bu kullanıcıya mesaj gönderemezsiniz.' });
         }
+        // Engel varsa, başka hiçbir şey yapma. Mesaj gönderilmiş gibi göründü ama alıcıya hiç ulaşmadı.
     });
 }
 

@@ -190,17 +190,35 @@ function initializeSocket(io) {
             if (playerState.position === 'top' || playerState.position === 'bottom') playerState.x = finalPosition;
         });
 
-        socket.on('invite_to_game', ({ recipientId }) => {
-            const recipientSocketInfo = onlineUsers.get(recipientId);
-            if (recipientSocketInfo) {
-                const recipientSocket = io.sockets.sockets.get(recipientSocketInfo.socketId);
-                if (recipientSocket) {
-                    // Davet edilen kişiye daveti gönder
-                    recipientSocket.emit('game_invitation', {
-                        inviter: { id: socket.user.id, name: socket.user.name }
-                    });
+        socket.on('invite_to_game', async ({ recipientId }) => { // Fonksiyonu async yap
+            const senderId = socket.user.id;
+            
+            // Kendine davet gönderemezsin
+            if (senderId === recipientId) return;
+
+            // Gönderen ve alıcı arasında bir engelleme olup olmadığını kontrol et
+            const blockExists = await prisma.block.findFirst({
+                where: {
+                    OR: [
+                        { blockerId: senderId, blockedId: recipientId },
+                        { blockerId: recipientId, blockedId: senderId },
+                    ]
+                }
+            });
+
+            // Eğer engel yoksa daveti gönder. Varsa, hiçbir şey yapma.
+            if (!blockExists) {
+                const recipientSocketInfo = onlineUsers.get(recipientId);
+                if (recipientSocketInfo) {
+                    const recipientSocket = io.sockets.sockets.get(recipientSocketInfo.socketId);
+                    if (recipientSocket) {
+                        recipientSocket.emit('game_invitation', {
+                            inviter: { id: socket.user.id, name: socket.user.name }
+                        });
+                    }
                 }
             }
+            // 'else' bloğu yok, davet sessizce boşa düşüyor.
         });
 
         socket.on('invitation_response', async ({ inviterId, accepted }) => { // Fonksiyonu async yap
