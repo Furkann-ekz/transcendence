@@ -1,13 +1,15 @@
+// frontend/src/pages/ProfileEditPage.ts
 import { t } from '../i18n';
-import { changePassword, getCurrentUserProfile, updateUserProfile } from '../api/users';
+import { changePassword, getCurrentUserProfile, updateUserAvatar, updateUserProfile } from '../api/users';
 import { navigateTo } from '../router';
 
-// Tip tanımını dışarıda yapmak daha temiz bir yöntemdir.
-interface UserProfile {
-    id: number;
-    name: string | null;
-    avatarUrl: string | null;
-}
+interface UserProfile { id: number; name: string | null; avatarUrl: string | null; }
+
+// Olay dinleyici fonksiyonlarını dışarıda tanımlıyoruz
+let avatarUploadBtnHandler: (() => void) | null = null;
+let avatarUploadInputHandler: (() => void) | null = null;
+let editProfileFormHandler: ((e: SubmitEvent) => Promise<void>) | null = null;
+let changePasswordFormHandler: ((e: SubmitEvent) => Promise<void>) | null = null;
 
 export function render(): string {
   return `
@@ -66,6 +68,7 @@ export async function afterRender() {
   const avatarPreview = document.getElementById('avatar-preview') as HTMLDivElement;
   const avatarUploadInput = document.getElementById('avatar-upload') as HTMLInputElement;
   const avatarUploadBtn = document.getElementById('avatar-upload-btn');
+  const changePasswordForm = document.getElementById('change-password-form') as HTMLFormElement;
   
   let userId: number | null = null;
   let newAvatarFile: File | null = null;
@@ -87,43 +90,33 @@ export async function afterRender() {
     console.error(error);
     alert('Kullanıcı verisi yüklenemedi.');
     navigateTo('/dashboard');
+    return;
   }
   
-  avatarUploadBtn?.addEventListener('click', () => avatarUploadInput.click());
-
-  avatarUploadInput.addEventListener('change', () => {
+  // Olay dinleyici fonksiyonlarını tanımla
+  avatarUploadBtnHandler = () => avatarUploadInput.click();
+  
+  avatarUploadInputHandler = () => {
     if (avatarUploadInput.files && avatarUploadInput.files[0]) {
         const file = avatarUploadInput.files[0];
         newAvatarFile = file;
         avatarPreview.style.backgroundImage = `url(${URL.createObjectURL(file)})`;
     }
-  });
+  };
 
-  editProfileForm.addEventListener('submit', async (e) => {
+  editProfileFormHandler = async (e) => {
     e.preventDefault();
-    
     if (!profile) {
         alert('Profil bilgileri yüklenemediği için kayıt yapılamıyor.');
         return;
     }
-      
     const newName = nameInput.value;
     let avatarUpdated = false;
-
     if (newAvatarFile) {
         const formData = new FormData();
         formData.append('file', newAvatarFile);
-        
         try {
-          const response = await fetch('/api/profile/avatar', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-                body: formData,
-            });
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Avatar yüklenemedi.');
-            }
+            await updateUserAvatar(formData); // API fonksiyonunu kullan
             newAvatarFile = null; 
             avatarUpdated = true;
         } catch (error: any) {
@@ -131,29 +124,22 @@ export async function afterRender() {
             return; 
         }
     }
-
     try {
       const nameChanged = profile.name !== newName;
       if (nameChanged) {
         await updateUserProfile({ name: newName });
       }
-      
       if (nameChanged || avatarUpdated) {
         alert(t('profile_update_success'));
       }
-      
-      if(userId) {
-        navigateTo(`/profile/${userId}`);
-      } else {
-        navigateTo('/dashboard');
-      }
+      if(userId) navigateTo(`/profile/${userId}`);
+      else navigateTo('/dashboard');
     } catch (error: any) {
       alert(error.message);
     }
-  });
+  };
   
-  const changePasswordForm = document.getElementById('change-password-form') as HTMLFormElement;
-  changePasswordForm.addEventListener('submit', async (e) => {
+  changePasswordFormHandler = async (e) => {
     e.preventDefault();
     const currentPassword = (document.getElementById('current-password') as HTMLInputElement).value;
     const newPassword = (document.getElementById('new-password') as HTMLInputElement).value;
@@ -167,7 +153,6 @@ export async function afterRender() {
         alert(t('password_too_short'));
         return;
     }
-
     try {
       await changePassword({ currentPassword, newPassword });
       alert(t('password_update_success'));
@@ -175,16 +160,32 @@ export async function afterRender() {
     } catch (error: any) {
       alert(error.message);
     }
-  });
+  };
+
+  // Olay dinleyicilerini elementlere ata
+  avatarUploadBtn?.addEventListener('click', avatarUploadBtnHandler);
+  avatarUploadInput.addEventListener('change', avatarUploadInputHandler);
+  editProfileForm.addEventListener('submit', editProfileFormHandler);
+  changePasswordForm.addEventListener('submit', changePasswordFormHandler);
 }
 
 export function cleanup() {
-    // Bu sayfadaki listener'lar formlara ve butonlara ekleniyor.
-    // En temiz yöntem, bu formları DOM'dan tamamen kaldırmaktır.
-    // Router zaten innerHTML'i temizlediği için bu genellikle yeterlidir,
-    // ancak garantiye almak için bu fonksiyonu eklemek en iyi pratiktir.
-    const editForm = document.getElementById('edit-profile-form');
-    const passForm = document.getElementById('change-password-form');
-    if (editForm) editForm.innerHTML = '';
-    if (passForm) passForm.innerHTML = '';
+    console.log("%c--- ProfileEditPage CLEANUP ---", "color: orange; font-weight: bold;");
+
+    const avatarUploadBtn = document.getElementById('avatar-upload-btn');
+    const avatarUploadInput = document.getElementById('avatar-upload');
+    const editProfileForm = document.getElementById('edit-profile-form');
+    const changePasswordForm = document.getElementById('change-password-form');
+
+    // Atanmış tüm olay dinleyicilerini kaldır
+    if (avatarUploadBtnHandler) avatarUploadBtn?.removeEventListener('click', avatarUploadBtnHandler);
+    if (avatarUploadInputHandler) avatarUploadInput?.removeEventListener('change', avatarUploadInputHandler);
+    if (editProfileFormHandler) editProfileForm?.removeEventListener('submit', editProfileFormHandler);
+    if (changePasswordFormHandler) changePasswordForm?.removeEventListener('submit', changePasswordFormHandler);
+
+    // Bellekte kalmamaları için null yap
+    avatarUploadBtnHandler = null;
+    avatarUploadInputHandler = null;
+    editProfileFormHandler = null;
+    changePasswordFormHandler = null;
 }

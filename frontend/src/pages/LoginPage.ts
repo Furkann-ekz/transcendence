@@ -3,6 +3,7 @@ import { t } from '../i18n';
 import { loginUser } from '../api/auth';
 import { navigateTo } from '../router';
 
+let formSubmitHandler: ((e: SubmitEvent) => void) | null = null;
 
 export function render() {
   return `
@@ -34,27 +35,24 @@ export function render() {
 
 export function afterRender() {
   const form = document.querySelector<HTMLFormElement>('#login-form');
-  if (form) {
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const email = (form.querySelector('#email') as HTMLInputElement).value;
-      const password = (form.querySelector('#password') as HTMLInputElement).value;
+  formSubmitHandler = async (e: SubmitEvent) => {
+    e.preventDefault();
+    const email = (form!.querySelector('#email') as HTMLInputElement).value;
+    const password = (form!.querySelector('#password') as HTMLInputElement).value;
+    try {
+      const data = await loginUser(email, password);
+      localStorage.setItem('token', data.token);
+      navigateTo('/dashboard');
+    } catch (error: any) {
+      alert(t('error_invalid_credentials'));
+    }
+  };
+  form?.addEventListener('submit', formSubmitHandler);
+}
 
-      try {
-        const data = await loginUser(email, password);
-        localStorage.setItem('token', data.token);
-        navigateTo('/dashboard');
-      }
-      catch (error: any)
-      {
-        // Backend'den gelen mesaja göre çeviri yap
-        const errorMessage = error.message;
-        if (errorMessage.includes('Invalid credentials'))
-          alert(t('error_invalid_credentials'));
-        else
-          // Bilinmeyen diğer hatalar için genel mesaj
-          alert(errorMessage);
-      }
-    });
-  }
+export function cleanup() {
+    if (formSubmitHandler) {
+        document.querySelector<HTMLFormElement>('#login-form')?.removeEventListener('submit', formSubmitHandler);
+        formSubmitHandler = null;
+    }
 }

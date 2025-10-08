@@ -4,10 +4,8 @@ import { navigateTo } from '../router';
 import { t } from '../i18n';
 import { jwt_decode } from '../utils';
 import { getSocket } from '../socket';
-// DEĞİŞİKLİK: API fonksiyonlarını merkezi dosyadan import ediyoruz.
 import { getTournaments, joinTournament, createTournament } from '../api/tournaments'; 
 
-// Tip Tanımlamaları
 interface TournamentSummary {
     id: string;
     name: string;
@@ -16,8 +14,9 @@ interface TournamentSummary {
     players: { userId: number }[]; 
 }
 
-// DEĞİŞİKLİK: Bu sayfadaki yerel 'fetchTournaments', 'registerForTournament' ve 
-// 'createTournament' fonksiyonları kaldırıldı çünkü artık merkezi API dosyasını kullanıyoruz.
+// Olay dinleyicilerini dışarıda tanımlıyoruz
+let createBtnHandler: (() => Promise<void>) | null = null;
+let tournamentListClickHandler: ((e: Event) => void) | null = null;
 
 export function render(): string {
   return `
@@ -40,7 +39,6 @@ export function render(): string {
 
 export async function afterRender() {
     const listEl = document.getElementById('tournament-list');
-    const createBtn = document.getElementById('create-tournament-btn');
     const token = localStorage.getItem('token');
     const myId = token ? jwt_decode(token).userId : null;
     const socket = getSocket();
@@ -48,7 +46,6 @@ export async function afterRender() {
     const renderList = async () => {
         if (!listEl) return;
         try {
-            // Artık import ettiğimiz merkezi 'getTournaments' fonksiyonunu kullanıyoruz.
             const tournaments: TournamentSummary[] = await getTournaments();
             if (tournaments.length === 0) {
                 listEl.innerHTML = `<p class="text-center text-gray-500">${t('no_active_tournaments')}</p>`;
@@ -74,49 +71,61 @@ export async function afterRender() {
                 </div>
             `;
             }).join('');
-
-            document.querySelectorAll('.register-btn').forEach(button => {
-                button.addEventListener('click', async (e) => {
-                    const target = e.target as HTMLButtonElement;
-                    const tournamentId = target.dataset.tournamentId;
-                    if (!tournamentId || target.disabled) return;
-                    try {
-                        await joinTournament(tournamentId);
-                        await renderList();
-                    } catch (error: any) {
-                        // Gelen hata mesajını (artık bir anahtar) t() fonksiyonu ile çeviriyoruz.
-                        alert(t(error.message)); 
-                    }
-                });
-            });
-
+            // --- DİKKAT: Buradaki querySelectorAll döngüsü kaldırıldı. ---
         } catch (error) {
             listEl.innerHTML = `<p class="text-red-500">${t('tournaments_load_error')}</p>`;
         }
     };
 
-    createBtn?.addEventListener('click', async () => {
+    // --- Olay Dinleyici Fonksiyonları ---
+    createBtnHandler = async () => {
         try {
-            // Artık import ettiğimiz merkezi 'createTournament' fonksiyonunu kullanıyoruz.
             const newTournament = await createTournament();
             navigateTo(`/tournaments/${newTournament.id}`);
         } catch (error: any) {
             alert(error.message || 'Turnuva oluşturulamadı.');
         }
-    });
+    };
+
+    // "Event Delegation" kullanarak 'register-btn' tıklamalarını yönet
+    tournamentListClickHandler = async (e: Event) => {
+        const target = e.target as HTMLElement;
+        const registerButton = target.closest('.register-btn') as HTMLButtonElement;
+        
+        if (!registerButton) return; // Eğer tıklanan yer bir register butonu değilse, hiçbir şey yapma
+
+        const tournamentId = registerButton.dataset.tournamentId;
+        if (!tournamentId || registerButton.disabled) return;
+
+        try {
+            await joinTournament(tournamentId);
+            // Başarılı katılım sonrası listeyi güncellemeye gerek yok,
+            // çünkü backend'den gelen 'tournament_list_updated' olayı bunu zaten yapacak.
+        } catch (error: any) {
+            alert(t(error.message)); 
+        }
+    };
+    
+    // --- Dinleyicileri Ekleme ---
+    document.getElementById('create-tournament-btn')?.addEventListener('click', createBtnHandler);
+    listEl?.addEventListener('click', tournamentListClickHandler);
 
     await renderList();
-    if (socket) {
-        socket.on('tournament_list_updated', () => {
-            console.log('Tournament listesi güncellendi, yeniden çiziliyor...');
-            renderList();
-        });
-    }
+    socket?.on('tournament_list_updated', renderList);
 }
 
 export function cleanup() {
+    console.log("%c--- TournamentListPage CLEANUP ---", "color: purple; font-weight: bold;");
     const socket = getSocket();
     if (socket) {
         socket.off('tournament_list_updated');
+    }
+    if (createBtnHandler) {
+        document.getElementById('create-tournament-btn')?.removeEventListener('click', createBtnHandler);
+        createBtnHandler = null;
+    }
+    if (tournamentListClickHandler) {
+        document.getElementById('tournament-list')?.removeEventListener('click', tournamentListClickHandler);
+        tournamentListClickHandler = null;
     }
 }

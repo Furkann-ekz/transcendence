@@ -1,7 +1,9 @@
 // frontend/src/pages/RegisterPage.ts
 import { registerUser } from '../api/auth';
 import { navigateTo } from '../router';
-import { t } from '../i18n'; // t fonksiyonunu import et
+import { t } from '../i18n';
+
+let formSubmitHandler: ((e: SubmitEvent) => void) | null = null;
 
 export function render() {
   return `
@@ -38,28 +40,25 @@ export function render() {
 // afterRender fonksiyonu aynı kalıyor
 export function afterRender() {
   const form = document.querySelector<HTMLFormElement>('#register-form');
-  if (form) {
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const name = (form.querySelector('#name') as HTMLInputElement).value;
-      const email = (form.querySelector('#email') as HTMLInputElement).value;
-      const password = (form.querySelector('#password') as HTMLInputElement).value;
+  formSubmitHandler = async (e: SubmitEvent) => {
+    e.preventDefault();
+    const name = (form!.querySelector('#name') as HTMLInputElement).value;
+    const email = (form!.querySelector('#email') as HTMLInputElement).value;
+    const password = (form!.querySelector('#password') as HTMLInputElement).value;
+    try {
+      await registerUser(email, password, name);
+      alert(t('register_success_alert'));
+      navigateTo('/');
+    } catch (error: any) {
+      alert(t('error_email_registered'));
+    }
+  };
+  form?.addEventListener('submit', formSubmitHandler);
+}
 
-      try {
-        await registerUser(email, password, name);
-        alert(t('register_success_alert')); // Değiştirilen satır
-        navigateTo('/'); // Giriş sayfasına yönlendir
-      }
-      catch (error: any)
-      {
-        // Backend'den gelen mesaja göre çeviri yap
-        const errorMessage = error.message;
-        if (errorMessage.includes('This email is already registered'))
-          alert(t('error_email_registered'));
-        else
-          // Bilinmeyen diğer hatalar için genel mesaj
-          alert(errorMessage);
-      }
-    });
-  }
+export function cleanup() {
+    if (formSubmitHandler) {
+        document.querySelector<HTMLFormElement>('#register-form')?.removeEventListener('submit', formSubmitHandler);
+        formSubmitHandler = null;
+    }
 }
