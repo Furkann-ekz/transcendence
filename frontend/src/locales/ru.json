@@ -124,5 +124,6 @@
   "invite_button": "Пригласить",
   "invitation_sent": "Приглашение в игру отправлено!",
   "private_to": "Кому:",
-  "private_from": "От:"
+  "private_from": "От:",
+  "return_to_tournament_lobby": "Вернуться в лобби турнира"
 }

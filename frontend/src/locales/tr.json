@@ -125,5 +125,6 @@
   "invite_button": "Davet Et",
   "invitation_sent": "Oyun daveti gönderildi!",
   "private_to": "Kime:",
-  "private_from": "Kimden:"
+  "private_from": "Kimden:",
+  "return_to_tournament_lobby": "Turnuva Lobisine Geri Dön"
 }

@@ -125,5 +125,6 @@
   "invite_button": "Invite",
   "invitation_sent": "Game invitation sent!",
   "private_to": "To:",
-  "private_from": "From:"
+  "private_from": "From:",
+  "return_to_tournament_lobby": "Return to Tournament Lobby"
 }

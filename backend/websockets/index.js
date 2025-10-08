@@ -68,32 +68,20 @@ function initializeSocket(io) {
         socket.on('leave_tournament_lobby', ({ tournamentId }) => { if (tournamentId) socket.leave(tournamentId); });
 
         socket.on('leave_tournament', async ({ tournamentId }) => {
+            const userId = socket.user.id;
+            
+            // Eğer oyuncu aktif bir maçın ortasındaysa, hükmen mağlup say.
             if (socket.gameRoom) {
-                await cleanUpPlayer(socket, io, gameState.gameRooms);
-                return;
+                const game = gameState.gameRooms.get(socket.gameRoom.id);
+                if (game && game.onMatchEnd) {
+                    await cleanUpPlayer(socket, io, gameState.gameRooms);
+                    return;
+                }
             }
-            try {
-                // Oyuncuyu veritabanında 'elenmiş' olarak işaretle
-                await prisma.tournamentPlayer.updateMany({
-                    where: { tournamentId: tournamentId, userId: userId },
-                    data: { isEliminated: true }
-                });
-                
-                // Arayüzdeki oyuncu listesini güncellemek için olayı yayınla
-                const updatedPlayers = await prisma.tournamentPlayer.findMany({
-                    where: { tournamentId: tournamentId },
-                    include: { user: { select: { id: true, name: true, avatarUrl: true } } }
-                });
-                io.to(tournamentId).emit('tournament_update', { players: updatedPlayers });
-
-                // --- KRİTİK GÜNCELLEME BURADA ---
-                // Oyuncu elendikten sonra, turnuva durumunu yeniden değerlendirmek için
-                // ana turnuva fonksiyonunu tekrar çağırıyoruz.
-                tournamentHandler.startNextMatch(tournamentId, io);
-                
-            } catch (error) {
-                console.error(`[Tournament ${tournamentId}] Oyuncu ayrılırken hata oluştu:`, error);
-            }
+            
+            // Diğer tüm durumlarda (lobi, hazır bekleme, geri sayım),
+            // yeni merkezi ayrılma fonksiyonunu çağır.
+            await tournamentHandler.handlePlayerLeave(tournamentId, userId, io);
         });
         
         socket.on('disconnect', async () => {
@@ -108,44 +96,15 @@ function initializeSocket(io) {
             await cleanUpPlayer(socket, io, gameState.gameRooms);
 
             try {
-                // Bağlantısı kopan oyuncu, devam eden bir turnuvada mı diye kontrol et
                 const playerInTournament = await prisma.tournamentPlayer.findFirst({
-                    where: {
-                        userId: socket.user.id,
-                        isEliminated: false,
-                        tournament: {
-                            status: 'IN_PROGRESS'
-                        }
-                    },
-                    select: {
-                        tournamentId: true
-                    }
+                    where: { userId: socket.user.id, isEliminated: false, tournament: { status: 'IN_PROGRESS' } },
+                    select: { tournamentId: true }
                 });
 
-                // Eğer evet ise, oyuncuyu diskalifiye et
                 if (playerInTournament) {
                     const { tournamentId } = playerInTournament;
-                    console.log(`[Tournament ${tournamentId}] Oyuncu ${socket.user.name} bağlantısı koptuğu için diskalifiye ediliyor.`);
-                    
-                    await prisma.tournamentPlayer.updateMany({
-                        where: {
-                            tournamentId: tournamentId,
-                            userId: socket.user.id,
-                        },
-                        data: {
-                            isEliminated: true
-                        }
-                    });
-
-                    // Diğer istemcilere oyuncu listesinin güncellendiğini bildir
-                    const updatedPlayers = await prisma.tournamentPlayer.findMany({
-                        where: { tournamentId: tournamentId },
-                        include: { user: { select: { id: true, name: true, avatarUrl: true } } }
-                    });
-                    io.to(tournamentId).emit('tournament_update', { players: updatedPlayers });
-
-                    // Turnuva mantığını yeniden değerlendirmesi için ana fonksiyonu tetikle
-                    tournamentHandler.startNextMatch(tournamentId, io);
+                    console.log(`[Tournament ${tournamentId}] Oyuncu ${socket.user.name} bağlantısı koptuğu için ayrılma işlemi tetikleniyor.`);
+                    await tournamentHandler.handlePlayerLeave(tournamentId, socket.user.id, io);
                 }
             } catch (error) {
                 console.error('Disconnect sırasında turnuva kontrolü hatası:', error);

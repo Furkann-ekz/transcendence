@@ -1,7 +1,7 @@
 // frontend/src/pages/LobbyPage.ts
 import { navigateTo } from "../router";
 import { t } from '../i18n';
-import { getMyActiveTournament } from "../api/tournaments"; // Yeni import
+import { getMyActiveTournament } from "../api/tournaments";
 
 export function render() {
   return `
@@ -30,27 +30,40 @@ export function render() {
 }
 
 export async function afterRender() {
-    // Önceki afterRender içeriği burada kalabilir, altına ekleme yapıyoruz.
     const onlineButton = document.querySelector('a[href="/online-lobby"]');
     onlineButton?.addEventListener('click', (e) => {
         e.preventDefault();
         navigateTo('/online-lobby');
     });
 
-    // --- YENİ EKLENEN BÖLÜM ---
     const buttonsContainer = document.getElementById('lobby-buttons-container');
     if (!buttonsContainer) return;
 
     try {
         const activeTournament = await getMyActiveTournament();
+        
+        // Eğer bir turnuva varsa (LOBI veya DEVAM EDİYOR)
         if (activeTournament && activeTournament.id) {
             const returnButton = document.createElement('a');
-            returnButton.href = `/tournament/${activeTournament.id}/play`;
             returnButton.setAttribute('data-link', '');
-            returnButton.className = 'bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 px-4 rounded';
-            returnButton.textContent = t('return_to_active_tournament'); // <-- Metni t() fonksiyonu ile çeviriyoruz
 
-            buttonsContainer.prepend(returnButton);
+            // --- DEĞİŞİKLİK BURADA: Gelen status'e göre karar veriyoruz ---
+            if (activeTournament.status === 'IN_PROGRESS') {
+                // Turnuva başladıysa: "Devam Eden Turnuvaya Dön" butonu
+                returnButton.href = `/tournament/${activeTournament.id}/play`;
+                returnButton.className = 'bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 px-4 rounded';
+                returnButton.textContent = t('return_to_active_tournament');
+            } else if (activeTournament.status === 'LOBBY') {
+                // Turnuva lobi aşamasındaysa: "Turnuva Lobisine Dön" butonu
+                returnButton.href = `/tournaments/${activeTournament.id}`;
+                returnButton.className = 'bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded';
+                returnButton.textContent = t('return_to_tournament_lobby'); // Yeni çeviri anahtarı
+            }
+
+            // Oluşturulan butonu diğer butonların en üstüne ekle
+            if (returnButton.textContent) {
+                buttonsContainer.prepend(returnButton);
+            }
         }
     } catch (error) {
         console.error("Failed to check for active tournament:", error);

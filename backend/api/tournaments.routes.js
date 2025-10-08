@@ -39,6 +39,13 @@ async function tournamentRoutes(fastify, { io }) {
                         include: {
                             user: { select: { id: true, name: true, avatarUrl: true } }
                         }
+                    },
+                    // Turnuva bittiyse, kazananın adını da cevaba ekle.
+                    winner: {
+                        select: {
+                            id: true,
+                            name: true
+                        }
                     }
                 }
             });
@@ -54,13 +61,31 @@ async function tournamentRoutes(fastify, { io }) {
 
     fastify.post('/tournaments', { preHandler: [authenticate] }, async (request, reply) => {
         const hostId = request.user.userId;
-        const host = await prisma.user.findUnique({ where: { id: hostId } });
-
-        if (!host) {
-            return reply.code(404).send({ error: 'Host user not found.' });
-        }
 
         try {
+            // --- YENİ KONTROL BLOĞU BAŞLANGICI ---
+            // Kullanıcının zaten başka bir aktif turnuvada (lobi dahil) olup olmadığını kontrol et.
+            const existingParticipation = await prisma.tournamentPlayer.findFirst({
+                where: {
+                    userId: hostId,
+                    isEliminated: false,
+                    tournament: {
+                        status: { in: ['LOBBY', 'IN_PROGRESS'] }
+                    }
+                }
+            });
+
+            // Eğer kullanıcı zaten bir turnuvadaysa, 409 Conflict hatası döndür.
+            if (existingParticipation) {
+                return reply.code(409).send({ error: 'error_already_in_tournament' });
+            }
+            // --- YENİ KONTROL BLOĞU SONU ---
+
+            const host = await prisma.user.findUnique({ where: { id: hostId } });
+            if (!host) {
+                return reply.code(404).send({ error: 'Host user not found.' });
+            }
+
             const totalTournamentCount = await prisma.tournament.count({
                 where: { hostId: hostId }
             });
@@ -85,8 +110,13 @@ async function tournamentRoutes(fastify, { io }) {
             });
             io.emit('tournament_list_updated');
             return newTournament;
+
         } catch (error) {
-            fastify.log.error(error);
+            // Bu hata bloğu artık hem 'existingParticipation' kontrolünden hem de
+            // geri kalan işlemlerden gelebilecek hataları yakalar.
+            if (error.code !== 'P2002') { // Prisma'nın bilinen hatalarını ayıklayabiliriz
+                fastify.log.error(error);
+            }
             return reply.code(500).send({ error: 'Could not create tournament.' });
         }
     });
@@ -158,7 +188,14 @@ async function tournamentRoutes(fastify, { io }) {
                         status: { in: ['LOBBY', 'IN_PROGRESS'] } // Lobi durumunu da kontrol edebiliriz
                     }
                 },
-                select: { tournament: { select: { id: true } } }
+                select: {
+                    tournament: {
+                        select: {
+                            id: true,
+                            status: true // Turnuvanın durumunu da cevaba ekle
+                        }
+                    }
+                }
             });
 
             if (activePlayerInTournament) {

@@ -7,11 +7,48 @@ const { shuffleArray } = require('../utils/arrayUtils');
 const nextMatchReadyStatus = {};
 const activeCountdowns = {};
 
+async function handlePlayerLeave(tournamentId, userId, io) {
+    console.log(`[Tournament ${tournamentId}] Oyuncu ${userId} için ayrılma işlemi başlatıldı.`);
+    
+    // Devam eden bir geri sayım varsa kesin olarak durdur.
+    if (activeCountdowns[tournamentId]) {
+        clearInterval(activeCountdowns[tournamentId]);
+        delete activeCountdowns[tournamentId];
+        console.log(`[Tournament ${tournamentId}] Geri sayım, oyuncu ayrıldığı için iptal edildi.`);
+    }
+
+    // Bekleyen bir maç durumu varsa temizle.
+    if (nextMatchReadyStatus[tournamentId]) {
+        delete nextMatchReadyStatus[tournamentId];
+        console.log(`[Tournament ${tournamentId}] Bekleyen maç durumu, oyuncu ayrıldığı için temizlendi.`);
+    }
+
+    try {
+        // Oyuncuyu veritabanında 'elenmiş' olarak işaretle.
+        await prisma.tournamentPlayer.updateMany({
+            where: { tournamentId: tournamentId, userId: userId },
+            data: { isEliminated: true }
+        });
+
+        // Arayüzleri güncellemek için olayı yayınla.
+        const updatedPlayers = await prisma.tournamentPlayer.findMany({
+            where: { tournamentId: tournamentId },
+            include: { user: { select: { id: true, name: true, avatarUrl: true } } }
+        });
+        io.to(tournamentId).emit('tournament_update', { players: updatedPlayers });
+
+        // Turnuva durumunu yeniden değerlendirerek bir sonraki adımı belirle.
+        // Bu, kalan oyuncuyu otomatik olarak galip ilan edebilir.
+        await startNextMatch(tournamentId, io);
+    } catch (error) {
+        console.error(`[Tournament ${tournamentId}] Oyuncu ayrılırken hata oluştu:`, error);
+    }
+}
+
 async function startNextMatch(tournamentId, io) {
     if (activeCountdowns[tournamentId]) {
         clearInterval(activeCountdowns[tournamentId]);
         delete activeCountdowns[tournamentId];
-        console.log(`[Tournament ${tournamentId}] Aktif geri sayım, durum değişikliği nedeniyle iptal edildi.`);
     }
 
     console.log(`[Tournament ${tournamentId}] === YENİ TUR BAŞLADI ===`);
@@ -186,4 +223,9 @@ function handleRequestCurrentMatch(socket) {
     });
 }
 
-module.exports = { startNextMatch, handlePlayerReady, handleRequestCurrentMatch };
+module.exports = {
+    startNextMatch,
+    handlePlayerReady,
+    handleRequestCurrentMatch,
+    handlePlayerLeave // Yeni fonksiyonu export ediyoruz
+};
