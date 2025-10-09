@@ -62,7 +62,7 @@ function renderGame() {
 
     // Skorları çiz
     context.fillStyle = 'white';
-    context.font = "75px fantasy";
+    context.font = "75px Arial";
     context.textAlign = 'center';
     context.fillText(String(team1Score ?? 0), canvasSize / 4, canvasSize / 5);
     context.fillText(String(team2Score ?? 0), (canvasSize * 3) / 4, canvasSize / 5);
