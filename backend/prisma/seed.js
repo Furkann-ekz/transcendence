@@ -15,6 +15,7 @@ async function main() {
         { name: 'Charlie', email: 'c@c', password: 'c' },
         { name: 'Diana', email: 'd@d', password: 'd' },
         { name: 'Fatih', email: 'f@f', password: 'f' },
+        { name: 'Erman', email: 'e@e', password: 'e' },
         { name: 'Goncagüle', email: 'g@g', password: 'g' },
         { name: 'Hacışakir', email: 'h@h', password: 'h' },
         { name: 'Jandarma', email: 'j@j', password: 'j' },
