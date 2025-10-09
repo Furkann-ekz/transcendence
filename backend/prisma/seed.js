@@ -14,6 +14,10 @@ async function main() {
         { name: 'Bob', email: 'b@b', password: 'b' },
         { name: 'Charlie', email: 'c@c', password: 'c' },
         { name: 'Diana', email: 'd@d', password: 'd' },
+        { name: 'Fatih', email: 'f@f', password: 'f' },
+        { name: 'Goncagüle', email: 'g@g', password: 'g' },
+        { name: 'Hacışakir', email: 'h@h', password: 'h' },
+        { name: 'Jandarma', email: 'j@j', password: 'j' },
     ];
 
     for (const u of usersToCreate) {

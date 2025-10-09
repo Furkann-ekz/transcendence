@@ -109,20 +109,19 @@ function startGameLoop(room, players, io, mode, gameConfig, onMatchEnd) {
     const WINNING_SCORE = 20;
     const BALL_RADIUS = 10;
 
-    // --- DEĞİŞİKLİK BURADA ---
-    // onMatchEnd callback'ini game objesine kaydediyoruz.
     const game = { 
         players, 
         mode, 
         gameState: {}, 
         intervalId: null, 
         startTime: startTime, 
-        onMatchEnd: onMatchEnd, // Bu satır eklendi
+        onMatchEnd: onMatchEnd,
         ...gameConfig 
     };
 
     let gameState = {
-        ballX: gameConfig.canvasSize / 2, ballY: gameConfig.canvasSize / 2, ballSpeedX: 6, ballSpeedY: 6,
+        ballX: gameConfig.canvasSize / 2, ballY: gameConfig.canvasSize / 2,
+        ballSpeedX: 6, ballSpeedY: 6,
         team1Score: 0, team2Score: 0,
         players: players.map(p => ({ ...p, hits: 0 }))
     };
@@ -181,9 +180,21 @@ function startGameLoop(room, players, io, mode, gameConfig, onMatchEnd) {
                 return; 
             }
             
+            // --- TAMAMEN RASTGELE BAŞLANGIÇ MANTIĞI ---
             gameState.ballX = gameConfig.canvasSize / 2;
             gameState.ballY = gameConfig.canvasSize / 2;
-            gameState.ballSpeedX = -gameState.ballSpeedX;
+
+            const baseSpeedX = 6;
+            // Yatay yönü %50 ihtimalle sola veya sağa olacak şekilde rastgele ata.
+            gameState.ballSpeedX = (Math.random() < 0.5 ? -baseSpeedX : baseSpeedX);
+
+            // Dikey hızı da rastgele ata.
+            let randomY;
+            do {
+                randomY = Math.random() * 8 - 4; // -4 ile +4 arasında bir sayı
+            } while (Math.abs(randomY) < 1);
+            gameState.ballSpeedY = randomY;
+            // --- GÜNCELLEME SONU ---
         }
         
         if (!scored) {

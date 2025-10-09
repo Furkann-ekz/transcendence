@@ -102,53 +102,30 @@ async function startNextMatch(tournamentId, io) {
 }
 
 function handlePlayerReady(socket, io, onlineUsers, gameRooms) {
-    // Bu fonksiyonun içeriği aynı kalıyor
     socket.on('player_ready_for_next_match', async ({ tournamentId }) => {
         const userId = socket.user.id;
         const matchInfo = nextMatchReadyStatus[tournamentId];
-
         if (!matchInfo || !matchInfo.players.includes(userId) || matchInfo.ready.includes(userId)) {
             return;
         }
-
         matchInfo.ready.push(userId);
-        console.log(`[Tournament ${tournamentId}] Oyuncu ${socket.user.name} hazır. Hazır oyuncu sayısı: ${matchInfo.ready.length}`);
 
         if (matchInfo.ready.length === 2) {
-            console.log(`[Tournament ${tournamentId}] Her iki oyuncu da hazır. Maç başlatılıyor.`);
-            
             const [player1Id, player2Id] = matchInfo.players;
-            const player1SocketInfo = onlineUsers.get(player1Id);
-            const player2SocketInfo = onlineUsers.get(player2Id);
-            const player1Socket = player1SocketInfo ? io.sockets.sockets.get(player1SocketInfo.socketId) : null;
-            const player2Socket = player2SocketInfo ? io.sockets.sockets.get(player2SocketInfo.socketId) : null;
-
-            if (!player1Socket || !player2Socket) {
-                console.error(`[Tournament ${tournamentId}] Oyuncular hazır dedi ama online değil.`);
-                const offlinePlayerId = !player1Socket ? player1Id : player2Id;
-                await prisma.tournamentPlayer.updateMany({ where: { tournamentId: tournamentId, userId: offlinePlayerId }, data: { isEliminated: true }});
-                setTimeout(() => startNextMatch(tournamentId, io), 3000);
-                return;
-            }
-
             let countdown = 3;
+            
             const countdownInterval = setInterval(async () => {
-                // Her saniye tüm odaya kalan süreyi gönder
                 io.to(tournamentId).emit('match_countdown', { secondsLeft: countdown });
                 countdown--;
 
                 if (countdown < 0) {
-                    // Geri sayım bitince interval'ı temizle ve saklanan kaydı sil
                     clearInterval(activeCountdowns[tournamentId]);
                     delete activeCountdowns[tournamentId];
                     
                     const playersStatus = await prisma.tournamentPlayer.findMany({
                         where: { tournamentId: tournamentId, userId: { in: [player1Id, player2Id] } }
                     });
-                    const allPlayersStillActive = playersStatus.length === 2 && playersStatus.every(p => !p.isEliminated);
-
-                    if (!allPlayersStillActive) {
-                        console.log(`[Tournament ${tournamentId}] Maç, oyunculardan biri ayrıldığı için başlatılamadı.`);
+                    if (playersStatus.length !== 2 || playersStatus.some(p => p.isEliminated)) {
                         startNextMatch(tournamentId, io);
                         return;
                     }
@@ -157,24 +134,31 @@ function handlePlayerReady(socket, io, onlineUsers, gameRooms) {
                     const player2Socket = io.sockets.sockets.get(onlineUsers.get(player2Id)?.socketId);
 
                     if (!player1Socket || !player2Socket) {
-                         console.error(`[Tournament ${tournamentId}] Oyuncular online değil, maç iptal.`);
                          startNextMatch(tournamentId, io);
                          return;
                     }
 
                     player1Socket.emit('go_to_match');
                     player2Socket.emit('go_to_match');
+
+                    // --- DEĞİŞİKLİK BURADA BAŞLIYOR ---
                     const gameConfig = { canvasSize: 800, paddleSize: 100, paddleThickness: 15, tournamentId: tournamentId };
-                    const roomName = `tournament_match_${tournamentId}_${Date.now()}`;
                     const p1 = await prisma.user.findUnique({ where: { id: player1Id } });
                     const p2 = await prisma.user.findUnique({ where: { id: player2Id } });
+
+                    // Oyuncu objelerine 'x' ve 'y' koordinatları eklendi.
                     const players = [
-                        { ...p1, socketId: player1Socket.id, position: 'left', team: 1 },
-                        { ...p2, socketId: player2Socket.id, position: 'right', team: 2 }
+                        { ...p1, socketId: player1Socket.id, position: 'left', team: 1, x: 0, y: (gameConfig.canvasSize / 2) - (gameConfig.paddleSize / 2) },
+                        { ...p2, socketId: player2Socket.id, position: 'right', team: 2, x: gameConfig.canvasSize - gameConfig.paddleThickness, y: (gameConfig.canvasSize / 2) - (gameConfig.paddleSize / 2) }
                     ];
+                    // --- DEĞİŞİKLİK BURADA BİTİYOR ---
+
+                    const roomName = `tournament_match_${tournamentId}_${Date.now()}`;
                     [player1Socket, player2Socket].forEach(sock => {
-                        sock.join(roomName);
-                        sock.gameRoom = { id: roomName, mode: '1v1-tournament' };
+                        if (sock) {
+                            sock.join(roomName);
+                            sock.gameRoom = { id: roomName, mode: '1v1-tournament' };
+                        }
                     });
 
                     const onMatchEnd = async (losers) => {
@@ -186,6 +170,7 @@ function handlePlayerReady(socket, io, onlineUsers, gameRooms) {
                         } catch (error) { console.error(`[Tournament ${tournamentId}] onMatchEnd hatası:`, error);
                         } finally { setTimeout(() => startNextMatch(tournamentId, io), 3000); }
                     };
+
                     const game = startGameLoop(roomName, players, io, '1v1', gameConfig, onMatchEnd);
                     gameRooms.set(roomName, game);
                 }

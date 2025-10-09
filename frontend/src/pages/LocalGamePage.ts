@@ -50,7 +50,7 @@ function drawCircle(x: number, y: number, r: number, color: string) {
 
 function drawText(text: string, x: number, y: number, color: string) {
   context.fillStyle = color;
-  context.font = "75px fantasy";
+  context.font = "75px Arial";
   context.fillText(text, x, y);
 }
 
@@ -67,9 +67,20 @@ function renderGame() {
 function resetBall() {
   gameState.ballX = canvas.width / 2;
   gameState.ballY = canvas.height / 2;
-  gameState.ballSpeedX = -gameState.ballSpeedX;
-  gameState.ballSpeedY = 5;
+
+  // --- TAMAMEN RASTGELE BAŞLANGIÇ MANTIĞI ---
+  const baseSpeedX = 5; // Bu dosyadaki hız değeri
+  // Yatay yönü %50 ihtimalle sola veya sağa olacak şekilde rastgele ata.
+  gameState.ballSpeedX = (Math.random() < 0.5 ? -baseSpeedX : baseSpeedX);
+  
+  // Dikey hızı rastgele ata.
+  let randomY;
+  do {
+      randomY = Math.random() * 8 - 4; // -4 ile +4 arasında bir sayı
+  } while (Math.abs(randomY) < 1);
+  gameState.ballSpeedY = randomY;
 }
+
 
 function update() {
   if (!canvas) return;
