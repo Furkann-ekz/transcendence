@@ -17,7 +17,14 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: transcendence_backend
+     # --- BU SATIRLARI EKLE/GÜNCELLE ---
+    # Uygulamayı --inspect bayrağıyla başlatarak hata ayıklama portunu açar.
+    # 0.0.0.0 adresi, Docker dışından (yani kendi makinemizden) erişime izin verir.
+    command: ["node", "--inspect=0.0.0.0:9229", "server.js"]
+    ports:
+      # Hata ayıklama portunu makinemize bağlıyoruz.
+      - "9229:9229"
+    # --- EKLEME/GÜNCELLEME SONU ---
     volumes:
       - ./backend:/usr/src/app
       - /usr/src/app/node_modules

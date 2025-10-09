@@ -69,26 +69,34 @@ async function cleanUpPlayer(sock, io, gameRooms) {
         const leavingPlayer = game.players.find(p => p.socketId === sock.id);
         
         if (leavingPlayer) {
-            const losers = [leavingPlayer];
-            const winners = game.players.filter(p => p.id !== leavingPlayer.id);
+            // --- TAKIM MANTIĞINA GÖRE GÜNCELLENMİŞ BLOK ---
+            const losingTeamId = leavingPlayer.team;
+            const winningTeamId = losingTeamId === 1 ? 2 : 1;
 
-            winners.forEach(p => {
-                const winnerSocket = io.sockets.sockets.get(p.socketId);
-                if (winnerSocket) {
-                    winnerSocket.emit('gameOver', { winners, losers, reason: 'forfeit' });
+            const losers = game.players.filter(p => p.team === losingTeamId);
+            const winners = game.players.filter(p => p.team === winningTeamId);
+
+            // Kalan tüm oyuncuları bul (kazananlar + kaybeden takımdaki diğer oyuncu)
+            const allRemainingPlayers = winners.concat(losers.filter(p => p.id !== leavingPlayer.id));
+
+            // Herkese doğru sonucu bildir
+            allRemainingPlayers.forEach(p => {
+                const playerSocket = io.sockets.sockets.get(p.socketId);
+                if (playerSocket) {
+                    playerSocket.emit('gameOver', { winners, losers, reason: 'forfeit' });
                 }
             });
-
-            const winningTeam = winners.length > 0 ? winners[0].team : (leavingPlayer.team === 1 ? 2 : 1);
             
+            // Tüm kazananların ve tüm kaybedenlerin istatistiklerini güncelle
             await updatePlayerStats(winners.map(p => p.id), 'win');
             await updatePlayerStats(losers.map(p => p.id), 'loss');
-            await saveMatch(game, winningTeam, true);
+            await saveMatch(game, winningTeamId, true);
             
             if (game.onMatchEnd) {
-                console.log(`[Tournament] ${leavingPlayer.name} hükmen kaybetti. Turnuva devam ediyor.`);
+                console.log(`[Tournament] ${leavingPlayer.name}'nin takımı hükmen kaybetti.`);
                 await game.onMatchEnd(losers);
             }
+            // --- GÜNCELLEME SONU ---
         }
         
         gameRooms.delete(gameRoomId);

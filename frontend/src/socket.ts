@@ -2,7 +2,7 @@
 import { io, Socket } from "socket.io-client";
 import { t } from './i18n';
 import { navigateTo } from './router';
-import { showToast, showConfirmationModal } from './utils/notifications'; // Yeni import
+import { showToast, showConfirmationModal } from './utils/notifications';
 
 let socket: Socket | null = null;
 
@@ -23,7 +23,6 @@ export function connectSocket(token: string): Promise<Socket> {
             resolve(newSocket);
         });
 
-        // DEĞİŞİKLİK BURADA: 'confirm' yerine kendi modal'ımızı kullanıyoruz.
         newSocket.on('game_invitation', ({ inviter }) => {
             const message = `${inviter.name} ${t('game_invitation_text')}`;
             const onConfirm = () => {
@@ -39,21 +38,30 @@ export function connectSocket(token: string): Promise<Socket> {
             navigateTo('/online-game');
         });
 
-        // DEĞİŞİKLİK BURADA: 'alert' yerine 'showToast' kullanıyoruz.
         newSocket.on('invitation_declined', ({ recipient }) => {
             const message = `${recipient.name} ${t('invitation_declined_text')}`;
             showToast(message);
         });
 
+        // --- DEĞİŞİKLİK BURADA: setTimeout kaldırıldı ---
         newSocket.on('forceDisconnect', (reason) => {
             console.log(`Sunucu tarafından bağlantı sonlandırıldı: ${reason}`);
-            showToast('Başka bir konumdan giriş yapıldığı için bu oturum sonlandırıldı.', 5000);
             
-            setTimeout(() => {
-                localStorage.removeItem('token');
-                disconnectSocket(); 
-                window.location.href = '/'; 
-            }, 5000);
+            // Bildirimi göster ama bekleme.
+            showToast('Başka bir konumdan giriş yapıldığı için bu oturum sonlandırıldı.', 4000); 
+
+            // Oturumu ANINDA temizle ve kullanıcıyı yönlendir.
+            
+            // Soketin tekrar bağlanmasını engellemek için mevcut soketi hemen imha et.
+            disconnectSocket(); 
+            
+            // Yerel depolamadaki token'ı sil.
+            localStorage.removeItem('token');
+            
+            // Kullanıcıyı giriş sayfasına yönlendir. 
+            // window.location.href, SPA router'ını atlayarak tam bir sayfa yenilemesi
+            // yaptığı için bu durumda en güvenilir yöntemdir.
+            window.location.href = '/'; 
         });
 
         newSocket.on('disconnect', () => {
@@ -67,13 +75,14 @@ export function connectSocket(token: string): Promise<Socket> {
     });
 }
 
-
 export function getSocket(): Socket | null {
     return socket;
 }
 
 export function disconnectSocket() {
     if (socket) {
+        // Tüm dinleyicileri kaldırıp bağlantıyı kapat
+        socket.off();
         socket.disconnect();
         socket = null;
     }
