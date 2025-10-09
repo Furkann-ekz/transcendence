@@ -12,8 +12,8 @@ let gameState = {
   rightPaddleY: 250,
   ballX: 400,
   ballY: 300,
-  ballSpeedX: 5,
-  ballSpeedY: 5,
+  ballSpeedX: 7,
+  ballSpeedY: 6,
   leftScore: 0,
   rightScore: 0,
 };
@@ -68,16 +68,14 @@ function resetBall() {
   gameState.ballX = canvas.width / 2;
   gameState.ballY = canvas.height / 2;
 
-  // --- TAMAMEN RASTGELE BAŞLANGIÇ MANTIĞI ---
-  const baseSpeedX = 5; // Bu dosyadaki hız değeri
-  // Yatay yönü %50 ihtimalle sola veya sağa olacak şekilde rastgele ata.
+  // --- YENİ HIZ AYARLARI ---
+  const baseSpeedX = 7; // Yatay hızı 7 yaptık
   gameState.ballSpeedX = (Math.random() < 0.5 ? -baseSpeedX : baseSpeedX);
   
-  // Dikey hızı rastgele ata.
   let randomY;
   do {
-      randomY = Math.random() * 8 - 4; // -4 ile +4 arasında bir sayı
-  } while (Math.abs(randomY) < 1);
+      randomY = Math.random() * 12 - 6; // Dikey hız aralığı: -6 ile +6
+  } while (Math.abs(randomY) < 2.5); // Minimum dikey hızı 2.5 yaptık
   gameState.ballSpeedY = randomY;
 }
 
