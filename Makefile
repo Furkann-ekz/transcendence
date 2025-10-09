@@ -15,26 +15,26 @@ up: check-env init-ssl clean
 	@echo "--- Starting containers with a fresh build... ---"
 	docker compose up --build -d
 	@echo "--- Waiting for containers to initialize... ---"
-	@sleep 3 # Konteynerlerin tam olarak başlaması için 3 saniye bekle
+	@sleep 1 # Konteynerlerin tam olarak başlaması için 1 saniye bekle
 	@echo "--- Initializing database... ---"
 
 # Arka planda çalışan konteynerleri sadece durdurur (silmez).
 stop:
 	@echo "--- Stopping running containers... ---"
-	docker compose stop
+	docker compose stop -t 0
 
 # Projeyi durdurur ve docker-compose tarafından yönetilen her şeyi temizler.
-down:
+down: stop
 	@echo "--- Stopping and removing containers, networks, and volumes... ---"
 	docker compose down --volumes --remove-orphans
 
 # Projeyle ilgili olabilecek tüm "hayalet" konteynerleri zorla temizler.
 clean: down
 	@echo "--- Forcibly removing any lingering containers... ---"
-	@docker ps -a -q --filter "name=transcendence_backend" | xargs -r docker rm -f || true
-	@docker ps -a -q --filter "name=transcendence_frontend" | xargs -r docker rm -f || true
-	@docker ps -a -q --filter "name=transcendence_nginx" | xargs -r docker rm -f || true
-	
+	@docker ps -a -q --filter "name=transcendence_backend" | xargs -r docker rm -f -t 0 || true
+	@docker ps -a -q --filter "name=transcendence_frontend" | xargs -r docker rm -f -t 0 || true
+	@docker ps -a -q --filter "name=transcendence_nginx" | xargs -r docker rm -f -t 0 || true
+
 remove:
 	@(cd backend && rm -rf node_modules package-lock.json)
 	@(cd frontend && rm -rf node_modules package-lock.json)
