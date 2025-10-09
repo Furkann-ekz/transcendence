@@ -20,18 +20,18 @@ let tournamentListClickHandler: ((e: Event) => void) | null = null;
 
 export function render(): string {
   return `
-    <div class="min-h-screen bg-gray-100 p-8">
-        <h1 class="text-3xl font-bold mb-6 text-center">${t('tournaments_title')}</h1>
-        <div class="max-w-4xl mx-auto">
-            <div class="mb-4 text-right">
-                <button id="create-tournament-btn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+    <div class="min-h-screen bg-gray-100 p-4 sm:p-6 md:p-8">
+        <h1 class="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-center">${t('tournaments_title')}</h1>
+        <div class="max-w-xs sm:max-w-2xl md:max-w-4xl mx-auto">
+            <div class="mb-4 text-center sm:text-right">
+                <button id="create-tournament-btn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 sm:py-3 px-4 sm:px-6 rounded text-sm sm:text-base w-full sm:w-auto">
                     ${t('create_new_tournament')}
                 </button>
             </div>
-            <div id="tournament-list" class="space-y-4">
-                <p>${t('loading_history')}...</p>
+            <div id="tournament-list" class="space-y-3 sm:space-y-4">
+                <p class="text-center">${t('loading_history')}...</p>
             </div>
-             <a href="/lobby" data-link class="block text-center mt-6 text-blue-500 hover:text-blue-800">${t('back_to_main_lobby')}</a>
+             <a href="/lobby" data-link class="block text-center mt-4 sm:mt-6 text-blue-500 hover:text-blue-800 text-sm sm:text-base">${t('back_to_main_lobby')}</a>
         </div>
     </div>
   `;
@@ -54,16 +54,17 @@ export async function afterRender() {
             listEl.innerHTML = tournaments.map((tournament) => {
                 const isPlayerJoined = tournament.players.some(p => p.userId === myId);
                 return `
-                <div class="bg-white p-4 rounded-lg shadow-md flex justify-between items-center">
-                    <div>
-                        <a href="/tournaments/${tournament.id}" data-link class="text-xl font-bold hover:text-blue-600">
+                <div class="bg-white p-3 sm:p-4 rounded-lg shadow-md flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-3 sm:space-y-0">
+                    <div class="flex-grow">
+                        <a href="/tournaments/${tournament.id}" data-link class="text-lg sm:text-xl font-bold hover:text-blue-600 block">
                             ${tournament.name}
                         </a>
-                        <p class="text-sm text-gray-600">${t('tournament_host')}: ${tournament.host.name} | ${t('players')}: ${tournament._count.players}/8</p>
+                        <p class="text-xs sm:text-sm text-gray-600 mt-1">${t('tournament_host')}: ${tournament.host.name}</p>
+                        <p class="text-xs sm:text-sm text-gray-600">${t('players')}: ${tournament._count.players}/8</p>
                     </div>
                     <button 
                         data-tournament-id="${tournament.id}" 
-                        class="register-btn ${isPlayerJoined ? 'bg-gray-400' : 'bg-green-500 hover:bg-green-700'} text-white font-bold py-2 px-4 rounded"
+                        class="register-btn ${isPlayerJoined ? 'bg-gray-400' : 'bg-green-500 hover:bg-green-700'} text-white font-bold py-2 sm:py-3 px-4 sm:px-6 rounded text-sm sm:text-base w-full sm:w-auto"
                         ${isPlayerJoined ? 'disabled' : ''}
                     >
                         ${isPlayerJoined ? t('registered_button_tournament') : t('register_button_tournament')}

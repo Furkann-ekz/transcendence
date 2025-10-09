@@ -150,42 +150,45 @@ function initializeGame(payload: GameStartPayload) {
 
 export function render(): string {
     return `
-    <div class="h-screen w-screen bg-gray-900 flex flex-col items-center justify-center relative">
-      <div id="game-status" class="text-3xl text-white mb-4"></div>
-      <canvas id="pong-canvas" width="800" height="800" class="bg-black border border-white hidden"></canvas>
-      <a id="main-leave-link" href="/lobby" class="mt-4 text-blue-400 hover:text-blue-300">${t('leave_lobby')}</a>
-
-      <div id="game-over-modal" class="hidden absolute inset-0 bg-black bg-opacity-75 items-center justify-center text-white">
-        <div class="bg-gray-800 bg-opacity-90 p-10 rounded-lg shadow-2xl text-center max-w-lg">
-            <h2 id="game-over-text" class="text-6xl font-bold mb-8"></h2>
+    <div class="h-screen w-screen bg-gray-900 flex flex-col items-center justify-center relative px-4 py-4">
+      <div id="game-status" class="text-xl sm:text-2xl md:text-3xl text-white mb-4 text-center"></div>
+      <canvas id="pong-canvas" width="800" height="800" class="bg-black border border-white hidden max-w-full max-h-[70vh] w-auto h-auto"></canvas>
+      <a id="main-leave-link" href="/lobby" class="mt-4 text-blue-400 hover:text-blue-300 text-sm sm:text-base">${t('leave_lobby')}</a>
+      <div id="mobile-controls" class="hidden mt-40 flex space-x-8 sm:space-x-12 md:space-x-20">
+        <button id="move-up-btn" class="size-40 sm:w-18 sm:h-18 md:w-20 md:h-20 bg-blue-500 text-white rounded-full text-xl sm:text-xl md:text-2xl touch-manipulation">↑</button>
+        <button id="move-down-btn" class="size-40 sm:w-18 sm:h-18 md:w-20 md:h-20 bg-blue-500 text-white rounded-full text-xl sm:text-xl md:text-2xl touch-manipulation">↓</button>
+      </div>
+      <div id="game-over-modal" class="hidden absolute inset-0 bg-black bg-opacity-75 items-center justify-center text-white p-4">
+        <div class="bg-gray-800 bg-opacity-90 p-6 sm:p-8 md:p-10 rounded-lg shadow-2xl text-center max-w-xs sm:max-w-sm md:max-w-lg w-full">
+            <h2 id="game-over-text" class="text-4xl sm:text-5xl md:text-6xl font-bold mb-6 sm:mb-8"></h2>
             
             <div id="regular-game-over-buttons" class="hidden flex-col items-center space-y-4">
-                <p class="text-xl mb-4">${t('rematch_question')}</p>
-                <div class="flex space-x-4">
-                    <button id="stay-button" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded">${t('stay_on_page')}</button>
-                    <a href="/lobby" data-link class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded">${t('return_to_lobby')}</a>
+                <p class="text-lg sm:text-xl mb-4">${t('rematch_question')}</p>
+                <div class="flex flex-col justify-between sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 w-full">
+                    <button id="stay-button" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-4 sm:px-6 rounded w-full sm:w-auto">${t('stay_on_page')}</button>
+                    <a href="/lobby" data-link class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 sm:px-6 rounded w-full sm:w-auto text-center">${t('return_to_lobby')}</a>
                 </div>
             </div>
 
             <div id="tournament-game-over-buttons" class="hidden flex-col items-center space-y-4">
-                 <a id="return-to-tournament-btn" href="#" data-link class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded text-center">
+                 <a id="return-to-tournament-btn" href="#" data-link class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 sm:px-6 rounded text-center w-full">
                     ${t('return_to_tournament')}
                  </a>
-                 <a id="return-to-lobby-btn" href="/lobby" data-link class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded text-center hidden">
+                 <a id="return-to-lobby-btn" href="/lobby" data-link class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-4 sm:px-6 rounded text-center hidden w-full">
                     ${t('return_to_lobby')}
                  </a>
             </div>
         </div>
       </div>
       
-      <div id="leave-tournament-match-confirm-modal" class="hidden absolute inset-0 bg-black bg-opacity-75 z-50">
-            <div class="bg-gray-800 p-8 rounded-lg shadow-xl text-center max-w-sm">
-                <p class="text-lg mb-6">${t('leave_tournament_confirm')}</p>
-                <div class="flex justify-center space-x-4">
-                    <button id="cancel-leave-match-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded">
+      <div id="leave-tournament-match-confirm-modal" class="hidden absolute inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
+            <div class="bg-gray-800 p-6 sm:p-8 rounded-lg shadow-xl text-center max-w-xs sm:max-w-sm w-full">
+                <p class="text-base sm:text-lg mb-6">${t('leave_tournament_confirm')}</p>
+                <div class="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
+                    <button id="cancel-leave-match-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 sm:px-6 rounded w-full sm:w-auto">
                         ${t('cancel_button')}
                     </button>
-                    <button id="confirm-leave-match-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded">
+                    <button id="confirm-leave-match-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 sm:px-6 rounded w-full sm:w-auto">
                         ${t('leave_button')}
                     </button>
                 </div>
@@ -210,6 +213,42 @@ export function afterRender() {
     const stayButton = document.getElementById('stay-button')!;
     const returnToTournamentBtn = document.getElementById('return-to-tournament-btn') as HTMLAnchorElement;
     const returnToLobbyBtn = document.getElementById('return-to-lobby-btn') as HTMLAnchorElement;
+
+    const mobileControls = document.getElementById('mobile-controls')!;
+    const moveUpBtn = document.getElementById('move-up-btn')!;
+    const moveDownBtn = document.getElementById('move-down-btn')!;
+
+    function isMobile() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    }
+
+    if (isMobile()) {
+        mobileControls.classList.remove('hidden');
+    }
+
+    const move = (direction: 'up' | 'down') => {
+        if (!socket || !myPlayer || !gameState.players) return;
+        const playerState = gameState.players.find((p: Player) => p.id === myPlayer!.id);
+        if (!playerState) return;
+        let currentPos: number;
+        if (myPlayer.position === 'left' || myPlayer.position === 'right') {
+            currentPos = playerState.y;
+        } else {
+            currentPos = playerState.x;
+        }
+        let newPos: number | undefined;
+        if (direction === 'up') {
+            newPos = currentPos - 25;
+        } else {
+            newPos = currentPos + 25;
+        }
+        if (newPos !== undefined) {
+            socket.emit('playerMove', { newPosition: newPos });
+        }
+    };
+
+    moveUpBtn.addEventListener('click', () => move('up'));
+    moveDownBtn.addEventListener('click', () => move('down'));
 
     // Maçtan ayrılma onay penceresi elementleri
     const mainLeaveLink = document.getElementById('main-leave-link')!;

@@ -69,7 +69,7 @@ function resetBall() {
   gameState.ballY = canvas.height / 2;
 
   // --- YENİ HIZ AYARLARI ---
-  const baseSpeedX = 7; // Yatay hızı 7 yaptık
+  const baseSpeedX = 5; // Yatay hızı 7 yaptık
   gameState.ballSpeedX = (Math.random() < 0.5 ? -baseSpeedX : baseSpeedX);
   
   let randomY;

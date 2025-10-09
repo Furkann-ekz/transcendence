@@ -42,7 +42,7 @@ export function render(): string {
         </div>
       </nav>
       <div class="flex flex-grow overflow-hidden p-4 space-x-4">
-        <div class="w-1/4 flex flex-col space-y-4">
+        <div class="w-2/4 flex flex-col space-y-4">
           <div class="bg-white p-4 rounded-lg shadow-md overflow-y-auto">
             <h2 class="text-lg font-bold mb-4">${t('friends_list_title')}</h2>
             <ul id="friend-list" class="space-y-2"></ul>
@@ -60,8 +60,8 @@ export function render(): string {
           <div class="p-4 border-b"><strong>${t('recipient')}:</strong> <span id="recipient-info">${t('everyone')}</span></div>
           <ul id="messages" class="flex-grow p-4 overflow-y-auto"></ul>
           <form id="chat-form" class="p-4 bg-gray-200 flex rounded-b-lg">
-            <input id="chat-input" autocomplete="off" placeholder="${t('chat_placeholder')}" class="border rounded-l-md p-2 flex-grow" />
-            <button type="submit" class="bg-blue-500 text-white px-4 rounded-r-md hover:bg-blue-600">${t('send_button')}</button>
+            <input id="chat-input" autocomplete="off" placeholder="${t('chat_placeholder')}" class="border w-3/4 rounded-l-md p-2 flex-grow" />
+            <button type="submit" class="bg-blue-500 text-white px-4 rounded-r-md hover:bg-blue-600 w-1/4">${t('send_button')}</button>
           </form>
         </div>
       </div>
