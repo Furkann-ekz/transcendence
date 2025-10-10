@@ -261,7 +261,7 @@ async function userRoutes(fastify, { io, onlineUsers }) {
     });
 
     // --- KULLANICI ENGELLEME (DEĞİŞİKLİK YOK) ---
-     fastify.post('/users/:targetId/block', { preHandler: [authenticate] }, async (request, reply) => {
+    fastify.post('/users/:targetId/block', { preHandler: [authenticate] }, async (request, reply) => {
         const blockerId = request.user.userId;
         const blockedId = parseInt(request.params.targetId, 10);
         if (blockerId === blockedId) { 
@@ -273,18 +273,24 @@ async function userRoutes(fastify, { io, onlineUsers }) {
         if (existingBlock) { 
             return reply.code(409).send({ error: "User already blocked." }); 
         }
+
+        // --- GÜNCELLEME BURADA ---
+        // 'status' filtresini kaldırarak, aradaki arkadaşlığın
+        // durumu ne olursa olsun (PENDING veya ACCEPTED) silinmesini sağlıyoruz.
         await prisma.friendship.deleteMany({
             where: {
-                status: 'PENDING',
                 OR: [
                     { requesterId: blockerId, receiverId: blockedId },
                     { requesterId: blockedId, receiverId: blockerId }
                 ]
             }
         });
+        // --- GÜNCELLEME SONU ---
+        
         const newBlock = await prisma.block.create({ 
             data: { blockerId, blockedId } 
         });
+
         notifyUser(blockerId);
         notifyUser(blockedId);
         return reply.code(201).send(newBlock);
