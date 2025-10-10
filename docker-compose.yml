@@ -50,8 +50,8 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./monitorOps/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-      - ./monitorOps/prometheus/alerts.yml:/etc/prometheus/alerts.yml
+      - ./devops/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./devops/prometheus/alerts.yml:/etc/prometheus/alerts.yml
       - prometheus-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -63,8 +63,8 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./monitorOps/grafana/provisioning/:/etc/grafana/provisioning/
-      - ./monitorOps/grafana/dashboards:/var/lib/grafana/dashboards
+      - ./devops/grafana/provisioning/:/etc/grafana/provisioning/
+      - ./devops/grafana/dashboards:/var/lib/grafana/dashboards
     environment:
       - GF_SECURITY_ADMIN_USER__FILE=/run/secrets/grafana_user
       - GF_SECURITY_ADMIN_PASSWORD__FILE=/run/secrets/grafana_password
