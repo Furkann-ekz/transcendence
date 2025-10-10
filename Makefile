@@ -59,9 +59,9 @@ links:
 
 # YENİ YARDIMCI HEDEF: .env dosyasını kontrol eder ve gerekirse oluşturur.
 check-env:
-	@if [ ! -f backend/.env ]; then \
+	@if [ ! -f secrets/.env ]; then \
 		echo "--- .env file not found. Creating from .env.example... ---"; \
-		cp backend/.env.example backend/.env; \
+		cp secrets/.env.example secrets/.env; \
 	fi
 
 # Projeyi ilk kez kurmak için host makinedeki bağımlılıkları yükler (IDE desteği için).

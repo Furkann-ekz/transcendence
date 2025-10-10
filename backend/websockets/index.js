@@ -180,22 +180,27 @@ function initializeSocket(io) {
             // 'else' bloğu yok, davet sessizce boşa düşüyor.
         });
 
-        socket.on('invitation_response', async ({ inviterId, accepted }) => { // Fonksiyonu async yap
+        socket.on('invitation_response', async ({ inviterId, accepted }) => {
             const inviterSocketInfo = onlineUsers.get(inviterId);
             if (inviterSocketInfo) {
                 const inviterSocket = io.sockets.sockets.get(inviterSocketInfo.socketId);
-                const recipientSocket = socket; // Cevabı veren kişi alıcıdır
+                const recipientSocket = socket;
 
                 if (inviterSocket && accepted) {
-                    // --- YENİ TEMİZLİK ADIMI BAŞLANGICI ---
-                    // Yeni oyuna başlamadan önce, her iki oyuncunun da mevcut olabilecek
-                    // eski oyunlarını sonlandır ve temizle.
                     console.log(`[Game Invite] ${inviterSocket.user.name} ve ${recipientSocket.user.name} için eski oyunlar temizleniyor...`);
                     await cleanUpPlayer(inviterSocket, io, gameState.gameRooms);
                     await cleanUpPlayer(recipientSocket, io, gameState.gameRooms);
-                    // --- YENİ TEMİZLİK ADIMI SONU ---
 
-                    // KABUL EDİLDİ: İki oyuncu için de yeni bir oyun başlat
+                    // --- GÜNCELLEME BURADA BAŞLIYOR (Race Condition Kontrolü) ---
+                    // Temizlikten sonra, her iki oyuncunun da başka bir oyuna atanmadığından emin ol.
+                    if (inviterSocket.gameRoom || recipientSocket.gameRoom) {
+                        console.warn(`[Game Invite] Davet kabul edildi ancak oyunculardan biri zaten başka bir oyuna başladı. Yeni oyun iptal edildi.`);
+                        // İsteğe bağlı olarak, daveti kabul edene meşgul olduklarını bildiren bir olay gönderilebilir.
+                        recipientSocket.emit('game_invite_failed', { reason: 'Player is now busy.' });
+                        return; // İşlemi sonlandır.
+                    }
+                    // --- GÜNCELLEME BURADA BİTİYOR ---
+
                     const roomName = `game_invite_${Date.now()}`;
                     const gameConfig = { canvasSize: 800, paddleSize: 100, paddleThickness: 15 };
                     
@@ -217,7 +222,6 @@ function initializeSocket(io) {
                     gameState.gameRooms.set(roomName, game);
 
                 } else if (inviterSocket && !accepted) {
-                    // REDDEDİLDİ: Davet eden kişiye bildir
                     inviterSocket.emit('invitation_declined', {
                         recipient: { id: recipientSocket.user.id, name: recipientSocket.user.name }
                     });

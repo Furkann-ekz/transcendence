@@ -20,6 +20,8 @@ services:
     # --- BU SATIRLARI EKLE/GÜNCELLE ---
     # Uygulamayı --inspect bayrağıyla başlatarak hata ayıklama portunu açar.
     # 0.0.0.0 adresi, Docker dışından (yani kendi makinemizden) erişime izin verir.
+    env_file:
+      - secrets/.env
     command: [ "node", "--inspect=0.0.0.0:9229", "server.js" ]
     ports:
       # Hata ayıklama portunu makinemize bağlıyoruz.
@@ -104,7 +106,7 @@ volumes:
 
 secrets:
   backend_env:
-    file: secrets/backend.env
+    file: secrets/.env
   grafana_user:
     file: secrets/GFuser
   grafana_password:

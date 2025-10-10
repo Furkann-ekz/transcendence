@@ -224,6 +224,13 @@ async function tournamentRoutes(fastify, { io }) {
                 return reply.code(404).send({ error: 'Tournament not found.' });
             }
 
+            // --- GÜNCELLEME BURADA BAŞLIYOR ---
+            // Sadece lobi durumundayken bu endpoint üzerinden ayrılmaya izin ver.
+            if (tournament.status !== 'LOBBY') {
+                return reply.code(403).send({ error: 'Cannot leave a tournament that is in progress or has finished.' });
+            }
+            // --- GÜNCELLEME BURADA BİTİYOR ---
+
             if (tournament.hostId === userId) {
                 return reply.code(403).send({ error: 'Host cannot leave the tournament.' });
             }

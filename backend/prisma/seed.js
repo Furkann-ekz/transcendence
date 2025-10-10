@@ -10,14 +10,14 @@ async function main() {
     console.log(`Start seeding ...`);
 
     const usersToCreate = [
-        { name: 'Alice', email: 'a@a', password: 'a' },
-        { name: 'Bob', email: 'b@b', password: 'b' },
-        { name: 'Charlie', email: 'c@c', password: 'c' },
-        { name: 'Diana', email: 'd@d', password: 'd' },
-        { name: 'Fatih', email: 'f@f', password: 'f' },
-        { name: 'Erman', email: 'e@e', password: 'e' },
-        { name: 'Goncagüle', email: 'g@g', password: 'g' },
-        { name: 'Hacışakir', email: 'h@h', password: 'h' },
+        { name: 'Artvin', email: 'a@a', password: 'a' },
+        { name: 'Bayburt', email: 'b@b', password: 'b' },
+        { name: 'Ceyhan', email: 'c@c', password: 'c' },
+        { name: 'Diyarbakır', email: 'd@d', password: 'd' },
+        { name: 'Fas', email: 'f@f', password: 'f' },
+        { name: 'Elazığ', email: 'e@e', password: 'e' },
+        { name: 'Giresun', email: 'g@g', password: 'g' },
+        { name: 'Hakkari', email: 'h@h', password: 'h' },
         { name: 'Jandarma', email: 'j@j', password: 'j' },
     ];
 
