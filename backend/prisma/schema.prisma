@@ -1,109 +1,107 @@
 // backend/prisma/schema.prisma
 
 generator client {
-  provider = "prisma-client-js"
+	provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+	provider = "sqlite"
+	url      = env("DATABASE_URL")
 }
 
 model User {
-  id                   Int          @id @default(autoincrement())
-  createdAt            DateTime     @default(now())
-  email                String       @unique
-  name                 String       @unique
-  password             String
-  avatarUrl            String?
-  wins                 Int          @default(0)
-  losses               Int          @default(0)
-  
-  matchesAsPlayer1     Match[]      @relation("Player1Matches")
-  matchesAsPlayer2     Match[]      @relation("Player2Matches")
-  matchesAsPlayer3     Match[]      @relation("Player3Matches")
-  matchesAsPlayer4     Match[]      @relation("Player4Matches")
-  wonMatches           Match[]      @relation("WinnerMatches")
+	id						Int						@id @default(autoincrement())
+	createdAt				DateTime				@default(now())
+	email					String					@unique
+	name					String					@unique
+	password				String		
+	avatarUrl				String?		
+	wins					Int						@default(0)
+	losses					Int						@default(0)
 
-  // ARKADAŞLIK VE ENGELLEME İÇİN EKLENEN İLİŞKİLER
-  sentFriendRequests   Friendship[] @relation("SentRequests")
-  receivedFriendRequests Friendship[] @relation("ReceivedRequests")
-  blockedUsers         Block[]      @relation("BlockingUsers")
-  blockedBy            Block[]      @relation("BlockedByUsers")
+	matchesAsPlayer1		Match[]					@relation("Player1Matches")
+	matchesAsPlayer2		Match[]					@relation("Player2Matches")
+	matchesAsPlayer3		Match[]					@relation("Player3Matches")
+	matchesAsPlayer4		Match[]					@relation("Player4Matches")
+	wonMatches				Match[]					@relation("WinnerMatches")
 
-  hostedTournaments Tournament[] @relation("HostedTournaments")
-  wonTournaments    Tournament[] @relation("WonTournaments")
-  tournaments       TournamentPlayer[]
+	sentFriendRequests		Friendship[]			@relation("SentRequests")
+	receivedFriendRequests	Friendship[]			@relation("ReceivedRequests")
+	blockedUsers			Block[]					@relation("BlockingUsers")
+	blockedBy				Block[]					@relation("BlockedByUsers")
+
+	hostedTournaments		Tournament[]			@relation("HostedTournaments")
+	wonTournaments			Tournament[]			@relation("WonTournaments")
+	tournaments				TournamentPlayer[]
 }
 
 model Match {
-  id                Int      @id @default(autoincrement())
-  createdAt         DateTime @default(now())
-  durationInSeconds Int
-  mode              String
-  player1Id         Int
-  player3Id         Int?
-  player2Id         Int
-  player4Id         Int?
-  player1           User     @relation("Player1Matches", fields: [player1Id], references: [id])
-  player3           User?    @relation("Player3Matches", fields: [player3Id], references: [id])
-  player2           User     @relation("Player2Matches", fields: [player2Id], references: [id])
-  player4           User?    @relation("Player4Matches", fields: [player4Id], references: [id])
-  team1Score        Int
-  team2Score        Int
-  winnerTeam        Int
-  wasForfeit        Boolean  @default(false)
-  winnerId          Int
-  winner            User     @relation("WinnerMatches", fields: [winnerId], references: [id])
-  team1Hits         Int      @default(0)
-  team1Misses       Int      @default(0)
-  team2Hits         Int      @default(0)
-  team2Misses       Int      @default(0)
+	id						Int						@id @default(autoincrement())
+	createdAt				DateTime @default(now())
+	durationInSeconds		Int
+	mode					String
+	player1Id				Int
+	player3Id				Int?
+	player2Id				Int
+	player4Id				Int?
+	player1					User					@relation("Player1Matches", fields: [player1Id], references: [id])
+	player3					User?					@relation("Player3Matches", fields: [player3Id], references: [id])
+	player2					User					@relation("Player2Matches", fields: [player2Id], references: [id])
+	player4					User?					@relation("Player4Matches", fields: [player4Id], references: [id])
+	team1Score				Int
+	team2Score				Int
+	winnerTeam				Int
+	wasForfeit				Boolean					@default(false)
+	winnerId				Int
+	winner					User					@relation("WinnerMatches", fields: [winnerId], references: [id])
+	team1Hits				Int						@default(0)
+	team1Misses				Int						@default(0)
+	team2Hits				Int						@default(0)
+	team2Misses				Int						@default(0)
 }
 
 model Friendship {
-  id          Int      @id @default(autoincrement())
-  requesterId Int
-  requester   User     @relation("SentRequests", fields: [requesterId], references: [id])
-  receiverId  Int
-  receiver    User     @relation("ReceivedRequests", fields: [receiverId], references: [id])
-  status      String   @default("PENDING")
-  createdAt   DateTime @default(now())
+	id						Int						@id @default(autoincrement())
+	requesterId				Int
+	requester				User					@relation("SentRequests", fields: [requesterId], references: [id])
+	receiverId				Int
+	receiver				User					@relation("ReceivedRequests", fields: [receiverId], references: [id])
+	status					String					@default("PENDING")
+	createdAt				DateTime				@default(now())
 
-  @@unique([requesterId, receiverId])
+	@@unique([requesterId, receiverId])
 }
 
-// KULLANICI ENGELLEME SİSTEMİ İÇİN YENİ MODEL
 model Block {
-  id        Int  @id @default(autoincrement())
-  blockerId Int
-  blocker   User @relation("BlockingUsers", fields: [blockerId], references: [id])
-  blockedId Int
-  blockedBy User @relation("BlockedByUsers", fields: [blockedId], references: [id])
+	id						Int						@id @default(autoincrement())
+	blockerId				Int
+	blocker					User					@relation("BlockingUsers", fields: [blockerId], references: [id])
+	blockedId				Int
+	blockedBy				User					@relation("BlockedByUsers", fields: [blockedId], references: [id])
 
-  @@unique([blockerId, blockedId])
+	@@unique([blockerId, blockedId])
 }
 
 model Tournament {
-  id        String      @id @default(cuid())
-  name      String
-  createdAt DateTime    @default(now())
-  status    String      @default("LOBBY") // LOBBY, IN_PROGRESS, FINISHED
-  hostId    Int
-  host      User        @relation("HostedTournaments", fields: [hostId], references: [id])
-  players   TournamentPlayer[]
-  winnerId  Int?
-  winner    User?       @relation("WonTournaments", fields: [winnerId], references: [id])
+	id						String					@id @default(cuid())
+	name					String					
+	createdAt				DateTime				@default(now())
+	status					String					@default("LOBBY") // LOBBY, IN_PROGRESS, FINISHED
+	hostId					Int
+	host					User					@relation("HostedTournaments", fields: [hostId], references: [id])
+	players					TournamentPlayer[]
+	winnerId				Int?
+	winner					User?					@relation("WonTournaments", fields: [winnerId], references: [id])
 }
 
 model TournamentPlayer {
-  id            String     @id @default(cuid())
-  tournamentId  String
-  tournament    Tournament @relation(fields: [tournamentId], references: [id])
-  userId        Int
-  user          User       @relation(fields: [userId], references: [id])
-  isReady       Boolean    @default(false)
-  isEliminated  Boolean    @default(false)
+	id						String					@id @default(cuid())
+	tournamentId			String
+	tournament				Tournament				@relation(fields: [tournamentId], references: [id])
+	userId					Int
+	user					User					@relation(fields: [userId], references: [id])
+	isReady					Boolean					@default(false)
+	isEliminated			Boolean					@default(false)
 
-  @@unique([tournamentId, userId])
+	@@unique([tournamentId, userId])
 }
