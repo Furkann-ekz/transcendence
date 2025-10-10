@@ -5,9 +5,11 @@ const prisma = require('../prisma/db');
 const SALT_ROUNDS = 10;
 const JWT_SECRET = process.env.JWT_SECRET;
 
+// backend/api/auth.routes.js
+// ... dosyanın üst kısmı aynı ...
+
 async function authRoutes(fastify, options) {
     fastify.post('/register', async (request, reply) => {
-        // --- DEĞİŞİKLİK: 'name' alanını da zorunlu kılıyoruz ---
         const { email, name, password } = request.body;
         if (!email || !password || !name) {
             return reply.code(400).send({ error: 'Email, name, and password are required' });
@@ -18,25 +20,27 @@ async function authRoutes(fastify, options) {
             const { password: _, ...userWithoutPassword } = user;
             return reply.code(201).send(userWithoutPassword);
         } catch (error) {
-            // --- DEĞİŞİKLİK BAŞLANGICI: Hata yakalama bloğunu iyileştiriyoruz ---
+            // --- GÜNCELLEME BAŞLANGICI: Hata yakalama mantığını düzeltiyoruz ---
             if (error.code === 'P2002') {
-                // Prisma'nın P2002 hatası, hangi alanın çakıştığını 'meta.target' içinde belirtir.
-                // Bu bilgiyi kullanarak doğru hata mesajını döndürüyoruz.
-                if (error.meta && error.meta.target.includes('email')) {
-                    return reply.code(409).send({ error: 'error_email_registered' });
-                }
+                // Kullanıcı adı hatasını e-posta hatasından ÖNCE kontrol ediyoruz.
+                // Bu, olası belirsizlik durumlarını ortadan kaldırır.
                 if (error.meta && error.meta.target.includes('name')) {
                     return reply.code(409).send({ error: 'error_name_taken' });
+                } 
+                // Eğer hata kullanıcı adından kaynaklanmıyorsa, e-postayı kontrol et.
+                else if (error.meta && error.meta.target.includes('email')) {
+                    return reply.code(409).send({ error: 'error_email_registered' });
                 }
             }
-            // --- DEĞİŞİKLİK SONU ---
+            // --- GÜNCELLEME SONU ---
             fastify.log.error(error);
             return reply.code(500).send({ error: 'Could not register user' });
         }
     });
 
-    // ... login endpoint'i aynı kalıyor ...
+    // login endpoint'i aynı kalıyor...
     fastify.post('/login', async (request, reply) => {
+        // ... (login fonksiyonunun içeriği değişmedi) ...
         const { email, password } = request.body;
         if (!email || !password) return reply.code(400).send({ error: 'Email and password are required' });
         try {
