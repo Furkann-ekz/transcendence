@@ -1,7 +1,5 @@
-# SSL Certificates
 nginx/ssl/
 nginx/ssl/cert.conf
 
-# VSCode ayarları gibi genel dosyalar (isteğe bağlı)
 .vscode/
 prisma/ 

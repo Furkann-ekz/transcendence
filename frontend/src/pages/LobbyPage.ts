@@ -42,7 +42,7 @@ export async function afterRender()
 
 	const buttonsContainer = document.getElementById('lobby-buttons-container');
 	if (!buttonsContainer)
-		return;
+		return ;
 
 	try
 	{

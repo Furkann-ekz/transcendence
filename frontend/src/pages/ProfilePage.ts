@@ -1,202 +1,219 @@
 import { t } from '../i18n';
 import { 
-    getUserProfile, 
-    getFriendshipStatus, 
-    sendFriendRequest, 
-    removeFriendship, 
-    respondToFriendRequest,
-    blockUser,
-    unblockUser
+	getUserProfile, 
+	getFriendshipStatus, 
+	sendFriendRequest, 
+	removeFriendship, 
+	respondToFriendRequest,
+	blockUser,
+	unblockUser
 } from '../api/users';
 import { jwt_decode } from '../utils';
 import { navigateTo } from '../router';
-import { getSocket } from '../socket'; // Socket'i import et
-import type { Socket } from 'socket.io-client'; // Socket tipini import et
+import { getSocket } from '../socket';
+import type { Socket } from 'socket.io-client';
 
 let profileId: number;
 let myId: number | null;
 let socket: Socket | null;
 
-// Butonları ve aksiyonları render eden ana fonksiyon
-async function renderActionButtons() {
-    const actionsContainer = document.getElementById('profile-actions-dynamic');
-    if (!actionsContainer || !myId || profileId === myId) return;
+async function renderActionButtons()
+{
+	const actionsContainer = document.getElementById('profile-actions-dynamic');
+	if (!actionsContainer || !myId || profileId === myId)
+		return ;
 
-    try {
-        const status = await getFriendshipStatus(profileId);
-        let buttonsHTML = '';
+	try
+	{
+		const status = await getFriendshipStatus(profileId);
+		let buttonsHTML = '';
 
-        if (status.isBlocked) {
-            buttonsHTML += `<button id="unblock-user-btn" class="bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-4 rounded w-full">${t('unblock_user_button')}</button>`;
-        } else if (status.friendshipStatus === 'blocked_by_them') {
-            buttonsHTML = `<p class="text-sm text-gray-500">Bu kullanıcıyla etkileşimde bulunamazsınız.</p>`;
-        } else {
-            switch (status.friendshipStatus) {
-                case 'none':
-                    buttonsHTML += `<button id="add-friend-btn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded w-full">${t('add_friend_button')}</button>`;
-                    break;
-                case 'pending_sent':
-                    buttonsHTML += `<button id="cancel-request-btn" data-friendship-id="${status.friendshipId}" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded w-full">${t('cancel_request_button')}</button>`;
-                    break;
-                case 'pending_received':
-                    buttonsHTML += `
-                        <p class="mb-2 text-sm">${t('friend_requests')}</p>
-                        <div class="flex space-x-2">
-                            <button id="accept-request-btn" data-friendship-id="${status.friendshipId}" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded w-full">${t('accept_button')}</button>
-                            <button id="reject-request-btn" data-friendship-id="${status.friendshipId}" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded w-full">${t('reject_button')}</button>
-                        </div>`;
-                    break;
-                case 'friends':
-                    buttonsHTML += `<button id="remove-friend-btn" data-friendship-id="${status.friendshipId}" class="bg-red-700 hover:bg-red-800 text-white font-bold py-2 px-4 rounded w-full">${t('remove_friend_button')}</button>`;
-                    break;
-            }
-            buttonsHTML += `<button id="block-user-btn" class="mt-2 bg-black hover:bg-gray-800 text-white font-bold py-2 px-4 rounded w-full">${t('block_user_button')}</button>`;
-        }
-        
-        actionsContainer.innerHTML = buttonsHTML;
-        attachButtonListeners();
+		if (status.isBlocked)
+			buttonsHTML += `<button id="unblock-user-btn" class="bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-4 rounded w-full">${t('unblock_user_button')}</button>`;
+		else if (status.friendshipStatus === 'blocked_by_them')
+			buttonsHTML = `<p class="text-sm text-gray-500">Bu kullanıcıyla etkileşimde bulunamazsınız.</p>`;
+		else
+		{
+			switch (status.friendshipStatus)
+			{
+				case 'none':
+					buttonsHTML += `<button id="add-friend-btn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded w-full">${t('add_friend_button')}</button>`;
+					break ;
+				case 'pending_sent':
+					buttonsHTML += `<button id="cancel-request-btn" data-friendship-id="${status.friendshipId}" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded w-full">${t('cancel_request_button')}</button>`;
+					break ;
+				case 'pending_received':
+					buttonsHTML += `
+						<p class="mb-2 text-sm">${t('friend_requests')}</p>
+						<div class="flex space-x-2">
+							<button id="accept-request-btn" data-friendship-id="${status.friendshipId}" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded w-full">${t('accept_button')}</button>
+							<button id="reject-request-btn" data-friendship-id="${status.friendshipId}" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded w-full">${t('reject_button')}</button>
+						</div>`;
+					break ;
+				case 'friends':
+					buttonsHTML += `<button id="remove-friend-btn" data-friendship-id="${status.friendshipId}" class="bg-red-700 hover:bg-red-800 text-white font-bold py-2 px-4 rounded w-full">${t('remove_friend_button')}</button>`;
+					break ;
+			}
+			buttonsHTML += `<button id="block-user-btn" class="mt-2 bg-black hover:bg-gray-800 text-white font-bold py-2 px-4 rounded w-full">${t('block_user_button')}</button>`;
+		}
+		
+		actionsContainer.innerHTML = buttonsHTML;
+		attachButtonListeners();
 
-    } catch (error) {
-        console.error("Could not render action buttons:", error);
-        actionsContainer.innerHTML = `<p class="text-red-500 text-sm">Aksiyonlar yüklenemedi.</p>`;
-    }
+	}
+	catch (error)
+	{
+		console.error("Could not render action buttons:", error);
+		actionsContainer.innerHTML = `<p class="text-red-500 text-sm">Aksiyonlar yüklenemedi.</p>`;
+	}
 }
 
-// Olay dinleyicilerini butonlara atayan yardımcı fonksiyon
-function attachButtonListeners() {
-    document.getElementById('add-friend-btn')?.addEventListener('click', async () => { 
-        await sendFriendRequest(profileId); 
-        renderActionButtons();
-    });
-    document.getElementById('cancel-request-btn')?.addEventListener('click', async (e) => {
-        const id = parseInt((e.target as HTMLElement).dataset.friendshipId!);
-        await removeFriendship(id); 
-        renderActionButtons();
-    });
-    document.getElementById('accept-request-btn')?.addEventListener('click', async (e) => {
-        const id = parseInt((e.target as HTMLElement).dataset.friendshipId!);
-        await respondToFriendRequest(id, true);
-        renderActionButtons();
-    });
-    document.getElementById('reject-request-btn')?.addEventListener('click', async (e) => {
-        const id = parseInt((e.target as HTMLElement).dataset.friendshipId!);
-        await respondToFriendRequest(id, false);
-        renderActionButtons();
-    });
-    document.getElementById('remove-friend-btn')?.addEventListener('click', async (e) => {
-        const id = parseInt((e.target as HTMLElement).dataset.friendshipId!);
-        await removeFriendship(id);
-        renderActionButtons();
-    });
-    document.getElementById('block-user-btn')?.addEventListener('click', async () => {
-        await blockUser(profileId);
-        renderActionButtons();
-    });
-    document.getElementById('unblock-user-btn')?.addEventListener('click', async () => {
-        await unblockUser(profileId);
-        renderActionButtons();
-    });
+function attachButtonListeners()
+{
+	document.getElementById('add-friend-btn')?.addEventListener('click', async () =>
+	{ 
+		await sendFriendRequest(profileId); 
+		renderActionButtons();
+	});
+	document.getElementById('cancel-request-btn')?.addEventListener('click', async (e) =>
+	{
+		const id = parseInt((e.target as HTMLElement).dataset.friendshipId!);
+		await removeFriendship(id); 
+		renderActionButtons();
+	});
+	document.getElementById('accept-request-btn')?.addEventListener('click', async (e) =>
+	{
+		const id = parseInt((e.target as HTMLElement).dataset.friendshipId!);
+		await respondToFriendRequest(id, true);
+		renderActionButtons();
+	});
+	document.getElementById('reject-request-btn')?.addEventListener('click', async (e) =>
+	{
+		const id = parseInt((e.target as HTMLElement).dataset.friendshipId!);
+		await respondToFriendRequest(id, false);
+		renderActionButtons();
+	});
+	document.getElementById('remove-friend-btn')?.addEventListener('click', async (e) =>
+	{
+		const id = parseInt((e.target as HTMLElement).dataset.friendshipId!);
+		await removeFriendship(id);
+		renderActionButtons();
+	});
+	document.getElementById('block-user-btn')?.addEventListener('click', async () =>
+	{
+		await blockUser(profileId);
+		renderActionButtons();
+	});
+	document.getElementById('unblock-user-btn')?.addEventListener('click', async () =>
+	{
+		await unblockUser(profileId);
+		renderActionButtons();
+	});
 }
 
-export function render(): string {
+export function render(): string
+{
   return `
   <div class="min-h-screen bg-gray-100 flex flex-col items-center justify-center">
-      <div id="profile-card" class="bg-white p-8 rounded-lg shadow-md w-full max-w-md text-center">
-        <div id="profile-avatar" class="w-24 h-24 rounded-full border-2 border-gray-300 mb-4 mx-auto bg-cover bg-center bg-gray-200"></div>
-        <h2 id="profile-name" class="text-3xl font-bold mb-2">Yükleniyor...</h2>
-        <p id="profile-created-at" class="text-gray-500 text-sm mb-6"></p>
-        <div class="flex justify-center space-x-8 border-t border-b py-4">
-          <div>
-            <p class="text-2xl font-bold text-green-500" id="profile-wins">-</p>
-            <p class="text-sm text-gray-600">${t('profile_wins')}</p>
-          </div>
-          <div>
-            <p class="text-2xl font-bold text-red-500" id="profile-losses">-</p>
-            <p class="text-sm text-gray-600">${t('profile_losses')}</p>
-          </div>
-        </div>
-        <div class="mt-6 space-y-2">
-            <a id="match-history-link" href="#" data-link class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded block">
-              ${t('view_match_history')}
-            </a>
-            <div id="profile-actions-dynamic" class="mt-2"></div>
-        </div>
-        <a href="/dashboard" data-link class="mt-4 inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800">
-          ${t('return_to_chat')}
-        </a>
-      </div>
-    </div>
+	  <div id="profile-card" class="bg-white p-8 rounded-lg shadow-md w-full max-w-md text-center">
+		<div id="profile-avatar" class="w-24 h-24 rounded-full border-2 border-gray-300 mb-4 mx-auto bg-cover bg-center bg-gray-200"></div>
+		<h2 id="profile-name" class="text-3xl font-bold mb-2">Yükleniyor...</h2>
+		<p id="profile-created-at" class="text-gray-500 text-sm mb-6"></p>
+		<div class="flex justify-center space-x-8 border-t border-b py-4">
+		  <div>
+			<p class="text-2xl font-bold text-green-500" id="profile-wins">-</p>
+			<p class="text-sm text-gray-600">${t('profile_wins')}</p>
+		  </div>
+		  <div>
+			<p class="text-2xl font-bold text-red-500" id="profile-losses">-</p>
+			<p class="text-sm text-gray-600">${t('profile_losses')}</p>
+		  </div>
+		</div>
+		<div class="mt-6 space-y-2">
+			<a id="match-history-link" href="#" data-link class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded block">
+			  ${t('view_match_history')}
+			</a>
+			<div id="profile-actions-dynamic" class="mt-2"></div>
+		</div>
+		<a href="/dashboard" data-link class="mt-4 inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800">
+		  ${t('return_to_chat')}
+		</a>
+	  </div>
+	</div>
   `;
 }
 
-export async function afterRender() {
-    // DEĞİŞİKLİK: Tip'i HTMLImageElement'dan HTMLDivElement'a çeviriyoruz.
-    const avatarElement = document.getElementById('profile-avatar') as HTMLDivElement;
-    const nameElement = document.getElementById('profile-name');
-    const createdAtElement = document.getElementById('profile-created-at');
-    const winsElement = document.getElementById('profile-wins');
-    const lossesElement = document.getElementById('profile-losses');
-    const matchHistoryLink = document.getElementById('match-history-link');
-    const actionsContainer = document.getElementById('profile-actions-dynamic');
-    const pathParts = window.location.pathname.split('/');
-    profileId = parseInt(pathParts[2], 10);
-    const token = localStorage.getItem('token');
-    myId = token ? jwt_decode(token).userId : null;
+export async function afterRender()
+{
+	const avatarElement = document.getElementById('profile-avatar') as HTMLDivElement;
+	const nameElement = document.getElementById('profile-name');
+	const createdAtElement = document.getElementById('profile-created-at');
+	const winsElement = document.getElementById('profile-wins');
+	const lossesElement = document.getElementById('profile-losses');
+	const matchHistoryLink = document.getElementById('match-history-link');
+	const actionsContainer = document.getElementById('profile-actions-dynamic');
+	const pathParts = window.location.pathname.split('/');
+	profileId = parseInt(pathParts[2], 10);
+	const token = localStorage.getItem('token');
+	myId = token ? jwt_decode(token).userId : null;
 
-    socket = getSocket();
-    if (socket) {
-        socket.on('friendship_updated', () => {
-            if (profileId !== myId) {
-                console.log('Arkadaşlık durumu değişti, butonlar yenileniyor...');
-                renderActionButtons();
-            }
-        });
-    }
+	socket = getSocket();
+	if (socket)
+	{
+		socket.on('friendship_updated', () =>
+		{
+			if (profileId !== myId)
+			{
+				console.log('Arkadaşlık durumu değişti, butonlar yenileniyor...');
+				renderActionButtons();
+			}
+		});
+	}
 
-    if (isNaN(profileId) || !nameElement || !matchHistoryLink || !actionsContainer) {
-        if (nameElement) nameElement.textContent = 'Geçersiz Profil';
-        return;
-    }
-    
-    matchHistoryLink.setAttribute('href', `/profile/${profileId}/history`);
+	if (isNaN(profileId) || !nameElement || !matchHistoryLink || !actionsContainer)
+	{
+		if (nameElement)
+			nameElement.textContent = 'Geçersiz Profil';
+		return ;
+	}
+	
+	matchHistoryLink.setAttribute('href', `/profile/${profileId}/history`);
 
-    try {
-        const userProfile = await getUserProfile(pathParts[2]);
-        nameElement.textContent = userProfile.name || 'İsimsiz Kullanıcı';
-        if (createdAtElement) createdAtElement.textContent = `${t('profile_joined_on')} ${new Date(userProfile.createdAt).toLocaleDateString()}`;
-        if (winsElement) winsElement.textContent = userProfile.wins.toString();
-        if (lossesElement) lossesElement.textContent = userProfile.losses.toString();
-        
-        // DEĞİŞİKLİK: Resmi .src ile değil, .style.backgroundImage ile yüklüyoruz.
-        if (userProfile.avatarUrl && avatarElement) {
-            avatarElement.style.backgroundImage = `url(${userProfile.avatarUrl}?t=${new Date().getTime()})`;
-        } else if (avatarElement) {
-            avatarElement.style.backgroundImage = `url(/default-avatar.png)`;
-        }
-        
-        if (profileId === myId) {
-            actionsContainer.innerHTML = `<a href="/profile/edit" data-link class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded block">${t('edit_profile_button')}</a>`;
-        } else {
-            await renderActionButtons();
-        }
-    } catch (error) {
-        console.error("Profil verisi yüklenemedi:", error);
-        nameElement.textContent = 'Profil Bulunamadı';
-        navigateTo('/dashboard');
-    }
+	try
+	{
+		const userProfile = await getUserProfile(pathParts[2]);
+		nameElement.textContent = userProfile.name || 'İsimsiz Kullanıcı';
+		if (createdAtElement)
+			createdAtElement.textContent = `${t('profile_joined_on')} ${new Date(userProfile.createdAt).toLocaleDateString()}`;
+		if (winsElement)
+			winsElement.textContent = userProfile.wins.toString();
+		if (lossesElement)
+			lossesElement.textContent = userProfile.losses.toString();
+		
+		if (userProfile.avatarUrl && avatarElement)
+			avatarElement.style.backgroundImage = `url(${userProfile.avatarUrl}?t=${new Date().getTime()})`;
+		else if (avatarElement)
+			avatarElement.style.backgroundImage = `url(/default-avatar.png)`;
+		
+		if (profileId === myId)
+			actionsContainer.innerHTML = `<a href="/profile/edit" data-link class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded block">${t('edit_profile_button')}</a>`;
+		else
+			await renderActionButtons();
+	}
+	catch (error)
+	{
+		console.error("Profil verisi yüklenemedi:", error);
+		nameElement.textContent = 'Profil Bulunamadı';
+		navigateTo('/dashboard');
+	}
 }
 
-// --- YENİ: Sayfadan ayrılırken dinleyiciyi temizlemek için cleanup fonksiyonu ---
-export function cleanup() {
-    console.log("%c--- ProfilePage CLEANUP ---", "color: blue; font-weight: bold;");
-    if (socket) {
-        socket.off('friendship_updated');
-    }
-    // --- YENİ EKLENEN SATIR ---
-    // Sayfadan ayrılırken, dinamik olarak oluşturulan ve olay dinleyicisi
-    // eklenen butonları içeren kapsayıcıyı temizleyerek sızıntıyı önle.
-    const actionsContainer = document.getElementById('profile-actions-dynamic');
-    if (actionsContainer) {
-        actionsContainer.innerHTML = '';
-    }
+export function cleanup()
+{
+	console.log("%c--- ProfilePage CLEANUP ---", "color: blue; font-weight: bold;");
+	if (socket)
+		socket.off('friendship_updated');
+	const actionsContainer = document.getElementById('profile-actions-dynamic');
+	if (actionsContainer)
+		actionsContainer.innerHTML = '';
 }
