@@ -39,7 +39,7 @@ remove:
 	@(cd backend && rm -rf node_modules package-lock.json)
 	@(cd frontend && rm -rf node_modules package-lock.json)
 
-docker-clean: down remove
+docker-clean: down
 	@echo "--- Removing all unused Docker resources... ---"
 	docker system prune -af --volumes
 
