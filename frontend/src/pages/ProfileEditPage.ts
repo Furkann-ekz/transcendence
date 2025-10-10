@@ -116,7 +116,7 @@ export async function afterRender() {
         const formData = new FormData();
         formData.append('file', newAvatarFile);
         try {
-            await updateUserAvatar(formData); // API fonksiyonunu kullan
+            await updateUserAvatar(formData);
             newAvatarFile = null; 
             avatarUpdated = true;
         } catch (error: any) {
@@ -135,7 +135,9 @@ export async function afterRender() {
       if(userId) navigateTo(`/profile/${userId}`);
       else navigateTo('/dashboard');
     } catch (error: any) {
-      alert(error.message);
+      // --- GÜNCELLEME BURADA ---
+      // Artık backend'den gelen hata anahtarını t() fonksiyonu ile çeviriyoruz.
+      alert(t(error.message));
     }
   };
   

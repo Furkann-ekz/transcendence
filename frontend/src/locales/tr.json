@@ -126,5 +126,6 @@
   "invitation_sent": "Oyun daveti gönderildi!",
   "private_to": "Kime:",
   "private_from": "Kimden:",
-  "return_to_tournament_lobby": "Turnuva Lobisine Geri Dön"
+  "return_to_tournament_lobby": "Turnuva Lobisine Geri Dön",
+  "error_name_taken": "Bu kullanıcı adı zaten alınmış. Lütfen başka bir tane seçin."
 }

@@ -126,5 +126,6 @@
   "private_to": "Кому:",
   "private_from": "От:",
   "return_to_tournament_lobby": "Вернуться в лобби турнира",
-  "profile_update_success": "Профиль успешно обновлен!"
+  "profile_update_success": "Профиль успешно обновлен!",
+  "error_name_taken": "Это имя уже занято. Пожалуйста, выберите другое."
 }

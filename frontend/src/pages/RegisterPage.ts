@@ -50,7 +50,10 @@ export function afterRender() {
       alert(t('register_success_alert'));
       navigateTo('/');
     } catch (error: any) {
-      alert(t('error_email_registered'));
+      // --- DEĞİŞİKLİK BURADA ---
+      // Artık backend'den gelen hata anahtarını doğrudan t() fonksiyonuna veriyoruz.
+      // Bu sayede hem e-posta hem de kullanıcı adı hatasını gösterebiliriz.
+      alert(t(error.message));
     }
   };
   form?.addEventListener('submit', formSubmitHandler);

@@ -126,5 +126,6 @@
   "invitation_sent": "Game invitation sent!",
   "private_to": "To:",
   "private_from": "From:",
-  "return_to_tournament_lobby": "Return to Tournament Lobby"
+  "return_to_tournament_lobby": "Return to Tournament Lobby",
+  "error_name_taken": "This name is already taken. Please choose another one."
 }

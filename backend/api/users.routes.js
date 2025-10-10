@@ -59,6 +59,12 @@ async function userRoutes(fastify, { io, onlineUsers }) {
             });
             return updatedUser;
         } catch (error) {
+            // --- GÜNCELLEME BAŞLANGICI ---
+            // Kullanıcı adı zaten alınmışsa, özel bir hata mesajı döndür.
+            if (error.code === 'P2002' && error.meta?.target.includes('name')) {
+                return reply.code(409).send({ error: 'error_name_taken' });
+            }
+            // --- GÜNCELLEME SONU ---
             fastify.log.error(error);
             return reply.code(500).send({ error: 'Could not update user profile' });
         }
