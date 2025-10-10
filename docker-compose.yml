@@ -46,7 +46,8 @@ services:
 
   # --- Monitoring Stack ---
   prometheus:
-    image: prom/prometheus:main
+    image: prom/prometheus:latest
+    container_name: transcendence_prometheus  # Container'ı tanımlamak için
     ports:
       - "9090:9090"
     volumes:
@@ -57,33 +58,48 @@ services:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.retention.time=30d'
       - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'  # Config reload için
+    restart: unless-stopped  # Otomatik yeniden başlatma
+    networks:
+      - transcendence_network
 
   grafana:
-    image: grafana/grafana:main
+    image: grafana/grafana:latest
+    container_name: transcendence_grafana  # Container'ı tanımlamak için
     ports:
       - "3000:3000"
     volumes:
       - ./devops/grafana/provisioning/:/etc/grafana/provisioning/
       - ./devops/grafana/dashboards:/var/lib/grafana/dashboards
+      - grafana-data:/var/lib/grafana  # Dashboard'ları saklamak için
     environment:
       - GF_SECURITY_ADMIN_USER__FILE=/run/secrets/grafana_user
       - GF_SECURITY_ADMIN_PASSWORD__FILE=/run/secrets/grafana_password
+      - GF_USERS_ALLOW_SIGN_UP=false  # Güvenlik: Yeni kullanıcı kaydını engeller
     secrets:
       - grafana_user
       - grafana_password
+    restart: unless-stopped  # Otomatik yeniden başlatma
+    networks:
+      - transcendence_network
 
   node_exporter:
-    image: prom/node-exporter:v1.9.1
+    image: prom/node-exporter:latest
+    container_name: transcendence_node_exporter  # Container'ı tanımlamak için
     ports:
-      - "9200:9100"
+      - "9100:9100"  # Standart node_exporter portu
     volumes:
       - db-metrics:/var/lib/node_exporter/textfile_collector
     command:
       - '--collector.textfile.directory=/var/lib/node_exporter/textfile_collector'
+    restart: unless-stopped  # Otomatik yeniden başlatma
+    networks:
+      - transcendence_network
 
 # --- Top-level Definitions ---
 volumes:
   prometheus-data:
+  grafana-data:
   db-metrics:
 
 secrets:
