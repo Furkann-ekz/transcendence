@@ -1,0 +1,11 @@
+groups:
+  - name: cpu-alerts
+    rules:
+      - alert: HighCPUUsageWarning
+        expr: max(1 - rate(node_cpu_seconds_total{mode="idle"}[5s])) by (instance) > 0.90
+        for: 10s
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "At least one CPU core on {{ $labels.instance }} was over 90% usage for 10 seconds"

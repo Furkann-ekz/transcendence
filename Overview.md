@@ -38,13 +38,29 @@
     * [ ] Major module: Implement Two-Factor Authentication (2FA) and JWT.
 4) ### Devops
     * [ ] Major module: Infrastructure setup for log management.
-    * [ ] Minor module: Monitoring system.
+    * [x] Minor module: Monitoring system.
+        * done
+            * [x] Deploy Prometheus as the monitoring and alerting toolkit to collect metrics and monitor the health and performance of various system components.
+            * [x] Configure data exporters and integrations to capture metrics from different services, databases, and infrastructure components.
+            * [x] Create custom dashboards and visualizations using Grafana to provide realtime insights into system metrics and performance.
+            * [x] Set up alerting rules in Prometheus to proactively detect and respond to critical issues and anomalies.
+            * [x] Ensure proper data retention and storage strategies for historical metrics data.
+            * [x] Implement secure authentication and access control mechanisms for Grafana to protect sensitive monitoring data.
+
     * [ ] Major module: Designing the backend as microservices.
 5) ### Graphics
     * [ ] Major module: Use advanced 3D techniques.
 6) ### Accessibility
-    * [ ] Minor module: Support on all devices.
+    * [x] Minor module: Support on all devices.
+        * done
+            *  [x] Ensure the website is responsive, adapting to different screen sizes and orientations, providing a consistent user experience on desktops, laptops, tablets, and smartphones.
+            *  [x] Ensure that users can easily navigate and interact with the website using different input methods, such as touchscreens, keyboards, and mice, depending on the device they are using.
     * [x] Minor module: Expanding browser compatibility.
+        * done
+            * [x] Extend browser support to include an additional web browser, ensuring that users can access and use the application seamlessly.
+            * [x] Conduct thorough testing and optimization to ensure that the web application functions correctly and displays correctly in the newly supported browser.
+            * [x] Address any compatibility issues or rendering discrepancies that may arise in the added web browser.
+            * [x] Ensure a consistent user experience across all supported browsers maintaining usability and functionality.
     * [x] Minor module: Supports multiple languages.
     * [ ] Minor module: Add accessibility features for visually impaired users.
     * [ ] Minor module: Server-Side Rendering (SSR) integration.

@@ -17,10 +17,10 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-     # --- BU SATIRLARI EKLE/GÜNCELLE ---
+    # --- BU SATIRLARI EKLE/GÜNCELLE ---
     # Uygulamayı --inspect bayrağıyla başlatarak hata ayıklama portunu açar.
     # 0.0.0.0 adresi, Docker dışından (yani kendi makinemizden) erişime izin verir.
-    command: ["node", "--inspect=0.0.0.0:9229", "server.js"]
+    command: [ "node", "--inspect=0.0.0.0:9229", "server.js" ]
     ports:
       # Hata ayıklama portunu makinemize bağlıyoruz.
       - "9229:9229"
@@ -43,6 +43,56 @@ services:
       - backend
     networks:
       - transcendence_network
+
+  # --- Monitoring Stack ---
+  prometheus:
+    image: prom/prometheus:main
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitorOps/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitorOps/prometheus/alerts.yml:/etc/prometheus/alerts.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=30d'
+      - '--storage.tsdb.path=/prometheus'
+
+  grafana:
+    image: grafana/grafana:main
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./monitorOps/grafana/provisioning/:/etc/grafana/provisioning/
+      - ./monitorOps/grafana/dashboards:/var/lib/grafana/dashboards
+    environment:
+      - GF_SECURITY_ADMIN_USER__FILE=/run/secrets/grafana_user
+      - GF_SECURITY_ADMIN_PASSWORD__FILE=/run/secrets/grafana_password
+    secrets:
+      - grafana_user
+      - grafana_password
+
+  node_exporter:
+    image: prom/node-exporter:v1.9.1
+    ports:
+      - "9200:9100"
+    volumes:
+      - db-metrics:/var/lib/node_exporter/textfile_collector
+    command:
+      - '--collector.textfile.directory=/var/lib/node_exporter/textfile_collector'
+
+# --- Top-level Definitions ---
+volumes:
+  prometheus-data:
+  db-metrics:
+
+secrets:
+  backend_env:
+    file: secrets/backend.env
+  grafana_user:
+    file: secrets/GFuser
+  grafana_password:
+    file: secrets/GFpass
 
 networks:
   transcendence_network:
