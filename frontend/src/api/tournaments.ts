@@ -20,7 +20,17 @@ export async function createTournament() {
         method: 'POST',
         body: JSON.stringify({}) 
     });
-    if (!response.ok) throw new Error('Turnuva oluşturulamadı.');
+
+    // --- GÜNCELLEME BURADA BAŞLIYOR ---
+    // Eğer cevap başarılı değilse, JSON içeriğini oku ve backend'den
+    // gelen hata anahtarını fırlat.
+    if (!response.ok) {
+        const error = await response.json();
+        // Backend'den gelen hata anahtarını fırlatıyoruz, örn: 'error_already_in_tournament'
+        throw new Error(error.error || 'Turnuva oluşturulamadı.');
+    }
+    // --- GÜNCELLEME SONU ---
+    
     return response.json();
 }
 

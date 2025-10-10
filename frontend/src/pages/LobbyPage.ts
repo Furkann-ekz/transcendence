@@ -43,24 +43,20 @@ export async function afterRender() {
 
     try {
         const activeTournament = await getMyActiveTournament();
-        if (activeTournament && activeTournament.id) {
+
+        // --- GÜNCELLEME BURADA BAŞLIYOR ---
+        // Artık sadece LOBI durumunu kontrol ediyoruz. Oyuncu devam eden bir maça
+        // geri dönemeyeceği için IN_PROGRESS kontrolü gereksizdir.
+        if (activeTournament && activeTournament.status === 'LOBBY') {
             const returnButton = document.createElement('a');
             returnButton.setAttribute('data-link', '');
-
-            if (activeTournament.status === 'IN_PROGRESS') {
-                returnButton.href = `/tournament/${activeTournament.id}/play`;
-                returnButton.className = 'bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 px-4 rounded';
-                returnButton.textContent = t('return_to_active_tournament');
-            } else if (activeTournament.status === 'LOBBY') {
-                returnButton.href = `/tournaments/${activeTournament.id}`;
-                returnButton.className = 'bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded';
-                returnButton.textContent = t('return_to_tournament_lobby');
-            }
-
-            if (returnButton.textContent) {
-                buttonsContainer.prepend(returnButton);
-            }
+            returnButton.href = `/tournaments/${activeTournament.id}`;
+            returnButton.className = 'bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded';
+            returnButton.textContent = t('return_to_tournament_lobby');
+            buttonsContainer.prepend(returnButton);
         }
+        // --- GÜNCELLEME SONU ---
+        
     } catch (error) {
         console.error("Failed to check for active tournament:", error);
     }

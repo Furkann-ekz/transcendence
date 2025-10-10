@@ -84,7 +84,9 @@ export async function afterRender() {
             const newTournament = await createTournament();
             navigateTo(`/tournaments/${newTournament.id}`);
         } catch (error: any) {
-            alert(error.message || 'Turnuva oluşturulamadı.');
+            // --- GÜNCELLEME BURADA ---
+            // Gelen hata mesajını (artık bir anahtar) t() fonksiyonu ile çevirip gösteriyoruz.
+            alert(t(error.message));
         }
     };
 
