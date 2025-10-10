@@ -5,7 +5,7 @@
   "login_button": "Sign In",
   "register_link": "Don't have an account? Sign Up",
   "register_title": "Sign Up",
-  "name_label": "Name (Optional)",
+  "name_label": "Name",
   "register_button": "Sign Up",
   "login_link": "Already have an account? Sign In",
   "register_success_alert": "Registration successful! Please sign in.",

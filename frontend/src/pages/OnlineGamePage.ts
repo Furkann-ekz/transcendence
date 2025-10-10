@@ -132,6 +132,14 @@ function handlePlayerMove(event: KeyboardEvent) {
 }
 
 function initializeGame(payload: GameStartPayload) {
+    // --- YENİ EKLENEN SIFIRLAMA ADIMLARI ---
+    // Her yeni oyun başladığında, önceki oyundan kalmış olabilecek
+    // tüm arayüz elemanlarını temizlediğimizden emin oluyoruz.
+    const gameOverModal = document.getElementById('game-over-modal')!;
+    gameOverModal.classList.add('hidden');
+    gameOverModal.classList.remove('flex');
+    // --- SIFIRLAMA ADIMLARI SONU ---
+
     const statusDiv = document.getElementById('game-status')!;
     const token = localStorage.getItem('token');
     myUserId = token ? jwt_decode(token).userId : null;
@@ -139,8 +147,11 @@ function initializeGame(payload: GameStartPayload) {
     gameConfig = { ...payload };
     canvas.width = gameConfig.canvasSize;
     canvas.height = gameConfig.canvasSize;
-    statusDiv.textContent = '';
+    
+    // Değişiklik: statusDiv içeriğini temizlemek yerine gizliyoruz.
+    statusDiv.classList.add('hidden'); 
     canvas.classList.remove('hidden');
+    
     myPlayer = payload.players.find((p: Player) => p.id === myUserId) || null;
 
     window.addEventListener('keydown', handlePlayerMove);
@@ -154,7 +165,7 @@ export function render(): string {
       <div id="game-status" class="text-xl sm:text-2xl md:text-3xl text-white mb-4 text-center"></div>
       <canvas id="pong-canvas" width="800" height="800" class="bg-black border border-white hidden max-w-full max-h-[70vh] w-auto h-auto"></canvas>
       <a id="main-leave-link" href="/lobby" class="mt-4 text-blue-400 hover:text-blue-300 text-sm sm:text-base">${t('leave_lobby')}</a>
-      <div id="mobile-controls" class="hidden mt-40 flex space-x-8 sm:space-x-12 md:space-x-20">
+      <div id="mobile-controls" class="hidden mt-40 space-x-8 sm:space-x-12 md:space-x-20">
         <button id="move-up-btn" class="size-40 sm:w-18 sm:h-18 md:w-20 md:h-20 bg-blue-500 text-white rounded-full text-xl sm:text-xl md:text-2xl touch-manipulation">↑</button>
         <button id="move-down-btn" class="size-40 sm:w-18 sm:h-18 md:w-20 md:h-20 bg-blue-500 text-white rounded-full text-xl sm:text-xl md:text-2xl touch-manipulation">↓</button>
       </div>
@@ -181,7 +192,7 @@ export function render(): string {
         </div>
       </div>
       
-      <div id="leave-tournament-match-confirm-modal" class="hidden absolute inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
+      <div id="leave-tournament-match-confirm-modal" class="hidden absolute inset-0 bg-black bg-opacity-75 z-50 items-center justify-center p-4">
             <div class="bg-gray-800 p-6 sm:p-8 rounded-lg shadow-xl text-center max-w-xs sm:max-w-sm w-full">
                 <p class="text-base sm:text-lg mb-6">${t('leave_tournament_confirm')}</p>
                 <div class="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">

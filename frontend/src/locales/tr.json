@@ -5,7 +5,7 @@
   "login_button": "Giriş Yap",
   "register_link": "Hesabın yok mu? Kaydol",
   "register_title": "Kayıt Ol",
-  "name_label": "İsim (Opsiyonel)",
+  "name_label": "İsim",
   "register_button": "Kayıt Ol",
   "login_link": "Zaten hesabın var mı? Giriş Yap",
   "register_success_alert": "Kayıt başarılı! Lütfen giriş yapın.",
