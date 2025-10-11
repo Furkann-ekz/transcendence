@@ -3,7 +3,7 @@ services:
     image: nginx:latest
     container_name: transcendence_nginx
     ports:
-      - "4043:4043"
+      - "4043:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf
       - ./nginx/ssl:/etc/nginx/ssl
