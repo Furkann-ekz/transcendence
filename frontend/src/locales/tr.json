@@ -147,5 +147,8 @@
 	"play_windowed_button": "Pencerede Oyna",
 	"back_to_lobby": "Lobiye Geri Dön",
 	"exit_fullscreen": "Tam Ekrandan Çık",
-	"exit_game": "Oyundan Çık"
+	"exit_game": "Oyundan Çık",
+	"delete_tournament": "Turnuvayı Sil",
+	"confirm_delete_tournament": "Bu turnuvayı silmek istediğinize emin misiniz? Tüm oyuncular turnuvadan çıkarılacak.",
+	"tournament_deleted_message": "Turnuva organizatör tarafından silindi."
 }

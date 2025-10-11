@@ -147,5 +147,8 @@
     "play_windowed_button": "Играть в окне",
     "back_to_lobby": "Вернуться в лобби",
     "exit_fullscreen": "Выйти из полноэкранного режима",
-    "exit_game": "Выйти из игры"
+    "exit_game": "Выйти из игры",
+    "delete_tournament": "Удалить турнир",
+    "confirm_delete_tournament": "Вы уверены, что хотите удалить этот турнир? Все игроки будут исключены.",
+    "tournament_deleted_message": "Турнир был удален организатором."
 }

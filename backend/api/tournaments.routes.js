@@ -272,6 +272,52 @@ async function tournamentRoutes(fastify, { io })
 		}
 	});
 
+	// Delete/Destroy tournament (only host can do this)
+	fastify.delete('/tournaments/:id', { preHandler: [authenticate] }, async (request, reply) =>
+	{
+		const tournamentId = request.params.id;
+		const userId = request.user.userId;
+
+		try
+		{
+			const tournament = await prisma.tournament.findUnique({ 
+				where: { id: tournamentId },
+				include: { players: true }
+			});
+
+			if (!tournament)
+				return (reply.code(404).send({ error: 'Tournament not found.' }));
+
+			if (tournament.hostId !== userId)
+				return (reply.code(403).send({ error: 'Only the host can delete the tournament.' }));
+
+			if (tournament.status !== 'LOBBY')
+				return (reply.code(403).send({ error: 'Cannot delete a tournament that is in progress or has finished.' }));
+
+			// Delete all tournament players first
+			await prisma.tournamentPlayer.deleteMany({
+				where: { tournamentId: tournamentId }
+			});
+
+			// Delete the tournament
+			await prisma.tournament.delete({
+				where: { id: tournamentId }
+			});
+
+			// Notify all players in the tournament lobby
+			io.to(tournamentId).emit('tournament_deleted');
+			io.emit('tournament_list_updated');
+
+			return (reply.send({ success: true, message: 'Tournament successfully deleted.' }));
+
+		}
+		catch (error)
+		{
+			fastify.log.error(error);
+			return (reply.code(500).send({ error: 'Could not delete tournament.' }));
+		}
+	});
+
 	fastify.post('/tournaments/:id/ready', { preHandler: [authenticate] }, async (request, reply) =>
 	{
 		const tournamentId = request.params.id;

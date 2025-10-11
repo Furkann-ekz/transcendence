@@ -80,6 +80,21 @@ export async function leaveTournament(tournamentId: string)
 	return (response.json());
 }
 
+export async function deleteTournament(tournamentId: string)
+{
+	const response = await apiFetch(`${API_URL}/${tournamentId}`,
+	{
+		method: 'DELETE',
+		body: JSON.stringify({})
+	});
+	if (!response.ok)
+	{
+		const error = await response.json();
+		throw new Error(error.error || 'Turnuva silinemedi.');
+	}
+	return (response.json());
+}
+
 export async function startTournament(tournamentId: string)
 {
 	const response = await apiFetch(`${API_URL}/${tournamentId}/start`,

@@ -2,7 +2,7 @@ import { navigateTo } from '../router';
 import { t } from '../i18n';
 import { getSocket } from '../socket';
 import { jwt_decode } from '../utils';
-import { getTournamentDetails, setReadyStatus, startTournament, leaveTournament, joinTournament } from '../api/tournaments';
+import { getTournamentDetails, setReadyStatus, startTournament, leaveTournament, joinTournament, deleteTournament } from '../api/tournaments';
 
 interface TournamentPlayer
 {
@@ -121,6 +121,27 @@ export async function afterRender()
 				};
 				actionsEl.appendChild(startButton);
 
+				// Add delete tournament button for host
+				const deleteButton = document.createElement('button');
+				deleteButton.textContent = t('delete_tournament') || 'Delete Tournament';
+				deleteButton.className = 'w-full inline-flex items-center justify-center rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-5 transition';
+				deleteButton.onclick = async () =>
+				{
+					if (confirm(t('confirm_delete_tournament') || 'Are you sure you want to delete this tournament? All players will be removed.'))
+					{
+						try
+						{
+							await deleteTournament(tournamentId);
+							navigateTo('/tournaments');
+						} 
+						catch (error: any)
+						{
+							alert(error.message);
+						}
+					}
+				};
+				actionsEl.appendChild(deleteButton);
+
 			}
 			else if (amIPlayer)
 			{
@@ -200,6 +221,12 @@ export async function afterRender()
 		socket.on('tournament_started', ({ tournament }) => {
 			navigateTo(`/tournament/${tournament.id}/play`);
 		});
+		
+		// Handle tournament deletion
+		socket.on('tournament_deleted', () => {
+			alert(t('tournament_deleted_message') || 'The tournament has been deleted by the host.');
+			navigateTo('/tournaments');
+		});
 	}
 }
 
@@ -213,6 +240,7 @@ export function cleanup()
 		socket.emit('leave_tournament_lobby', { tournamentId });
 		socket.off('tournament_lobby_updated');
 		socket.off('tournament_started');
+		socket.off('tournament_deleted');
 	}
 	const actionsEl = document.getElementById('lobby-actions');
 	if (actionsEl)
