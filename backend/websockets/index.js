@@ -163,14 +163,30 @@ function initializeSocket(io)
 			const playerState = game.gameState.players.find(p => p.id === socket.user.id);
 			if (!playerState)
 				return ;
+			
+			const { direction } = data;
+			const moveSpeed = 15; // Movement speed per update
 			const canvasSize = game.canvasSize || 800;
 			const paddleSize = game.paddleSize || 100;
-			const { newPosition } = data;
+
+			let currentPos;
+			if (playerState.position === 'left' || playerState.position === 'right')
+				currentPos = playerState.y;
+			else
+				currentPos = playerState.x;
+
+			let newPosition = currentPos;
+			if (direction === 'up')
+				newPosition = currentPos - moveSpeed;
+			else if (direction === 'down')
+				newPosition = currentPos + moveSpeed;
+
 			let finalPosition = newPosition;
 			if (finalPosition < 0)
 				finalPosition = 0;
 			if (finalPosition > canvasSize - paddleSize)
 				finalPosition = canvasSize - paddleSize;
+
 			if (playerState.position === 'left' || playerState.position === 'right')
 				playerState.y = finalPosition;
 			if (playerState.position === 'top' || playerState.position === 'bottom')

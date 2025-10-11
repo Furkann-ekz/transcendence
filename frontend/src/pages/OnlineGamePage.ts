@@ -20,6 +20,9 @@ let myPlayer: Player | null = null;
 let animationFrameId: number;
 let myUserId: number | null;
 
+const keysPressed: { [key: string]: boolean } = {};
+let movementInterval: number | null = null;
+
 const myPaddlePattern = createDottedPattern('#ffde59', '#333');
 
 function createDottedPattern(dotColor: string, bgColor: string): CanvasPattern | string
@@ -100,26 +103,12 @@ function gameLoop()
 	animationFrameId = requestAnimationFrame(gameLoop);
 }
 
-function handlePlayerMove(event: KeyboardEvent)
-{
-	if (!socket || !myPlayer || !gameState.players)
-		return ;
-	const playerState = gameState.players.find((p: Player) => p.id === myPlayer!.id);
-	if (!playerState)
-		return ;
-	let currentPos: number;
-	if (myPlayer.position === 'left' || myPlayer.position === 'right')
-		currentPos = playerState.y;
-	else
-		currentPos = playerState.x;
-	let newPos: number | undefined;
-	if (event.key === 'w' || event.key === 'ArrowUp')
-		newPos = currentPos - 25;
-	else if (event.key === 's' || event.key === 'ArrowDown')
-		newPos = currentPos + 25;
+function handleKeyDown(event: KeyboardEvent) {
+	keysPressed[event.key] = true;
+}
 
-	if (newPos !== undefined)
-		socket.emit('playerMove', { newPosition: newPos });
+function handleKeyUp(event: KeyboardEvent) {
+	keysPressed[event.key] = false;
 }
 
 function initializeGame(payload: GameStartPayload)
@@ -141,7 +130,24 @@ function initializeGame(payload: GameStartPayload)
 	
 	myPlayer = payload.players.find((p: Player) => p.id === myUserId) || null;
 
-	window.addEventListener('keydown', handlePlayerMove);
+	window.addEventListener('keydown', handleKeyDown);
+	window.addEventListener('keyup', handleKeyUp);
+
+	if (movementInterval) clearInterval(movementInterval);
+	movementInterval = setInterval(() => {
+		if (!socket) return;
+		let direction: 'up' | 'down' | null = null;
+		if (keysPressed['w'] || keysPressed['ArrowUp'] || keysPressed['mobile_up']) {
+			direction = 'up';
+		} else if (keysPressed['s'] || keysPressed['ArrowDown'] || keysPressed['mobile_down']) {
+			direction = 'down';
+		}
+
+		if (direction) {
+			socket.emit('playerMove', { direction });
+		}
+	}, 1000 / 60); // 60 times per second
+
 	if (animationFrameId)
 		cancelAnimationFrame(animationFrameId);
 	gameLoop();
@@ -226,29 +232,18 @@ export function afterRender()
 	if (isMobile())
 		mobileControls.classList.remove('hidden');
 
-	const move = (direction: 'up' | 'down') =>
-	{
-		if (!socket || !myPlayer || !gameState.players)
-			return ;
-		const playerState = gameState.players.find((p: Player) => p.id === myPlayer!.id);
-		if (!playerState)
-			return ;
-		let currentPos: number;
-		if (myPlayer.position === 'left' || myPlayer.position === 'right')
-			currentPos = playerState.y;
-		else
-			currentPos = playerState.x;
-		let newPos: number | undefined;
-		if (direction === 'up')
-			newPos = currentPos - 25;
-		 else
-			newPos = currentPos + 25;
-		if (newPos !== undefined)
-			socket.emit('playerMove', { newPosition: newPos });
+	const handleTouchStart = (direction: 'up' | 'down') => {
+		keysPressed[`mobile_${direction}`] = true;
 	};
 
-	moveUpBtn.addEventListener('click', () => move('up'));
-	moveDownBtn.addEventListener('click', () => move('down'));
+	const handleTouchEnd = (direction: 'up' | 'down') => {
+		keysPressed[`mobile_${direction}`] = false;
+	};
+
+	moveUpBtn.addEventListener('touchstart', (e) => { e.preventDefault(); handleTouchStart('up'); });
+	moveUpBtn.addEventListener('touchend', (e) => { e.preventDefault(); handleTouchEnd('up'); });
+	moveDownBtn.addEventListener('touchstart', (e) => { e.preventDefault(); handleTouchStart('down'); });
+	moveDownBtn.addEventListener('touchend', (e) => { e.preventDefault(); handleTouchEnd('down'); });
 
 	const mainLeaveLink = document.getElementById('main-leave-link')!;
 	const leaveMatchModal = document.getElementById('leave-tournament-match-confirm-modal')!;
@@ -316,7 +311,12 @@ export function afterRender()
 
 	socket.on('gameOver', ({ winners }: GameOverPayload) =>
 	{
-		window.removeEventListener('keydown', handlePlayerMove);
+		window.removeEventListener('keydown', handleKeyDown);
+		window.removeEventListener('keyup', handleKeyUp);
+		if (movementInterval) {
+			clearInterval(movementInterval);
+			movementInterval = null;
+		}
 		if (animationFrameId)
 			cancelAnimationFrame(animationFrameId);
 		
@@ -357,7 +357,12 @@ export function cleanup()
 		socket.off('gameStateUpdate');
 		socket.off('gameOver');
 	}
-	window.removeEventListener('keydown', handlePlayerMove);
+	window.removeEventListener('keydown', handleKeyDown);
+	window.removeEventListener('keyup', handleKeyUp);
+	if (movementInterval) {
+		clearInterval(movementInterval);
+		movementInterval = null;
+	}
 	if (animationFrameId)
 		cancelAnimationFrame(animationFrameId);
 	animationFrameId = 0;

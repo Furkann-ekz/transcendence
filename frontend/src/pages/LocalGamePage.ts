@@ -20,15 +20,43 @@ let context: CanvasRenderingContext2D;
 let animationFrameId: number;
 const keysPressed: { [key: string]: boolean } = {};
 
+let p1UpStart: (e: Event) => void, p1UpEnd: (e: Event) => void;
+let p1DownStart: (e: Event) => void, p1DownEnd: (e: Event) => void;
+let p2UpStart: (e: Event) => void, p2UpEnd: (e: Event) => void;
+let p2DownStart: (e: Event) => void, p2DownEnd: (e: Event) => void;
+let fullscreenChangeHandler: () => void;
+
 export function render()
 {
 	return `
-		<div class="h-screen w-screen bg-gray-900 flex flex-col items-center justify-center">
-			<h1 class="text-3xl text-white mb-4">Pong Game</h1>
-			<canvas id="pong-canvas" width="800" height="600" class="bg-black border border-white"></canvas>
-			<a href="/dashboard" data-link class="mt-4 text-blue-400 hover:text-blue-300">
-				${t('return_to_chat')}
-			</a>
+		<div id="local-game-container" class="h-screen w-screen bg-gray-900 flex flex-col items-center justify-center relative p-4">
+			
+			<div id="fullscreen-overlay">
+				<h2 class="text-3xl font-bold mb-4">${t('fullscreen_required')}</h2>
+				<p class="mb-8 max-w-md">${t('fullscreen_prompt')}</p>
+				<button id="fullscreen-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-6 rounded-lg text-xl transition">
+					${t('enter_fullscreen_button')}
+				</button>
+			</div>
+
+			<div id="game-content" class="hidden h-full w-full flex flex-col items-center justify-center">
+				<div id="local-game-layout" class="flex items-center justify-center w-full">
+					<div id="p1-controls" class="hidden flex-col items-center justify-center p-4 space-y-6">
+						<button id="p1-up" class="select-none size-20 bg-blue-500/70 active:bg-blue-600 text-white rounded-full text-2xl touch-manipulation">↑</button>
+						<button id="p1-down" class="select-none size-20 bg-blue-500/70 active:bg-blue-600 text-white rounded-full text-2xl touch-manipulation">↓</button>
+					</div>
+					<canvas id="pong-canvas" width="800" height="600" class="bg-black border-2 border-slate-700 max-w-full max-h-[80vh]"></canvas>
+					<div id="p2-controls" class="hidden flex-col items-center justify-center p-4 space-y-6">
+						<button id="p2-up" class="select-none size-20 bg-red-500/70 active:bg-red-600 text-white rounded-full text-2xl touch-manipulation">↑</button>
+						<button id="p2-down" class="select-none size-20 bg-red-500/70 active:bg-red-600 text-white rounded-full text-2xl touch-manipulation">↓</button>
+					</div>
+				</div>
+				<div id="mobile-controls-container" class="hidden">
+				</div>
+				<a href="/lobby" data-link class="absolute bottom-4 right-4 text-blue-400 hover:text-blue-300">
+					${t('return_to_lobby_button')}
+				</a>
+			</div>
 		</div>
 	`;
 }
@@ -103,18 +131,34 @@ function update()
 	if (gameState.ballY - BALL_SIZE < 0 || gameState.ballY + BALL_SIZE > canvas.height)
 		gameState.ballSpeedY = -gameState.ballSpeedY;
 
+	// Left paddle collision
 	if (
 		gameState.ballX - BALL_SIZE < PADDLE_WIDTH &&
-		gameState.ballY > gameState.leftPaddleY &&
-		gameState.ballY < gameState.leftPaddleY + PADDLE_HEIGHT
-	)
-		gameState.ballSpeedX = -gameState.ballSpeedX;
-	if (
+		gameState.ballY + BALL_SIZE > gameState.leftPaddleY &&
+		gameState.ballY - BALL_SIZE < gameState.leftPaddleY + PADDLE_HEIGHT
+	) {
+		const collidePoint = (gameState.ballY - (gameState.leftPaddleY + PADDLE_HEIGHT / 2));
+		const normalizedCollidePoint = collidePoint / (PADDLE_HEIGHT / 2);
+		const bounceAngle = normalizedCollidePoint * (Math.PI / 4); // Max 45 degrees
+		
+		gameState.ballSpeedX = Math.abs(gameState.ballSpeedX) * 1.05; // Increase speed
+		gameState.ballSpeedY = (Math.abs(gameState.ballSpeedX) + Math.abs(gameState.ballSpeedY)) * Math.sin(bounceAngle);
+		gameState.ballX = PADDLE_WIDTH + BALL_SIZE; // Prevent sticking
+	}
+	// Right paddle collision
+	else if (
 		gameState.ballX + BALL_SIZE > canvas.width - PADDLE_WIDTH &&
-		gameState.ballY > gameState.rightPaddleY &&
-		gameState.ballY < gameState.rightPaddleY + PADDLE_HEIGHT
-	)
-		gameState.ballSpeedX = -gameState.ballSpeedX;
+		gameState.ballY + BALL_SIZE > gameState.rightPaddleY &&
+		gameState.ballY - BALL_SIZE < gameState.rightPaddleY + PADDLE_HEIGHT
+	) {
+		const collidePoint = (gameState.ballY - (gameState.rightPaddleY + PADDLE_HEIGHT / 2));
+		const normalizedCollidePoint = collidePoint / (PADDLE_HEIGHT / 2);
+		const bounceAngle = normalizedCollidePoint * (Math.PI / 4); // Max 45 degrees
+
+		gameState.ballSpeedX = -Math.abs(gameState.ballSpeedX) * 1.05; // Increase speed
+		gameState.ballSpeedY = (Math.abs(gameState.ballSpeedX) + Math.abs(gameState.ballSpeedY)) * Math.sin(bounceAngle);
+		gameState.ballX = canvas.width - PADDLE_WIDTH - BALL_SIZE; // Prevent sticking
+	}
 
 	if (gameState.ballX - BALL_SIZE < 0)
 	{
@@ -135,8 +179,27 @@ function gameLoop()
 	animationFrameId = requestAnimationFrame(gameLoop);
 }
 
+function startGame()
+{
+	if (animationFrameId)
+		cancelAnimationFrame(animationFrameId);
+	gameLoop();
+}
+
+function stopGame()
+{
+	if (animationFrameId)
+		cancelAnimationFrame(animationFrameId);
+	animationFrameId = 0;
+}
+
 export function afterRender()
 {
+	const gameContainer = document.getElementById('local-game-container') as HTMLDivElement;
+	const fullscreenOverlay = document.getElementById('fullscreen-overlay') as HTMLDivElement;
+	const gameContent = document.getElementById('game-content') as HTMLDivElement;
+	const fullscreenBtn = document.getElementById('fullscreen-btn') as HTMLButtonElement;
+	
 	const localCanvas = document.getElementById('pong-canvas') as HTMLCanvasElement;
 	if (localCanvas)
 	{
@@ -146,15 +209,83 @@ export function afterRender()
 		window.addEventListener('keydown', handleKeyDown);
 		window.addEventListener('keyup', handleKeyUp);
 
-		gameLoop();
+		const p1Controls = document.getElementById('p1-controls');
+		const p2Controls = document.getElementById('p2-controls');
+		const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+		if (isMobile) {
+			p1Controls?.classList.remove('hidden');
+			p1Controls?.classList.add('flex');
+			p2Controls?.classList.remove('hidden');
+			p2Controls?.classList.add('flex');
+		}
+
+		const p1Up = document.getElementById('p1-up');
+		const p1Down = document.getElementById('p1-down');
+		const p2Up = document.getElementById('p2-up');
+		const p2Down = document.getElementById('p2-down');
+
+		p1UpStart = (e) => { e.preventDefault(); keysPressed['w'] = true; };
+		p1UpEnd = (e) => { e.preventDefault(); keysPressed['w'] = false; };
+		p1DownStart = (e) => { e.preventDefault(); keysPressed['s'] = true; };
+		p1DownEnd = (e) => { e.preventDefault(); keysPressed['s'] = false; };
+		p2UpStart = (e) => { e.preventDefault(); keysPressed['ArrowUp'] = true; };
+		p2UpEnd = (e) => { e.preventDefault(); keysPressed['ArrowUp'] = false; };
+		p2DownStart = (e) => { e.preventDefault(); keysPressed['ArrowDown'] = true; };
+		p2DownEnd = (e) => { e.preventDefault(); keysPressed['ArrowDown'] = false; };
+
+		p1Up?.addEventListener('touchstart', p1UpStart);
+		p1Up?.addEventListener('touchend', p1UpEnd);
+		p1Down?.addEventListener('touchstart', p1DownStart);
+		p1Down?.addEventListener('touchend', p1DownEnd);
+		p2Up?.addEventListener('touchstart', p2UpStart);
+		p2Up?.addEventListener('touchend', p2UpEnd);
+		p2Down?.addEventListener('touchstart', p2DownStart);
+		p2Down?.addEventListener('touchend', p2DownEnd);
+
+		fullscreenBtn.addEventListener('click', () => {
+			if (gameContainer.requestFullscreen)
+				gameContainer.requestFullscreen();
+		});
+
+		fullscreenChangeHandler = () => {
+			if (document.fullscreenElement === gameContainer)
+			{
+				fullscreenOverlay.style.display = 'none';
+				gameContent.classList.remove('hidden');
+				startGame();
+			}
+			else
+			{
+				fullscreenOverlay.style.display = 'flex';
+				gameContent.classList.add('hidden');
+				stopGame();
+			}
+		};
+		document.addEventListener('fullscreenchange', fullscreenChangeHandler);
 	}
 }
 
 export function cleanup()
 {
-	cancelAnimationFrame(animationFrameId);
+	stopGame();
 	window.removeEventListener('keydown', handleKeyDown);
 	window.removeEventListener('keyup', handleKeyUp);
+	document.removeEventListener('fullscreenchange', fullscreenChangeHandler);
+
+	const p1Up = document.getElementById('p1-up');
+	const p1Down = document.getElementById('p1-down');
+	const p2Up = document.getElementById('p2-up');
+	const p2Down = document.getElementById('p2-down');
+
+	p1Up?.removeEventListener('touchstart', p1UpStart);
+	p1Up?.removeEventListener('touchend', p1UpEnd);
+	p1Down?.removeEventListener('touchstart', p1DownStart);
+	p1Down?.removeEventListener('touchend', p1DownEnd);
+	p2Up?.removeEventListener('touchstart', p2UpStart);
+	p2Up?.removeEventListener('touchend', p2UpEnd);
+	p2Down?.removeEventListener('touchstart', p2DownStart);
+	p2Down?.removeEventListener('touchend', p2DownEnd);
+
 	gameState =
 	{
 		leftPaddleY: 250,

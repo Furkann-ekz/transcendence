@@ -42,3 +42,50 @@
     text-align: center;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
 }
+
+/* Local Game Fullscreen Overlay */
+#fullscreen-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(23, 26, 33, 0.95);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    color: white;
+    text-align: center;
+    padding: 1rem;
+}
+
+/* Local Game Mobile Controls Layout */
+@media (orientation: landscape) and (max-height: 600px) {
+    #local-game-layout {
+        flex-direction: row;
+    }
+    #p1-controls, #p2-controls {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        justify-content: center;
+        padding: 0 1rem;
+    }
+}
+
+@media (orientation: portrait) {
+    #local-game-layout {
+        flex-direction: column;
+    }
+    #mobile-controls-container {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-around;
+        width: 100%;
+        margin-top: 1rem;
+    }
+    #p1-controls, #p2-controls {
+        display: flex;
+        flex-direction: row;
+        gap: 2rem;
+    }
+}
