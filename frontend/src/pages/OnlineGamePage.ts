@@ -155,8 +155,8 @@ export function render(): string
 	  <canvas id="pong-canvas" width="800" height="800" class="bg-black border border-white hidden max-w-full max-h-[70vh] w-auto h-auto"></canvas>
 	  <a id="main-leave-link" href="/lobby" class="mt-4 text-blue-400 hover:text-blue-300 text-sm sm:text-base">${t('leave_lobby')}</a>
 	  <div id="mobile-controls" class="hidden mt-40 space-x-8 sm:space-x-12 md:space-x-20">
-		<button id="move-up-btn" class="size-40 sm:w-18 sm:h-18 md:w-20 md:h-20 bg-blue-500 text-white rounded-full text-xl sm:text-xl md:text-2xl touch-manipulation">↑</button>
-		<button id="move-down-btn" class="size-40 sm:w-18 sm:h-18 md:w-20 md:h-20 bg-blue-500 text-white rounded-full text-xl sm:text-xl md:text-2xl touch-manipulation">↓</button>
+		<button id="move-up-btn" class="select-none size-40 sm:w-18 sm:h-18 md:w-20 md:h-20 bg-blue-500 active:bg-red-700 text-white rounded-full text-xl sm:text-xl md:text-2xl touch-manipulation">↑</button>
+		<button id="move-down-btn" class="select-none size-40 sm:w-18 sm:h-18 md:w-20 md:h-20 bg-blue-500 active:bg-red-700 text-white rounded-full text-xl sm:text-xl md:text-2xl touch-manipulation">↓</button>
 	  </div>
 	  <div id="game-over-modal" class="hidden absolute inset-0 bg-black bg-opacity-75 items-center justify-center text-white p-4">
 		<div class="bg-gray-800 bg-opacity-90 p-6 sm:p-8 md:p-10 rounded-lg shadow-2xl text-center max-w-xs sm:max-w-sm md:max-w-lg w-full">

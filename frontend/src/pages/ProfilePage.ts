@@ -16,6 +16,7 @@ import type { Socket } from 'socket.io-client';
 let profileId: number;
 let myId: number | null;
 let socket: Socket | null;
+let logoutClickListener: (() => void) | null = null;
 
 async function renderActionButtons()
 {
@@ -29,32 +30,32 @@ async function renderActionButtons()
 		let buttonsHTML = '';
 
 		if (status.isBlocked)
-			buttonsHTML += `<button id="unblock-user-btn" class="bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-4 rounded w-full">${t('unblock_user_button')}</button>`;
+			buttonsHTML += `<button id="unblock-user-btn" class="w-full inline-flex items-center justify-center rounded-lg bg-yellow-500 hover:bg-yellow-600 text-black font-semibold py-2 px-5 transition">${t('unblock_user_button')}</button>`;
 		else if (status.friendshipStatus === 'blocked_by_them')
-			buttonsHTML = `<p class="text-sm text-gray-500">Bu kullanıcıyla etkileşimde bulunamazsınız.</p>`;
+			buttonsHTML = `<p class="text-sm text-slate-400">Bu kullanıcıyla etkileşimde bulunamazsınız.</p>`;
 		else
 		{
 			switch (status.friendshipStatus)
 			{
 				case 'none':
-					buttonsHTML += `<button id="add-friend-btn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded w-full">${t('add_friend_button')}</button>`;
+					buttonsHTML += `<button id="add-friend-btn" class="w-full inline-flex items-center justify-center rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 px-5 transition">${t('add_friend_button')}</button>`;
 					break ;
 				case 'pending_sent':
-					buttonsHTML += `<button id="cancel-request-btn" data-friendship-id="${status.friendshipId}" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded w-full">${t('cancel_request_button')}</button>`;
+					buttonsHTML += `<button id="cancel-request-btn" data-friendship-id="${status.friendshipId}" class="w-full inline-flex items-center justify-center rounded-lg bg-slate-600 hover:bg-slate-500 text-white font-semibold py-2 px-5 transition">${t('cancel_request_button')}</button>`;
 					break ;
 				case 'pending_received':
 					buttonsHTML += `
-						<p class="mb-2 text-sm">${t('friend_requests')}</p>
+						<p class="mb-2 text-sm text-slate-300">${t('friend_requests')}</p>
 						<div class="flex space-x-2">
-							<button id="accept-request-btn" data-friendship-id="${status.friendshipId}" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded w-full">${t('accept_button')}</button>
-							<button id="reject-request-btn" data-friendship-id="${status.friendshipId}" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded w-full">${t('reject_button')}</button>
+							<button id="accept-request-btn" data-friendship-id="${status.friendshipId}" class="w-full inline-flex items-center justify-center rounded-lg bg-green-600 hover:bg-green-500 text-white font-semibold py-2 px-4 transition">${t('accept_button')}</button>
+							<button id="reject-request-btn" data-friendship-id="${status.friendshipId}" class="w-full inline-flex items-center justify-center rounded-lg bg-red-600 hover:bg-red-500 text-white font-semibold py-2 px-4 transition">${t('reject_button')}</button>
 						</div>`;
 					break ;
 				case 'friends':
-					buttonsHTML += `<button id="remove-friend-btn" data-friendship-id="${status.friendshipId}" class="bg-red-700 hover:bg-red-800 text-white font-bold py-2 px-4 rounded w-full">${t('remove_friend_button')}</button>`;
+					buttonsHTML += `<button id="remove-friend-btn" data-friendship-id="${status.friendshipId}" class="w-full inline-flex items-center justify-center rounded-lg bg-red-700 hover:bg-red-600 text-white font-semibold py-2 px-5 transition">${t('remove_friend_button')}</button>`;
 					break ;
 			}
-			buttonsHTML += `<button id="block-user-btn" class="mt-2 bg-black hover:bg-gray-800 text-white font-bold py-2 px-4 rounded w-full">${t('block_user_button')}</button>`;
+			buttonsHTML += `<button id="block-user-btn" class="mt-2 w-full inline-flex items-center justify-center rounded-lg bg-gray-800 hover:bg-gray-700 text-white font-semibold py-2 px-5 transition">${t('block_user_button')}</button>`;
 		}
 		
 		actionsContainer.innerHTML = buttonsHTML;
@@ -113,32 +114,48 @@ function attachButtonListeners()
 
 export function render(): string
 {
+	const token = localStorage.getItem('token');
+	const myUserId = token ? jwt_decode(token).userId : '/';
   return `
-  <div class="min-h-screen bg-gray-100 flex flex-col items-center justify-center">
-	  <div id="profile-card" class="bg-white p-8 rounded-lg shadow-md w-full max-w-md text-center">
-		<div id="profile-avatar" class="w-24 h-24 rounded-full border-2 border-gray-300 mb-4 mx-auto bg-cover bg-center bg-gray-200"></div>
-		<h2 id="profile-name" class="text-3xl font-bold mb-2">Yükleniyor...</h2>
-		<p id="profile-created-at" class="text-gray-500 text-sm mb-6"></p>
-		<div class="flex justify-center space-x-8 border-t border-b py-4">
-		  <div>
-			<p class="text-2xl font-bold text-green-500" id="profile-wins">-</p>
-			<p class="text-sm text-gray-600">${t('profile_wins')}</p>
-		  </div>
-		  <div>
-			<p class="text-2xl font-bold text-red-500" id="profile-losses">-</p>
-			<p class="text-sm text-gray-600">${t('profile_losses')}</p>
-		  </div>
-		</div>
-		<div class="mt-6 space-y-2">
-			<a id="match-history-link" href="#" data-link class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded block">
-			  ${t('view_match_history')}
-			</a>
-			<div id="profile-actions-dynamic" class="mt-2"></div>
-		</div>
-		<a href="/dashboard" data-link class="mt-4 inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800">
-		  ${t('return_to_chat')}
-		</a>
-	  </div>
+	<div class="h-screen w-screen flex flex-col bg-[#171A21] text-slate-100">
+		<nav class="sticky top-0 z-10 bg-[#171A21] border-b border-slate-700/50 flex-shrink-0">
+			<div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap md:flex-nowrap items-center justify-center md:justify-between gap-4">
+				<div class="w-full md:w-auto text-center md:text-left">
+					<h1 class="text-2xl font-bold tracking-tight text-white">Transcendence</h1>
+				</div>
+				<div class="w-full md:w-auto flex flex-col md:flex-row items-center gap-3">
+					<a href="/profile/${myUserId}" data-link class="w-full md:w-auto inline-flex items-center justify-center rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 px-5 transition">${t('my_profile_button')}</a>
+					<a href="/lobby" data-link class="w-full md:w-auto inline-flex items-center justify-center rounded-lg bg-green-600 hover:bg-green-500 text-white font-semibold py-2 px-5 transition">${t('go_to_game')}</a>
+					<button id="logout-button" class="w-full md:w-auto inline-flex items-center justify-center rounded-lg bg-red-600 hover:bg-red-500 text-white font-semibold py-2 px-5 transition">${t('logout')}</button>
+				</div>
+			</div>
+		</nav>
+		<main class="flex-grow flex items-center justify-center p-4">
+			<div id="profile-card" class="bg-[#272A33] p-8 rounded-xl shadow-lg w-full max-w-md text-center">
+				<div id="profile-avatar" class="w-28 h-28 rounded-full border-4 border-slate-600 mb-4 mx-auto bg-cover bg-center bg-slate-700"></div>
+				<h2 id="profile-name" class="text-3xl font-bold text-white mb-1">Loading...</h2>
+				<p id="profile-created-at" class="text-slate-400 text-sm mb-6"></p>
+				<div class="flex justify-center space-x-8 border-t border-b border-slate-700/50 py-4">
+				<div>
+					<p class="text-2xl font-bold text-green-400" id="profile-wins">-</p>
+					<p class="text-sm text-slate-400">${t('profile_wins')}</p>
+				</div>
+				<div>
+					<p class="text-2xl font-bold text-red-400" id="profile-losses">-</p>
+					<p class="text-sm text-slate-400">${t('profile_losses')}</p>
+				</div>
+				</div>
+				<div class="mt-6 space-y-3">
+					<a id="match-history-link" href="#" data-link class="w-full inline-flex items-center justify-center rounded-lg bg-slate-600 hover:bg-slate-500 text-white font-semibold py-2 px-5 transition">
+					${t('view_match_history')}
+					</a>
+					<div id="profile-actions-dynamic" class="mt-2"></div>
+				</div>
+				<a href="/dashboard" data-link class="mt-6 inline-block font-medium text-indigo-400 hover:text-indigo-300 transition">
+				${t('return_to_chat')}
+				</a>
+			</div>
+		</main>
 	</div>
   `;
 }
@@ -156,6 +173,12 @@ export async function afterRender()
 	profileId = parseInt(pathParts[2], 10);
 	const token = localStorage.getItem('token');
 	myId = token ? jwt_decode(token).userId : null;
+
+	logoutClickListener = () => {
+		localStorage.removeItem('token');
+		navigateTo('/');
+	};
+	document.getElementById('logout-button')?.addEventListener('click', logoutClickListener);
 
 	socket = getSocket();
 	if (socket)
@@ -196,7 +219,7 @@ export async function afterRender()
 			avatarElement.style.backgroundImage = `url(/default-avatar.png)`;
 		
 		if (profileId === myId)
-			actionsContainer.innerHTML = `<a href="/profile/edit" data-link class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded block">${t('edit_profile_button')}</a>`;
+			actionsContainer.innerHTML = `<a href="/profile/edit" data-link class="w-full inline-flex items-center justify-center rounded-lg bg-slate-600 hover:bg-slate-500 text-white font-semibold py-2 px-5 transition">${t('edit_profile_button')}</a>`;
 		else
 			await renderActionButtons();
 	}
@@ -213,6 +236,10 @@ export function cleanup()
 	console.log("%c--- ProfilePage CLEANUP ---", "color: blue; font-weight: bold;");
 	if (socket)
 		socket.off('friendship_updated');
+	if (logoutClickListener) {
+		document.getElementById('logout-button')?.removeEventListener('click', logoutClickListener);
+		logoutClickListener = null;
+	}
 	const actionsContainer = document.getElementById('profile-actions-dynamic');
 	if (actionsContainer)
 		actionsContainer.innerHTML = '';

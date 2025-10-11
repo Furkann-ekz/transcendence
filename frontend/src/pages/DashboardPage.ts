@@ -29,40 +29,52 @@ export function render(): string
 	const token = localStorage.getItem('token');
 	const myUserId = token ? jwt_decode(token).userId : '/';
   return `
-	<div class="h-screen w-screen flex flex-col bg-gray-100">
-	  <nav class="bg-gray-800 text-white p-4 flex justify-between items-center w-full">
-		<div class="w-1/3"></div>
-		<div class="w-1/3 text-center"><h1 class="text-xl font-bold">Transcendence</h1></div>
-		<div class="w-1/3 flex justify-end items-center space-x-4">
-		  <a href="/profile/${myUserId}" data-link class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">${t('my_profile_button')}</a>
-		  <a href="/lobby" data-link class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">${t('go_to_game')}</a>
-		  <button id="logout-button" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">${t('logout')}</button>
-		</div>
+	<div class="h-screen w-screen flex flex-col bg-[#171A21] text-slate-100">
+	  <nav class="sticky top-0 z-10 bg-[#171A21] border-b border-slate-700/50 flex-shrink-0">
+      <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap md:flex-nowrap items-center justify-center md:justify-between gap-4">
+        <div class="w-full md:w-auto text-center md:text-left">
+          <h1 class="text-2xl font-bold tracking-tight text-white">Transcendence</h1>
+        </div>
+        <div class="w-full md:w-auto flex flex-col md:flex-row items-center gap-3">
+          <a href="/profile/${myUserId}" data-link class="w-full md:w-auto inline-flex items-center justify-center rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 px-5 transition">${t('my_profile_button')}</a>
+          <a href="/lobby" data-link class="w-full md:w-auto inline-flex items-center justify-center rounded-lg bg-green-600 hover:bg-green-500 text-white font-semibold py-2 px-5 transition">${t('go_to_game')}</a>
+          <button id="logout-button" class="w-full md:w-auto inline-flex items-center justify-center rounded-lg bg-red-600 hover:bg-red-500 text-white font-semibold py-2 px-5 transition">${t('logout')}</button>
+        </div>
+      </div>
 	  </nav>
-	  <div class="flex flex-grow overflow-hidden p-4 space-x-4">
-		<div class="w-2/4 flex flex-col space-y-4">
-		  <div class="bg-white p-4 rounded-lg shadow-md overflow-y-auto">
-			<h2 class="text-lg font-bold mb-4">${t('friends_list_title')}</h2>
-			<ul id="friend-list" class="space-y-2"></ul>
-		  </div>
-		  <div class="bg-white p-4 rounded-lg shadow-md overflow-y-auto">
-			<h2 class="text-lg font-bold mb-4">${t('friend_requests')}</h2>
-			<ul id="friend-request-list" class="space-y-2"></ul>
-		  </div>
-		  <div class="bg-white p-4 rounded-lg shadow-md overflow-y-auto">
-			<h2 class="text-lg font-bold mb-4">${t('online_users')}</h2>
-			<ul id="user-list" class="space-y-2"></ul>
-		  </div>
-		</div>
-		<div class="w-3/4 flex flex-col bg-white rounded-lg shadow-md overflow-hidden">
-		  <div class="p-4 border-b"><strong>${t('recipient')}:</strong> <span id="recipient-info">${t('everyone')}</span></div>
-		  <ul id="messages" class="flex-grow p-4 overflow-y-auto"></ul>
-		  <form id="chat-form" class="p-4 bg-gray-200 flex rounded-b-lg">
-			<input id="chat-input" autocomplete="off" placeholder="${t('chat_placeholder')}" class="border w-3/4 rounded-l-md p-2 flex-grow" />
-			<button type="submit" class="bg-blue-500 text-white px-4 rounded-r-md hover:bg-blue-600 w-1/4">${t('send_button')}</button>
-		  </form>
-		</div>
-	  </div>
+
+	  <main class="flex-grow flex flex-col p-4 overflow-hidden">
+      <div class="max-w-6xl mx-auto w-full flex-grow grid grid-cols-1 md:grid-cols-12 gap-6 overflow-hidden">
+        <div class="md:col-span-4 flex flex-col gap-6 overflow-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          <div class="bg-[#272A33] rounded-xl p-5">
+            <h2 class="text-lg font-semibold text-slate-100 mb-4">${t('friends_list_title')}</h2>
+            <ul id="friend-list" class="space-y-3"></ul>
+          </div>
+          <div class="bg-[#272A33] rounded-xl p-5">
+            <h2 class="text-lg font-semibold text-slate-100 mb-4">${t('friend_requests')}</h2>
+            <ul id="friend-request-list" class="space-y-3"></ul>
+          </div>
+          <div class="bg-[#272A33] rounded-xl p-5">
+            <h2 class="text-lg font-semibold text-slate-100 mb-4">${t('online_users')}</h2>
+            <ul id="user-list" class="space-y-3"></ul>
+          </div>
+        </div>
+
+        <div class="md:col-span-8 flex flex-col bg-[#272A33] rounded-xl overflow-hidden">
+          <div class="p-4 border-b border-slate-700/50 flex items-center gap-3 flex-shrink-0">
+            <strong class="text-slate-200 font-medium">${t('recipient')}:</strong>
+            <span id="recipient-info" class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-slate-600 text-slate-100">${t('everyone')}</span>
+          </div>
+          <ul id="messages" class="flex-grow p-6 overflow-y-auto space-y-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"></ul>
+          <form id="chat-form" class="p-4 bg-[#272A33] border-t border-slate-700/50 flex-shrink-0">
+            <div class="flex gap-3">
+              <input id="chat-input" autocomplete="off" placeholder="${t('chat_placeholder')}" class="border-transparent w-full rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-[#171A21] text-white shadow-sm placeholder-slate-400" />
+              <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 rounded-lg font-semibold shadow-sm transition">${t('send_button')}</button>
+            </div>
+          </form>
+        </div>
+      </div>
+	  </main>
 	</div>
   `;
 }
@@ -84,48 +96,65 @@ export function afterRender()
 
 	function renderMessages()
 	{
-		if (!messagesListEl)
-			return ;
-		messagesListEl.innerHTML = getMessages().map(msg =>
+		if (!messagesListEl) return;
+		const messages = getMessages();
+		const isScrolledToBottom = messagesListEl.scrollHeight - messagesListEl.clientHeight <= messagesListEl.scrollTop + 1;
+
+		messagesListEl.innerHTML = messages.map(msg =>
 		{
-			const item = document.createElement('li');
-			let textContent = '';
-			if (msg.type === 'public')
-			{
-				const senderName = typeof msg.sender === 'string' ? msg.sender : msg.sender.name;
-				textContent = `${t('chat_public_prefix')} ${senderName}: ${msg.content}`;
-			}
-			else if (msg.type === 'private' && msg.recipient && typeof msg.sender === 'object')
-			{
-				if (msg.sender.id === myId)
-				{
-					textContent = `(${t('private_to')} ${msg.recipient.name}): ${msg.content}`;
-					item.style.color = '#4a5568';
+			const senderName = typeof msg.sender === 'string' ? msg.sender : msg.sender.name;
+			const isMe = typeof msg.sender === 'object' && msg.sender.id === myId;
+
+			const rowClass = isMe ? 'justify-end' : 'justify-start';
+
+			let bubbleClass = '';
+			let meta = '';
+
+			if (msg.type === 'private') {
+				if (isMe) {
+					bubbleClass = 'bg-indigo-600 text-white';
+					meta = `<div class="text-[11px] opacity-80 mb-1">${t('private_to')} ${msg.recipient?.name}</div>`;
+				} else {
+					bubbleClass = 'bg-emerald-900/70 text-emerald-100';
+					meta = `<div class="text-[11px] opacity-70 mb-1">${t('private_from')} ${senderName}</div>`;
 				}
-				else
-				{
-					textContent = `(${t('private_from')} ${msg.sender.name}) ${msg.sender.name}: ${msg.content}`;
-					item.style.fontWeight = '600';
+			} else { // public message
+				if (isMe) {
+					bubbleClass = 'bg-slate-700 text-slate-100';
+					meta = `<div class="text-[11px] text-slate-400 mb-1">${senderName} (${t('you')})</div>`;
+				} else {
+					bubbleClass = 'bg-[#363A43] text-slate-200';
+					meta = `<div class="text-[11px] text-slate-400 mb-1">${senderName}</div>`;
 				}
 			}
-			item.textContent = textContent;
-			return (item.outerHTML);
+
+			const content = `
+        <li class="flex ${rowClass} animate-fade-in-up">
+          <div class="max-w-[80%] rounded-xl px-4 py-2.5 ${bubbleClass} shadow-md">
+            ${meta}
+            <div class="text-base leading-relaxed break-words">${msg.content}</div>
+          </div>
+        </li>
+      `;
+			return content;
 		}).join('');
-		messagesListEl.scrollTop = messagesListEl.scrollHeight;
+
+		if (isScrolledToBottom) {
+			messagesListEl.scrollTop = messagesListEl.scrollHeight;
+		}
 	}
 
 	function renderFriendRequests(pendingRequests: FriendRequest[])
 	{
-		if (!friendRequestListEl)
-			return ;
+		if (!friendRequestListEl) return;
 		friendRequestListEl.innerHTML = pendingRequests.length === 0
-			? `<li class="text-gray-500 text-sm">${t('no_friend_requests')}</li>`
+			? `<li class="text-slate-400 text-sm">${t('no_friend_requests')}</li>`
 			: pendingRequests.map(req => `
-				<li class="flex justify-between items-center">
-					<span>${req.requester.name || req.requester.email}</span>
+				<li class="flex justify-between items-center rounded-lg p-3 bg-slate-700/30">
+					<span class="text-slate-200 font-medium">${req.requester.name || req.requester.email}</span>
 					<div class="flex space-x-2">
-						<button data-id="${req.id}" class="accept-friend-btn bg-green-500 text-white px-2 py-1 text-xs rounded hover:bg-green-600">${t('accept_button')}</button>
-						<button data-id="${req.id}" class="reject-friend-btn bg-red-500 text-white px-2 py-1 text-xs rounded hover:bg-red-600">${t('reject_button')}</button>
+						<button data-id="${req.id}" class="accept-friend-btn bg-green-600 hover:bg-green-500 text-white px-3 py-1.5 text-xs font-semibold rounded-md transition">${t('accept_button')}</button>
+						<button data-id="${req.id}" class="reject-friend-btn bg-red-600 hover:bg-red-500 text-white px-3 py-1.5 text-xs font-semibold rounded-md transition">${t('reject_button')}</button>
 					</div>
 				</li>
 			`).join('');
@@ -133,21 +162,20 @@ export function afterRender()
 
 	function renderFriendList()
 	{
-		if (!friendListEl) 
-			return ;
+		if (!friendListEl) return;
 		const onlineFriendIds = new Set(onlineUsers.map(u => u.id));
 		friendListEl.innerHTML = myFriends.length === 0
-			? `<li class="text-gray-500 text-sm">${t('no_friends_message')}</li>`
+			? `<li class="text-slate-400 text-sm px-2">${t('no_friends_message')}</li>`
 			: myFriends.map(friend =>
 			{
 				const isOnline = onlineFriendIds.has(friend.id);
 				return `
-					<li class="flex items-center justify-between p-2 hover:bg-gray-200 rounded cursor-pointer" data-id="${friend.id}" data-name="${friend.name}">
-						<a href="/profile/${friend.id}" data-link class="flex items-center">
-							<span class="w-2 h-2 rounded-full mr-2 ${isOnline ? 'bg-green-500' : 'bg-gray-400'}"></span>
-							<span>${friend.name}</span>
+					<li class="group flex items-center justify-between p-3 rounded-lg hover:bg-slate-700/40 transition cursor-pointer" data-id="${friend.id}" data-name="${friend.name}">
+						<a href="/profile/${friend.id}" data-link class="flex items-center gap-3">
+							<span class="w-2.5 h-2.5 rounded-full ${isOnline ? 'bg-green-500' : 'bg-slate-500'}"></span>
+							<span class="text-slate-200 font-medium group-hover:text-white">${friend.name}</span>
 						</a>
-						${isOnline ? `<button class="invite-btn bg-blue-500 text-white text-xs px-2 py-1 rounded hover:bg-blue-600" data-invite-id="${friend.id}">${t('invite_button')}</button>` : ''}
+						${isOnline ? `<button class="invite-btn bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-3 py-1.5 rounded-md shadow-sm transition" data-invite-id="${friend.id}">${t('invite_button')}</button>` : ''}
 					</li>
 				`;
 			}).join('');
@@ -155,38 +183,72 @@ export function afterRender()
 
 	function renderOnlineUsers()
 	{
-		if (!userListEl)
-			return ;
+		if (!userListEl) return;
 		userListEl.innerHTML = '';
 		const allOption = document.createElement('li');
 		allOption.textContent = t('everyone');
 		allOption.dataset.id = 'all';
-		allOption.className = 'p-2 hover:bg-gray-200 cursor-pointer rounded';
+		allOption.dataset.name = t('everyone');
+		allOption.className = 'p-3 rounded-lg hover:bg-slate-700/40 transition cursor-pointer text-slate-200 font-medium';
 		userListEl.appendChild(allOption);
 		onlineUsers.forEach(user =>
 		{
-			if (user.id !== myId)
-			{
-				const item = document.createElement('li');
-				item.dataset.id = String(user.id);
-				item.className = 'p-2 hover:bg-gray-200 rounded flex justify-between items-center';
-				const userLink = `<a href="/profile/${user.id}" data-link>${user.name || user.email}</a>`;
-				const inviteButton = `<button class="invite-btn bg-blue-500 text-white text-xs px-2 py-1 rounded hover:bg-blue-600" data-invite-id="${user.id}">${t('invite_button')}</button>`;
-				item.innerHTML = `${userLink}${inviteButton}`;
-				userListEl.appendChild(item);
+			const item = document.createElement('li');
+			item.dataset.id = String(user.id);
+			item.dataset.name = user.name || user.email;
+			item.className = 'group p-3 rounded-lg hover:bg-slate-700/40 transition cursor-pointer flex justify-between items-center';
+			
+			let userDisplayName = user.name || user.email;
+			if (user.id === myId) {
+				userDisplayName += ` (${t('you')})`;
 			}
+			const userLink = `<a href="/profile/${user.id}" data-link class="text-slate-200 font-medium group-hover:text-white">${userDisplayName}</a>`;
+			
+			const inviteButton = user.id !== myId 
+				? `<button class="invite-btn bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-3 py-1.5 rounded-md shadow-sm transition" data-invite-id="${user.id}">${t('invite_button')}</button>`
+				: '';
+
+			item.innerHTML = `${userLink}${inviteButton}`;
+			userListEl.appendChild(item);
 		});
 	}
 
 	function selectRecipient(user: { id: number | 'all', name: string })
 	{
 		selectedRecipient = user;
-		if (recipientInfoEl)
-			recipientInfoEl.textContent = user.name || t('everyone');
-		document.querySelectorAll('#user-list li, #friend-list li').forEach(li =>
-		{
-			li.classList.toggle('bg-blue-200', (li as HTMLElement).dataset.id === String(user.id));
+		if (recipientInfoEl) recipientInfoEl.textContent = user.name || t('everyone');
+
+		const chatInput = document.getElementById('chat-input') as HTMLInputElement | null;
+		const chatSubmitBtn = document.querySelector('#chat-form button[type="submit"]') as HTMLButtonElement | null;
+
+		if (user.id === myId) {
+			if (chatInput) {
+				chatInput.disabled = true;
+				chatInput.placeholder = t('cannot_message_yourself');
+			}
+			if (chatSubmitBtn) {
+				chatSubmitBtn.disabled = true;
+				chatSubmitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+			}
+		} else {
+			if (chatInput) {
+				chatInput.disabled = false;
+				chatInput.placeholder = t('chat_placeholder');
+			}
+			if (chatSubmitBtn) {
+				chatSubmitBtn.disabled = false;
+				chatSubmitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+			}
+		}
+
+		// Clear previous selection highlight and set new with ring
+		document.querySelectorAll('#user-list li, #friend-list li').forEach(li => {
+			li.classList.remove('bg-slate-700/60');
 		});
+		const match = document.querySelector<HTMLElement>(`#user-list li[data-id="${user.id}"], #friend-list li[data-id="${user.id}"]`);
+		if (match) {
+			match.classList.add('bg-slate-700/60');
+		}
 	}
 
 	async function refreshAllLists()

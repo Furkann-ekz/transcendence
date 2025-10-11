@@ -7,27 +7,27 @@ let formSubmitHandler: ((e: SubmitEvent) => void) | null = null;
 export function render()
 {
 	return `
-		<div class="min-h-screen bg-gray-100 flex items-center justify-center px-4 py-8">
-			<div class="bg-white p-6 sm:p-8 rounded-lg shadow-md w-full max-w-xs sm:max-w-md">
-				<h2 class="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-center">${t('register_title')}</h2>
-				<form id="register-form">
-					<div class="mb-4">
-						<label for="name" class="block text-gray-700 text-sm font-bold mb-2">${t('name_label')}</label>
-						<input type="text" id="name" name="name" class="shadow appearance-none border rounded w-full py-2 sm:py-3 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline text-sm sm:text-base">
+		<div class="h-screen w-screen flex items-center justify-center bg-[#171A21] text-slate-100 p-4">
+			<div class="bg-[#272A33] p-8 rounded-xl shadow-lg w-full max-w-md">
+				<h2 class="text-2xl font-bold mb-6 text-center text-white">${t('register_title')}</h2>
+				<form id="register-form" class="space-y-6">
+					<div>
+						<label for="name" class="block text-slate-300 text-sm font-bold mb-2">${t('name_label')}</label>
+						<input type="text" id="name" name="name" class="border-transparent w-full rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-[#171A21] text-white shadow-sm placeholder-slate-400">
 					</div>
-					<div class="mb-4">
-						<label for="email" class="block text-gray-700 text-sm font-bold mb-2">${t('email_label')}</label>
-						<input type="email" id="email" name="email" class="shadow appearance-none border rounded w-full py-2 sm:py-3 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline text-sm sm:text-base" required>
+					<div>
+						<label for="email" class="block text-slate-300 text-sm font-bold mb-2">${t('email_label')}</label>
+						<input type="email" id="email" name="email" class="border-transparent w-full rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-[#171A21] text-white shadow-sm placeholder-slate-400" required>
 					</div>
-					<div class="mb-6">
-						<label for="password" class="block text-gray-700 text-sm font-bold mb-2">${t('password_label')}</label>
-						<input type="password" id="password" name="password" class="shadow appearance-none border rounded w-full py-2 sm:py-3 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:shadow-outline text-sm sm:text-base" required>
+					<div>
+						<label for="password" class="block text-slate-300 text-sm font-bold mb-2">${t('password_label')}</label>
+						<input type="password" id="password" name="password" class="border-transparent w-full rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-[#171A21] text-white shadow-sm placeholder-slate-400" required>
 					</div>
-					<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
-						<button type="submit" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 sm:py-3 px-4 sm:px-6 rounded focus:outline-none focus:shadow-outline w-full sm:w-auto text-sm sm:text-base">
+					<div class="flex flex-col sm:flex-row-reverse sm:items-center sm:justify-between gap-4">
+						<button type="submit" class="w-full sm:w-auto inline-flex items-center justify-center rounded-lg bg-green-600 hover:bg-green-500 text-white font-semibold py-3 px-6 transition">
 							${t('register_button')}
 						</button>
-						<a href="/" class="inline-block text-center sm:text-left font-bold text-sm text-blue-500 hover:text-blue-800" data-link>
+						<a href="/" class="text-center sm:text-left font-medium text-indigo-400 hover:text-indigo-300 transition" data-link>
 							${t('login_link')}
 						</a>
 					</div>

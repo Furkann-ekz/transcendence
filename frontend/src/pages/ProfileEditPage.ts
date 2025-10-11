@@ -1,6 +1,7 @@
 import { t } from '../i18n';
 import { changePassword, getCurrentUserProfile, updateUserAvatar, updateUserProfile } from '../api/users';
 import { navigateTo } from '../router';
+import { jwt_decode } from '../utils';
 
 interface UserProfile { id: number; name: string | null; avatarUrl: string | null; }
 
@@ -11,52 +12,68 @@ let changePasswordFormHandler: ((e: SubmitEvent) => Promise<void>) | null = null
 
 export function render(): string
 {
+	const token = localStorage.getItem('token');
+	const myUserId = token ? jwt_decode(token).userId : '/';
 	return `
-		<div class="min-h-screen bg-gray-100 flex items-center justify-center">
-			<div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-				<h2 class="text-2xl font-bold mb-6 text-center">${t('edit_profile_title')}</h2>
+	<div class="h-screen w-screen flex flex-col bg-[#171A21] text-slate-100">
+		<nav class="sticky top-0 z-10 bg-[#171A21] border-b border-slate-700/50 flex-shrink-0">
+			<div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap md:flex-nowrap items-center justify-center md:justify-between gap-4">
+				<div class="w-full md:w-auto text-center md:text-left">
+					<h1 class="text-2xl font-bold tracking-tight text-white">Transcendence</h1>
+				</div>
+				<div class="w-full md:w-auto flex flex-col md:flex-row items-center gap-3">
+					<a href="/profile/${myUserId}" data-link class="w-full md:w-auto inline-flex items-center justify-center rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 px-5 transition">${t('my_profile_button')}</a>
+					<a href="/lobby" data-link class="w-full md:w-auto inline-flex items-center justify-center rounded-lg bg-green-600 hover:bg-green-500 text-white font-semibold py-2 px-5 transition">${t('go_to_game')}</a>
+					<button id="logout-button" class="w-full md:w-auto inline-flex items-center justify-center rounded-lg bg-red-600 hover:bg-red-500 text-white font-semibold py-2 px-5 transition">${t('logout')}</button>
+				</div>
+			</div>
+		</nav>
+		<main class="flex-grow flex items-center justify-center p-4">
+			<div class="bg-[#272A33] p-8 rounded-xl shadow-lg w-full max-w-md">
+				<h2 class="text-2xl font-bold mb-6 text-center text-white">${t('edit_profile_title')}</h2>
 				<form id="edit-profile-form" class="mb-8">
 					<div class="flex flex-col items-center mb-6">
-						<div id="avatar-preview" class="w-24 h-24 rounded-full border-2 border-gray-300 mb-4 bg-cover bg-center bg-gray-200"></div>
+						<div id="avatar-preview" class="w-24 h-24 rounded-full border-4 border-slate-600 mb-4 bg-cover bg-center bg-slate-700"></div>
 						<input type="file" id="avatar-upload" class="hidden" accept="image/png, image/jpeg">
-						<button type="button" id="avatar-upload-btn" class="bg-gray-200 text-sm text-gray-700 font-bold py-2 px-4 rounded">${t('change_avatar_button')}</button>
+						<button type="button" id="avatar-upload-btn" class="w-full md:w-auto inline-flex items-center justify-center rounded-lg bg-slate-600 hover:bg-slate-500 text-white font-semibold py-2 px-5 transition">${t('change_avatar_button')}</button>
 					</div>
 					<div class="mb-4">
-						<label for="name" class="block text-gray-700 text-sm font-bold mb-2">${t('name_label')}</label>
-						<input type="text" id="name" name="name" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+						<label for="name" class="block text-slate-300 text-sm font-bold mb-2">${t('name_label')}</label>
+						<input type="text" id="name" name="name" class="border-transparent w-full rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-[#171A21] text-white shadow-sm placeholder-slate-400" required>
 					</div>
-					<div class="flex items-center justify-between">
-						<button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+					<div class="flex items-center justify-between gap-4">
+						<button type="submit" class="w-full inline-flex items-center justify-center rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 px-5 transition">
 						${t('save_button')}
 						</button>
-						<a id="back-to-profile-link" href="#" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" data-link>
-						${t('back_button')}
+						<a id="back-to-profile-link" href="#" class="w-full inline-flex items-center justify-center rounded-lg bg-slate-600 hover:bg-slate-500 text-white font-semibold py-2 px-5 transition" data-link>
+						${t('back_to_profile_button')}
 						</a>
 					</div>
 				</form>
-				<hr/>
-				<h3 class="text-xl font-bold my-6 text-center">${t('change_password_title')}</h3>
+				<hr class="border-slate-700/50"/>
+				<h3 class="text-xl font-bold my-6 text-center text-white">${t('change_password_title')}</h3>
 				<form id="change-password-form">
 					<div class="mb-4">
-						<label for="current-password" class="block text-gray-700 text-sm font-bold mb-2">${t('current_password_label')}</label>
-						<input type="password" id="current-password" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700" required>
+						<label for="current-password" class="block text-slate-300 text-sm font-bold mb-2">${t('current_password_label')}</label>
+						<input type="password" id="current-password" class="border-transparent w-full rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-[#171A21] text-white shadow-sm" required>
 					</div>
 					<div class="mb-4">
-						<label for="new-password" class="block text-gray-700 text-sm font-bold mb-2">${t('new_password_label')}</label>
-						<input type="password" id="new-password" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700" required>
+						<label for="new-password" class="block text-slate-300 text-sm font-bold mb-2">${t('new_password_label')}</label>
+						<input type="password" id="new-password" class="border-transparent w-full rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-[#171A21] text-white shadow-sm" required>
 					</div>
 					<div class="mb-6">
-						<label for="confirm-password" class="block text-gray-700 text-sm font-bold mb-2">${t('confirm_password_label')}</label>
-						<input type="password" id="confirm-password" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700" required>
+						<label for="confirm-password" class="block text-slate-300 text-sm font-bold mb-2">${t('confirm_password_label')}</label>
+						<input type="password" id="confirm-password" class="border-transparent w-full rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-[#171A21] text-white shadow-sm" required>
 					</div>
 					<div class="flex items-center justify-start">
-						<button type="submit" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+						<button type="submit" class="w-full md:w-auto inline-flex items-center justify-center rounded-lg bg-red-600 hover:bg-red-500 text-white font-semibold py-2 px-5 transition">
 							${t('change_password_button')}
 						</button>
 					</div>
 				</form>
 			</div>
-		</div>
+		</main>
+	</div>
 	`;
 }
 
@@ -93,6 +110,13 @@ export async function afterRender()
 		navigateTo('/dashboard');
 		return ;
 	}
+	
+	const logoutButton = document.getElementById('logout-button');
+	const logoutHandler = () => {
+		localStorage.removeItem('token');
+		navigateTo('/');
+	};
+	logoutButton?.addEventListener('click', logoutHandler);
 	
 	avatarUploadBtnHandler = () => avatarUploadInput.click();
 	
@@ -202,6 +226,15 @@ export function cleanup()
 		editProfileForm?.removeEventListener('submit', editProfileFormHandler);
 	if (changePasswordFormHandler)
 		changePasswordForm?.removeEventListener('submit', changePasswordFormHandler);
+
+	const logoutButton = document.getElementById('logout-button');
+	if (logoutButton)
+	{
+		// This is a bit of a hack, but we need to remove the listener.
+		// A better approach would be to manage this listener in a more structured way.
+		const newLogoutButton = logoutButton.cloneNode(true);
+		logoutButton.parentNode?.replaceChild(newLogoutButton, logoutButton);
+	}
 
 	avatarUploadBtnHandler = null;
 	avatarUploadInputHandler = null;

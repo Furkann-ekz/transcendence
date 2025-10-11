@@ -25,16 +25,16 @@ interface TournamentDetails
 export function render(): string
 {
   return `
-	<div class="min-h-screen bg-gray-100 p-8">
-		<h1 id="lobby-title" class="text-3xl font-bold mb-6 text-center">${t('tournament_lobby_title')}</h1>
-		<div class="max-w-md mx-auto bg-white p-6 rounded-lg shadow-md">
-			<h2 class="text-xl font-semibold mb-4">${t('tournament_players_title')}</h2>
-			<ul id="lobby-player-list" class="space-y-2 mb-4">
-				<p>${t('loading_history')}...</p>
+	<div class="h-screen w-screen flex flex-col items-center justify-center bg-[#171A21] text-slate-100 p-4">
+		<div class="bg-[#272A33] p-8 rounded-xl shadow-lg w-full max-w-md">
+			<h1 id="lobby-title" class="text-3xl font-bold mb-6 text-center text-white">${t('tournament_lobby_title')}</h1>
+			<h2 class="text-xl font-semibold mb-4 text-white">${t('tournament_players_title')}</h2>
+			<ul id="lobby-player-list" class="space-y-3 mb-6">
+				<p class="text-slate-400">${t('loading_history')}...</p>
 			</ul>
-			<div id="lobby-actions" class="mt-6 border-t pt-4 space-y-2">
-				</div>
-			<a href="/tournaments" data-link class="block text-center mt-6 text-blue-500 hover:text-blue-700">${t('back_to_tournaments')}</a>
+			<div id="lobby-actions" class="border-t border-slate-700/50 pt-6 space-y-3">
+			</div>
+			<a href="/tournaments" data-link class="block text-center mt-8 font-medium text-indigo-400 hover:text-indigo-300 transition">${t('back_to_tournaments')}</a>
 		</div>
 	</div>
   `;
@@ -71,9 +71,9 @@ export async function afterRender()
 				titleEl.textContent = tournament.name;
 
 			playerListEl.innerHTML = tournament.players.map((p: TournamentPlayer) => `
-				<li class="p-2 bg-gray-200 rounded flex justify-between items-center">
-					<span>${p.user.name} ${p.user.id === myId ? t('you_suffix') : ''} ${p.user.id === tournament.hostId ? '(Host)' : ''}</span>
-					<span class="${p.isReady ? 'text-green-500' : 'text-yellow-500'} font-bold">
+				<li class="p-3 bg-slate-800 rounded-lg flex justify-between items-center">
+					<span class="font-medium text-slate-200">${p.user.name} ${p.user.id === myId ? t('you_suffix') : ''} ${p.user.id === tournament.hostId ? '(Host)' : ''}</span>
+					<span class="${p.isReady ? 'text-green-400' : 'text-yellow-400'} font-bold text-sm">
 						${p.isReady ? t('status_ready') : t('status_waiting')}
 					</span>
 				</li>
@@ -89,7 +89,7 @@ export async function afterRender()
 				const meAsPlayer = tournament.players.find(p => p.user.id === myId)!;
 				const readyButton = document.createElement('button');
 				readyButton.textContent = meAsPlayer.isReady ? t('not_ready_button') : t('ready_button');
-				readyButton.className = `w-full font-bold py-2 px-4 rounded ${meAsPlayer.isReady ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-500 hover:bg-green-600'} text-white`;
+				readyButton.className = `w-full inline-flex items-center justify-center rounded-lg font-semibold py-2 px-5 transition ${meAsPlayer.isReady ? 'bg-yellow-500 hover:bg-yellow-600 text-black' : 'bg-green-600 hover:bg-green-500 text-white'}`;
 				readyButton.onclick = async () =>
 				{
 					try
@@ -106,7 +106,7 @@ export async function afterRender()
 				const canStart = tournament.players.length >= 4 && tournament.players.every(p => p.isReady);
 				const startButton = document.createElement('button');
 				startButton.textContent = t('start_tournament_button');
-				startButton.className = `w-full font-bold py-2 px-4 rounded text-white ${canStart ? 'bg-blue-500 hover:bg-blue-700' : 'bg-gray-400 cursor-not-allowed'}`;
+				startButton.className = `w-full inline-flex items-center justify-center rounded-lg font-semibold py-2 px-5 transition text-white ${canStart ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-slate-500 cursor-not-allowed'}`;
 				startButton.disabled = !canStart;
 				startButton.onclick = async () =>
 				{
@@ -127,7 +127,7 @@ export async function afterRender()
 				const meAsPlayer = tournament.players.find(p => p.user.id === myId)!;
 				const readyButton = document.createElement('button');
 				readyButton.textContent = meAsPlayer.isReady ? t('not_ready_button') : t('ready_button');
-				readyButton.className = `w-full font-bold py-2 px-4 rounded ${meAsPlayer.isReady ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-500 hover:bg-green-600'} text-white`;
+				readyButton.className = `w-full inline-flex items-center justify-center rounded-lg font-semibold py-2 px-5 transition ${meAsPlayer.isReady ? 'bg-yellow-500 hover:bg-yellow-600 text-black' : 'bg-green-600 hover:bg-green-500 text-white'}`;
 				readyButton.onclick = async () =>
 				{
 					try
@@ -143,7 +143,7 @@ export async function afterRender()
 
 				const leaveButton = document.createElement('button');
 				leaveButton.textContent = t('leave_tournament_lobby');
-				leaveButton.className = 'w-full font-bold py-2 px-4 rounded bg-red-600 hover:bg-red-700 text-white';
+				leaveButton.className = 'w-full inline-flex items-center justify-center rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-5 transition';
 				leaveButton.onclick = async () =>
 					{
 					if (confirm(t('confirm_leave_tournament_lobby')))
@@ -167,7 +167,7 @@ export async function afterRender()
 				{
 					const joinButton = document.createElement('button');
 					joinButton.textContent = t('join_tournament');
-					joinButton.className = 'w-full font-bold py-2 px-4 rounded bg-green-500 hover:bg-green-600 text-white';
+					joinButton.className = 'w-full inline-flex items-center justify-center rounded-lg bg-green-600 hover:bg-green-500 text-white font-semibold py-2 px-5 transition';
 					joinButton.onclick = async () =>
 					{
 						try
@@ -182,13 +182,13 @@ export async function afterRender()
 					actionsEl.appendChild(joinButton);
 				}
 				else
-					actionsEl.innerHTML = `<p class="text-center text-gray-500">Turnuva dolu.</p>`;
+					actionsEl.innerHTML = `<p class="text-center text-slate-400">Turnuva dolu.</p>`;
 			}
 		}
 		catch (error)
 		{
 			console.error(error);
-			playerListEl.innerHTML = '<p class="text-red-500">Oyuncu listesi yüklenemedi.</p>';
+			playerListEl.innerHTML = '<p class="text-red-500 text-center">Oyuncu listesi yüklenemedi.</p>';
 		}
 	};
 	

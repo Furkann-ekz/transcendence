@@ -5,18 +5,18 @@ import { t } from '../i18n';
 export function render(): string
 {
 	return `
-		<div class="min-h-screen bg-gray-100 flex flex-col items-center justify-center">
-			<div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md text-center">
-				<h2 class="text-2xl font-bold mb-6">${t('online_lobby_title')}</h2>
+		<div class="h-screen w-screen flex items-center justify-center bg-[#171A21] text-slate-100 p-4">
+			<div class="bg-[#272A33] p-8 rounded-xl shadow-lg w-full max-w-md text-center">
+				<h2 class="text-2xl font-bold mb-6 text-white">${t('online_lobby_title')}</h2>
 				<div class="flex flex-col space-y-4">
-					<button id="1v1-button" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded">
+					<button id="1v1-button" class="w-full inline-flex items-center justify-center rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 px-5 transition">
 						${t('play_1v1_button')}
 					</button>
-					<button id="2v2-button" class="bg-green-500 hover:bg-green-700 text-white font-bold py-3 px-4 rounded">
+					<button id="2v2-button" class="w-full inline-flex items-center justify-center rounded-lg bg-green-600 hover:bg-green-500 text-white font-semibold py-3 px-5 transition">
 						${t('play_2v2_button')}
 					</button>
 				</div>
-				<a href="/lobby" data-link class="mt-8 inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800">
+				<a href="/lobby" data-link class="mt-8 inline-block font-medium text-indigo-400 hover:text-indigo-300 transition">
 					${t('back_button')}
 				</a>
 			</div>

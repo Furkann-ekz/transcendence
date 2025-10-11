@@ -15,23 +15,40 @@ interface TournamentSummary
 
 let createBtnHandler: (() => Promise<void>) | null = null;
 let tournamentListClickHandler: ((e: Event) => void) | null = null;
+let logoutClickListener: (() => void) | null = null;
 
 export function render(): string
 {
+	const token = localStorage.getItem('token');
+	const myUserId = token ? jwt_decode(token).userId : '/';
   return `
-	<div class="min-h-screen bg-gray-100 p-4 sm:p-6 md:p-8">
-		<h1 class="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-center">${t('tournaments_title')}</h1>
-		<div class="max-w-xs sm:max-w-2xl md:max-w-4xl mx-auto">
-			<div class="mb-4 text-center sm:text-right">
-				<button id="create-tournament-btn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 sm:py-3 px-4 sm:px-6 rounded text-sm sm:text-base w-full sm:w-auto">
-					${t('create_new_tournament')}
-				</button>
+	<div class="h-screen w-screen flex flex-col bg-[#171A21] text-slate-100">
+		<nav class="sticky top-0 z-10 bg-[#171A21] border-b border-slate-700/50 flex-shrink-0">
+			<div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap md:flex-nowrap items-center justify-center md:justify-between gap-4">
+				<div class="w-full md:w-auto text-center md:text-left">
+					<h1 class="text-2xl font-bold tracking-tight text-white">Transcendence</h1>
+				</div>
+				<div class="w-full md:w-auto flex flex-col md:flex-row items-center gap-3">
+					<a href="/profile/${myUserId}" data-link class="w-full md:w-auto inline-flex items-center justify-center rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 px-5 transition">${t('my_profile_button')}</a>
+					<a href="/lobby" data-link class="w-full md:w-auto inline-flex items-center justify-center rounded-lg bg-green-600 hover:bg-green-500 text-white font-semibold py-2 px-5 transition">${t('go_to_game')}</a>
+					<button id="logout-button" class="w-full md:w-auto inline-flex items-center justify-center rounded-lg bg-red-600 hover:bg-red-500 text-white font-semibold py-2 px-5 transition">${t('logout')}</button>
+				</div>
 			</div>
-			<div id="tournament-list" class="space-y-3 sm:space-y-4">
-				<p class="text-center">${t('loading_history')}...</p>
+		</nav>
+		<main class="flex-grow flex flex-col items-center p-4 overflow-auto">
+			<div class="w-full max-w-4xl">
+				<div class="flex justify-between items-center mb-6">
+					<h1 class="text-3xl font-bold text-white">${t('tournaments_title')}</h1>
+					<button id="create-tournament-btn" class="inline-flex items-center justify-center rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 px-5 transition">
+						${t('create_new_tournament')}
+					</button>
+				</div>
+				<div id="tournament-list" class="space-y-4">
+					<p class="text-center text-slate-400">${t('loading_history')}...</p>
+				</div>
+				<a href="/lobby" data-link class="block text-center mt-8 font-medium text-indigo-400 hover:text-indigo-300 transition">${t('back_to_main_lobby')}</a>
 			</div>
-			 <a href="/lobby" data-link class="block text-center mt-4 sm:mt-6 text-blue-500 hover:text-blue-800 text-sm sm:text-base">${t('back_to_main_lobby')}</a>
-		</div>
+		</main>
 	</div>
   `;
 }
@@ -52,24 +69,24 @@ export async function afterRender()
 			const tournaments: TournamentSummary[] = await getTournaments();
 			if (tournaments.length === 0)
 			{
-				listEl.innerHTML = `<p class="text-center text-gray-500">${t('no_active_tournaments')}</p>`;
+				listEl.innerHTML = `<p class="text-center text-slate-400">${t('no_active_tournaments')}</p>`;
 				return ;
 			}
 			listEl.innerHTML = tournaments.map((tournament) =>
 			{
 				const isPlayerJoined = tournament.players.some(p => p.userId === myId);
 				return `
-				<div class="bg-white p-3 sm:p-4 rounded-lg shadow-md flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-3 sm:space-y-0">
+				<div class="bg-[#272A33] p-4 rounded-xl shadow-lg flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
 					<div class="flex-grow">
-						<a href="/tournaments/${tournament.id}" data-link class="text-lg sm:text-xl font-bold hover:text-blue-600 block">
+						<a href="/tournaments/${tournament.id}" data-link class="text-xl font-bold text-white hover:text-indigo-400 block">
 							${tournament.name}
 						</a>
-						<p class="text-xs sm:text-sm text-gray-600 mt-1">${t('tournament_host')}: ${tournament.host.name}</p>
-						<p class="text-xs sm:text-sm text-gray-600">${t('players')}: ${tournament._count.players}/8</p>
+						<p class="text-sm text-slate-400 mt-1">${t('tournament_host')}: ${tournament.host.name}</p>
+						<p class="text-sm text-slate-400">${t('players')}: ${tournament._count.players}/8</p>
 					</div>
 					<button 
 						data-tournament-id="${tournament.id}" 
-						class="register-btn ${isPlayerJoined ? 'bg-gray-400' : 'bg-green-500 hover:bg-green-700'} text-white font-bold py-2 sm:py-3 px-4 sm:px-6 rounded text-sm sm:text-base w-full sm:w-auto"
+						class="register-btn ${isPlayerJoined ? 'bg-slate-500 text-slate-300 cursor-not-allowed' : 'bg-green-600 hover:bg-green-500'} text-white font-semibold py-2 px-5 rounded-lg transition w-full sm:w-auto"
 						${isPlayerJoined ? 'disabled' : ''}
 					>
 						${isPlayerJoined ? t('registered_button_tournament') : t('register_button_tournament')}
@@ -80,7 +97,7 @@ export async function afterRender()
 		}
 		catch (error)
 		{
-			listEl.innerHTML = `<p class="text-red-500">${t('tournaments_load_error')}</p>`;
+			listEl.innerHTML = `<p class="text-red-500 text-center">${t('tournaments_load_error')}</p>`;
 		}
 	};
 
@@ -119,6 +136,12 @@ export async function afterRender()
 		}
 	};
 	
+	logoutClickListener = () => {
+		localStorage.removeItem('token');
+		navigateTo('/');
+	};
+	document.getElementById('logout-button')?.addEventListener('click', logoutClickListener);
+
 	document.getElementById('create-tournament-btn')?.addEventListener('click', createBtnHandler);
 	listEl?.addEventListener('click', tournamentListClickHandler);
 
@@ -141,5 +164,9 @@ export function cleanup()
 	{
 		document.getElementById('tournament-list')?.removeEventListener('click', tournamentListClickHandler);
 		tournamentListClickHandler = null;
+	}
+	if (logoutClickListener) {
+		document.getElementById('logout-button')?.removeEventListener('click', logoutClickListener);
+		logoutClickListener = null;
 	}
 }
