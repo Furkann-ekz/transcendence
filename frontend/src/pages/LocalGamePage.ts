@@ -1,7 +1,12 @@
 import { t } from '../i18n';
-const PADDLE_WIDTH = 10;
-const PADDLE_HEIGHT = 100;
-const BALL_SIZE = 10;
+import { getGameSettings, createPowerup, applyPowerupEffect, removePowerupEffect } from '../utils/gameSettings';
+import type { GameSettings, PowerupEffect } from '../utils/gameSettings';
+
+// Dynamic game settings
+let gameSettings: GameSettings;
+let PADDLE_WIDTH = 10;
+let PADDLE_HEIGHT = 100;
+let BALL_SIZE = 10;
 
 let gameState =
 {
@@ -13,6 +18,15 @@ let gameState =
 	ballSpeedY: 6,
 	leftScore: 0,
 	rightScore: 0,
+	// Power-up related state
+	ballSpeedMultiplier: 1,
+	paddleSizeMultiplier: 1,
+	leftSpeedMultiplier: 1,
+	rightSpeedMultiplier: 1,
+	addBalls: 0,
+	powerups: [] as PowerupEffect[],
+	activePowerups: [] as PowerupEffect[],
+	lastPowerupSpawn: 0,
 };
 
 let canvas: HTMLCanvasElement;
@@ -25,6 +39,126 @@ let p1DownStart: (e: Event) => void, p1DownEnd: (e: Event) => void;
 let p2UpStart: (e: Event) => void, p2UpEnd: (e: Event) => void;
 let p2DownStart: (e: Event) => void, p2DownEnd: (e: Event) => void;
 let fullscreenChangeHandler: () => void;
+
+function initializeGameSettings() {
+	gameSettings = getGameSettings();
+	
+	// Update game constants based on settings
+	PADDLE_WIDTH = Math.max(8, Math.floor(gameSettings.paddleHeight * 0.1));
+	PADDLE_HEIGHT = gameSettings.paddleHeight;
+	BALL_SIZE = gameSettings.ballSize;
+	
+	// Update canvas size
+	if (canvas) {
+		canvas.width = gameSettings.mapWidth;
+		canvas.height = gameSettings.mapHeight;
+	}
+	
+	// Reset game state with new settings
+	gameState = {
+		leftPaddleY: (gameSettings.mapHeight - PADDLE_HEIGHT) / 2,
+		rightPaddleY: (gameSettings.mapHeight - PADDLE_HEIGHT) / 2,
+		ballX: gameSettings.mapWidth / 2,
+		ballY: gameSettings.mapHeight / 2,
+		ballSpeedX: gameSettings.ballSpeed,
+		ballSpeedY: gameSettings.ballSpeed * (Math.random() < 0.5 ? -0.6 : 0.6),
+		leftScore: 0,
+		rightScore: 0,
+		// Power-up related state
+		ballSpeedMultiplier: 1,
+		paddleSizeMultiplier: 1,
+		leftSpeedMultiplier: 1,
+		rightSpeedMultiplier: 1,
+		addBalls: 0,
+		powerups: [] as PowerupEffect[],
+		activePowerups: [] as PowerupEffect[],
+		lastPowerupSpawn: 0,
+	};
+}
+
+function updatePowerups() {
+	const currentTime = Date.now();
+	
+	// Spawn new powerups in powerup mode
+	if (gameSettings.mode === 'powerup' && currentTime - gameState.lastPowerupSpawn > 15000) {
+		const availableTypes = Object.entries(gameSettings.powerups)
+			.filter(([_, enabled]) => enabled)
+			.map(([type, _]) => type);
+			
+		if (availableTypes.length > 0) {
+			const powerup = createPowerup(
+				Math.random() * (gameSettings.mapWidth - 40) + 20,
+				Math.random() * (gameSettings.mapHeight - 40) + 20,
+				availableTypes
+			);
+			if (powerup) {
+				gameState.powerups.push(powerup);
+				gameState.lastPowerupSpawn = currentTime;
+			}
+		}
+	}
+
+	// Update active powerups (remove expired ones)
+	gameState.activePowerups = gameState.activePowerups.filter(powerup => {
+		if (currentTime - powerup.duration > 0) {
+			removePowerupEffect(powerup, gameState);
+			return false;
+		}
+		return true;
+	});
+
+	// Check powerup collisions with ball
+	gameState.powerups = gameState.powerups.filter(powerup => {
+		const dx = gameState.ballX - powerup.x;
+		const dy = gameState.ballY - powerup.y;
+		const distance = Math.sqrt(dx * dx + dy * dy);
+		
+		if (distance < BALL_SIZE + 15) { // 15px powerup radius
+			// Activate powerup
+			powerup.duration = Date.now() + powerup.duration;
+			gameState.activePowerups.push(powerup);
+			applyPowerupEffect(powerup, gameState);
+			return false; // Remove from available powerups
+		}
+		return true;
+	});
+}
+
+function drawPowerups() {
+	// Draw available powerups
+	gameState.powerups.forEach(powerup => {
+		context.fillStyle = getPowerupColor(powerup.type);
+		context.beginPath();
+		context.arc(powerup.x, powerup.y, 15, 0, Math.PI * 2);
+		context.fill();
+		
+		// Draw powerup icon
+		context.fillStyle = 'white';
+		context.font = '12px Arial';
+		context.textAlign = 'center';
+		context.fillText(getPowerupIcon(powerup.type), powerup.x, powerup.y + 4);
+	});
+}
+
+function getPowerupColor(type: string): string {
+	const colors: { [key: string]: string } = {
+		speedBoost: '#ff6b6b',
+		paddleExtend: '#4ecdc4',
+		multiBall: '#45b7d1',
+		freeze: '#96ceb4'
+	};
+	return colors[type] || '#ffffff';
+}
+
+function getPowerupIcon(type: string): string {
+	const icons: { [key: string]: string } = {
+		speedBoost: '⚡',
+		paddleExtend: '📏',
+		multiBall: '⚪',
+		freeze: '❄️'
+	};
+	return icons[type] || '?';
+}
 
 export function render()
 {
@@ -104,9 +238,21 @@ function renderGame()
 	drawRect(0, 0, canvas.width, canvas.height, "black");
 	drawText(gameState.leftScore.toString(), canvas.width / 4, canvas.height / 5, "white");
 	drawText(gameState.rightScore.toString(), 3 * canvas.width / 4, canvas.height / 5, "white");
-	drawRect(0, gameState.leftPaddleY, PADDLE_WIDTH, PADDLE_HEIGHT, "white");
-	drawRect(canvas.width - PADDLE_WIDTH, gameState.rightPaddleY, PADDLE_WIDTH, PADDLE_HEIGHT, "white");
+	
+	// Draw paddles with size multiplier
+	const leftPaddleHeight = PADDLE_HEIGHT * gameState.paddleSizeMultiplier;
+	const rightPaddleHeight = PADDLE_HEIGHT * gameState.paddleSizeMultiplier;
+	
+	drawRect(0, gameState.leftPaddleY, PADDLE_WIDTH, leftPaddleHeight, "white");
+	drawRect(canvas.width - PADDLE_WIDTH, gameState.rightPaddleY, PADDLE_WIDTH, rightPaddleHeight, "white");
+	
+	// Draw ball
 	drawCircle(gameState.ballX, gameState.ballY, BALL_SIZE, "white");
+	
+	// Draw powerups if in powerup mode
+	if (gameSettings && gameSettings.mode === 'powerup') {
+		drawPowerups();
+	}
 }
 
 function resetBall()
@@ -129,19 +275,34 @@ function resetBall()
 
 function update()
 {
-	if (!canvas)
+	if (!canvas || !gameSettings)
 		return ;
+		
+	// Update powerups if in powerup mode
+	if (gameSettings.mode === 'powerup') {
+		updatePowerups();
+	}
+	
+	// Apply speed multipliers to paddle movement
+	const leftSpeed = gameSettings.paddleSpeed * gameState.leftSpeedMultiplier;
+	const rightSpeed = gameSettings.paddleSpeed * gameState.rightSpeedMultiplier;
+	const paddleHeight = PADDLE_HEIGHT * gameState.paddleSizeMultiplier;
+	
 	if (keysPressed['w'] && gameState.leftPaddleY > 0)
-		gameState.leftPaddleY -= 8;
-	if (keysPressed['s'] && gameState.leftPaddleY < canvas.height - PADDLE_HEIGHT)
-		gameState.leftPaddleY += 8;
+		gameState.leftPaddleY -= leftSpeed;
+	if (keysPressed['s'] && gameState.leftPaddleY < canvas.height - paddleHeight)
+		gameState.leftPaddleY += leftSpeed;
 	if (keysPressed['ArrowUp'] && gameState.rightPaddleY > 0)
-		gameState.rightPaddleY -= 8;
-	if (keysPressed['ArrowDown'] && gameState.rightPaddleY < canvas.height - PADDLE_HEIGHT)
-		gameState.rightPaddleY += 8;
+		gameState.rightPaddleY -= rightSpeed;
+	if (keysPressed['ArrowDown'] && gameState.rightPaddleY < canvas.height - paddleHeight)
+		gameState.rightPaddleY += rightSpeed;
 
-	gameState.ballX += gameState.ballSpeedX;
-	gameState.ballY += gameState.ballSpeedY;
+	// Apply ball speed multiplier
+	const ballSpeedX = gameState.ballSpeedX * gameState.ballSpeedMultiplier;
+	const ballSpeedY = gameState.ballSpeedY * gameState.ballSpeedMultiplier;
+	
+	gameState.ballX += ballSpeedX;
+	gameState.ballY += ballSpeedY;
 
 	if (gameState.ballY - BALL_SIZE < 0 || gameState.ballY + BALL_SIZE > canvas.height)
 		gameState.ballSpeedY = -gameState.ballSpeedY;
@@ -150,7 +311,7 @@ function update()
 	if (
 		gameState.ballX - BALL_SIZE < PADDLE_WIDTH &&
 		gameState.ballY + BALL_SIZE > gameState.leftPaddleY &&
-		gameState.ballY - BALL_SIZE < gameState.leftPaddleY + PADDLE_HEIGHT
+		gameState.ballY - BALL_SIZE < gameState.leftPaddleY + paddleHeight
 	) {
 		const collidePoint = (gameState.ballY - (gameState.leftPaddleY + PADDLE_HEIGHT / 2));
 		const normalizedCollidePoint = collidePoint / (PADDLE_HEIGHT / 2);
@@ -222,6 +383,9 @@ export function afterRender()
 	{
 		canvas = localCanvas;
 		context = canvas.getContext('2d')!;
+
+		// Initialize game settings
+		initializeGameSettings();
 
 		window.addEventListener('keydown', handleKeyDown);
 		window.addEventListener('keyup', handleKeyUp);
@@ -329,6 +493,15 @@ export function cleanup()
 		ballSpeedY: 5,
 		leftScore: 0,
 		rightScore: 0,
+		// Power-up related state
+		ballSpeedMultiplier: 1,
+		paddleSizeMultiplier: 1,
+		leftSpeedMultiplier: 1,
+		rightSpeedMultiplier: 1,
+		addBalls: 0,
+		powerups: [] as PowerupEffect[],
+		activePowerups: [] as PowerupEffect[],
+		lastPowerupSpawn: 0,
 	};
 }
 

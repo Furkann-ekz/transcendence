@@ -35,6 +35,9 @@ export function render()
 					<a href="/online-lobby" data-link class="w-full inline-flex items-center justify-center rounded-lg bg-green-600 hover:bg-green-500 text-white font-semibold py-3 px-5 transition">
 					${t('play_online_button')}
 					</a>
+					<a href="/game-settings" data-link class="w-full inline-flex items-center justify-center rounded-lg bg-yellow-600 hover:bg-yellow-500 text-white font-semibold py-3 px-5 transition">
+					${t('game_settings') || 'Game Settings'}
+					</a>
 				</div>
 
 				<a href="/dashboard" data-link class="mt-8 inline-block font-medium text-indigo-400 hover:text-indigo-300 transition">

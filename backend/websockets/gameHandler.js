@@ -1,6 +1,42 @@
 const { shuffleArray } = require('../utils/arrayUtils');
 const prisma = require('../prisma/db');
 
+function getGameConfig(customSettings = null) {
+	const defaultConfig = {
+		canvasSize: 800,
+		paddleSize: 100,
+		paddleThickness: 15,
+		ballSpeed: 8,
+		paddleSpeed: 15,
+		ballSize: 10,
+		mode: 'classic',
+		powerupsEnabled: false,
+		enabledPowerups: {
+			speedBoost: false,
+			paddleExtend: false,
+			multiBall: false,
+			freeze: false
+		}
+	};
+
+	if (!customSettings) {
+		return defaultConfig;
+	}
+
+	// Merge custom settings with defaults, ensuring valid values
+	return {
+		canvasSize: Math.max(customSettings.mapWidth || defaultConfig.canvasSize, customSettings.mapHeight || defaultConfig.canvasSize),
+		paddleSize: Math.max(60, Math.min(150, customSettings.paddleHeight || defaultConfig.paddleSize)),
+		paddleThickness: Math.max(8, Math.min(20, customSettings.paddleThickness || defaultConfig.paddleThickness)),
+		ballSpeed: Math.max(3, Math.min(15, customSettings.ballSpeed || defaultConfig.ballSpeed)),
+		paddleSpeed: Math.max(5, Math.min(20, customSettings.paddleSpeed || defaultConfig.paddleSpeed)),
+		ballSize: Math.max(8, Math.min(20, customSettings.ballSize || defaultConfig.ballSize)),
+		mode: customSettings.mode || defaultConfig.mode,
+		powerupsEnabled: customSettings.mode === 'powerup',
+		enabledPowerups: customSettings.enabledPowerups || defaultConfig.enabledPowerups
+	};
+}
+
 async function updatePlayerStats(playerIds, outcome)
 {
 	const fieldToIncrement = outcome === 'win' ? 'wins' : 'losses';
@@ -135,7 +171,7 @@ function startGameLoop(room, players, io, mode, gameConfig, onMatchEnd)
 	let gameState =
 	{
 		ballX: gameConfig.canvasSize / 2, ballY: gameConfig.canvasSize / 2,
-		ballSpeedX: 8, ballSpeedY: 6,
+		ballSpeedX: gameConfig.ballSpeed || 8, ballSpeedY: (gameConfig.ballSpeed || 8) * 0.75,
 		team1Score: 0, team2Score: 0,
 		players: players.map(p => ({ ...p, hits: 0 }))
 	};
@@ -225,15 +261,15 @@ function startGameLoop(room, players, io, mode, gameConfig, onMatchEnd)
 			gameState.ballX = gameConfig.canvasSize / 2;
 			gameState.ballY = gameConfig.canvasSize / 2;
 
-			const baseSpeedX = 8;
+			const baseSpeedX = gameConfig.ballSpeed || 8;
 			gameState.ballSpeedX = (Math.random() < 0.5 ? -baseSpeedX : baseSpeedX);
 
 			let randomY;
 			do
 			{
-				randomY = Math.random() * 12 - 6;
+				randomY = Math.random() * (baseSpeedX * 1.5) - (baseSpeedX * 0.75);
 			}
-			while (Math.abs(randomY) < 2.5);
+			while (Math.abs(randomY) < baseSpeedX * 0.3);
 			gameState.ballSpeedY = randomY;
 		}
 		
@@ -258,7 +294,7 @@ function startGameLoop(room, players, io, mode, gameConfig, onMatchEnd)
 
 function handleJoinMatchmaking(io, socket, state, payload)
 {
-	const { mode } = payload;
+	const { mode, customSettings } = payload;
 	if (!mode || !state.waitingPlayers[mode])
 		return ;
 
@@ -269,17 +305,22 @@ function handleJoinMatchmaking(io, socket, state, payload)
 		return ;
 	}
 
+	// Store custom settings with the player
+	socket.customGameSettings = customSettings;
 	const pool = state.waitingPlayers[mode];
 	pool.push(socket);
 	pool.forEach(p => p.emit('updateQueue', { queueSize: pool.length, requiredSize: mode === '1v1' ? 2 : 4 }));
 
 	let playerSockets;
 	let players;
-	const gameConfig = { canvasSize: 800, paddleSize: 100, paddleThickness: 15 };
+	let gameConfig;
 
 	if (mode === '1v1' && pool.length >= 2)
 	{
 		playerSockets = pool.splice(0, 2);
+		// Use custom settings from the first player, or default if none
+		gameConfig = getGameConfig(playerSockets[0].customGameSettings);
+		
 		const [p1, p2] = playerSockets;
 		players =
 		[
@@ -291,6 +332,9 @@ function handleJoinMatchmaking(io, socket, state, payload)
 	if (mode === '2v2' && pool.length >= 4)
 	{
 		playerSockets = pool.splice(0, 4);
+		// Use custom settings from the first player, or default if none
+		gameConfig = getGameConfig(playerSockets[0].customGameSettings);
+		
 		shuffleArray(playerSockets);
 		const teamConfig = Math.random() < 0.5 ? 1 : 2;
 

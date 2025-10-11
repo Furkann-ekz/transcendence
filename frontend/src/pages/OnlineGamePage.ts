@@ -160,7 +160,7 @@ export function render(): string
 	  <div id="game-status" class="text-xl sm:text-2xl md:text-3xl text-white mb-4 text-center"></div>
 	  <canvas id="pong-canvas" width="800" height="800" class="bg-black border border-white hidden max-w-full max-h-[70vh] w-auto h-auto"></canvas>
 	  <a id="main-leave-link" href="/lobby" class="mt-4 text-blue-400 hover:text-blue-300 text-sm sm:text-base">${t('leave_lobby')}</a>
-	  <div id="mobile-controls" class="hidden mt-40 space-x-8 sm:space-x-12 md:space-x-20">
+	  <div id="mobile-controls" class="hidden mt-4 space-x-8 sm:space-x-12 md:space-x-20">
 		<button id="move-up-btn" class="select-none size-40 sm:w-18 sm:h-18 md:w-20 md:h-20 bg-blue-500 active:bg-red-700 text-white rounded-full text-xl sm:text-xl md:text-2xl touch-manipulation">↑</button>
 		<button id="move-down-btn" class="select-none size-40 sm:w-18 sm:h-18 md:w-20 md:h-20 bg-blue-500 active:bg-red-700 text-white rounded-full text-xl sm:text-xl md:text-2xl touch-manipulation">↓</button>
 	  </div>

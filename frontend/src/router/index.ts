@@ -4,6 +4,7 @@ import * as DashboardPage from '../pages/DashboardPage';
 import * as LobbyPage from '../pages/LobbyPage';
 import * as LocalGamePage from '../pages/LocalGamePage';
 import * as OnlineGamePage from '../pages/OnlineGamePage';
+import * as GameSettingsPage from '../pages/GameSettingsPage';
 import { connectSocket, getSocket } from '../socket';
 import * as OnlineLobbyPage from '../pages/OnlineLobbyPage';
 import * as MatchHistoryPage from '../pages/MatchHistoryPage';
@@ -29,6 +30,7 @@ const routes: { [key: string]: Route } =
 	'/lobby': { render: LobbyPage.render, afterRender: LobbyPage.afterRender, cleanup: LobbyPage.cleanup },
 	'/online-lobby': { render: OnlineLobbyPage.render, afterRender: OnlineLobbyPage.afterRender, cleanup: OnlineLobbyPage.cleanup },
 	'/local-game': { render: LocalGamePage.render, afterRender: LocalGamePage.afterRender, cleanup: LocalGamePage.cleanup },
+	'/game-settings': { render: GameSettingsPage.render, afterRender: GameSettingsPage.afterRender, cleanup: GameSettingsPage.cleanup },
 	'/profile/edit': { render: ProfileEditPage.render, afterRender: ProfileEditPage.afterRender, cleanup: ProfileEditPage.cleanup },
 	'/online-game': { render: OnlineGamePage.render, afterRender: OnlineGamePage.afterRender, cleanup: OnlineGamePage.cleanup },
 	'/tournaments': { render: TournamentListPage.render, afterRender: TournamentListPage.afterRender, cleanup: TournamentListPage.cleanup },
@@ -41,7 +43,7 @@ export async function handleLocation(forceReload = false)
 	const path = window.location.pathname;
 	const token = localStorage.getItem('token');
 
-	const protectedPaths = ['/dashboard', '/lobby', '/online-lobby', '/local-game', '/online-game', '/profile/edit', '/tournaments'];
+	const protectedPaths = ['/dashboard', '/lobby', '/online-lobby', '/local-game', '/online-game', '/game-settings', '/profile/edit', '/tournaments'];
 	const isProtectedRoute = protectedPaths.includes(path) || path.startsWith('/profile/') || path.startsWith('/tournaments/') || path.startsWith('/tournament/');
 
 	if (isProtectedRoute)
