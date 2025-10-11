@@ -32,26 +32,41 @@ export function render()
 		<div id="local-game-container" class="h-screen w-screen bg-gray-900 flex flex-col items-center justify-center relative p-4">
 			
 			<div id="fullscreen-overlay">
-				<h2 class="text-3xl font-bold mb-4">${t('fullscreen_required')}</h2>
-				<p class="mb-8 max-w-md">${t('fullscreen_prompt')}</p>
-				<button id="fullscreen-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-6 rounded-lg text-xl transition">
-					${t('enter_fullscreen_button')}
-				</button>
+				<h2 class="text-3xl font-bold mb-4">${t('game_mode_selection') || 'Game Mode Selection'}</h2>
+				<div class="flex flex-col space-y-4">
+					<button id="fullscreen-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-6 rounded-lg text-xl transition">
+						${t('enter_fullscreen_button') || 'Play Fullscreen'}
+					</button>
+					<button id="windowed-btn" class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-6 rounded-lg text-xl transition">
+						${t('play_windowed_button') || 'Play in Window'}
+					</button>
+					<a href="/lobby" data-link class="bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-lg text-lg transition text-center">
+						${t('back_to_lobby') || 'Back to Lobby'}
+					</a>
+				</div>
 			</div>
 
 			<div id="game-content" class="hidden h-full w-full flex flex-col items-center justify-center">
 				<div id="local-game-layout" class="flex items-center justify-center w-full">
 					<div id="p1-controls" class="hidden flex-col items-center justify-center p-4 space-y-6">
-						<button id="p1-up" class="select-none size-20 bg-blue-500/70 active:bg-blue-600 text-white rounded-full text-2xl touch-manipulation">↑</button>
-						<button id="p1-down" class="select-none size-20 bg-blue-500/70 active:bg-blue-600 text-white rounded-full text-2xl touch-manipulation">↓</button>
+						<button id="p1-up" class="select-none size-20 bg-blue-500/70 active:bg-red-600 text-white rounded-full text-2xl touch-manipulation">↑</button>
+						<button id="p1-down" class="select-none size-20 bg-blue-500/70 active:bg-red-600 text-white rounded-full text-2xl touch-manipulation">↓</button>
 					</div>
 					<canvas id="pong-canvas" width="800" height="600" class="bg-black border-2 border-slate-700 max-w-full max-h-[80vh]"></canvas>
 					<div id="p2-controls" class="hidden flex-col items-center justify-center p-4 space-y-6">
-						<button id="p2-up" class="select-none size-20 bg-red-500/70 active:bg-red-600 text-white rounded-full text-2xl touch-manipulation">↑</button>
-						<button id="p2-down" class="select-none size-20 bg-red-500/70 active:bg-red-600 text-white rounded-full text-2xl touch-manipulation">↓</button>
+						<button id="p2-up" class="select-none size-20 bg-red-500/70 active:bg-blue-600 text-white rounded-full text-2xl touch-manipulation">↑</button>
+						<button id="p2-down" class="select-none size-20 bg-red-500/70 active:bg-blue-600 text-white rounded-full text-2xl touch-manipulation">↓</button>
 					</div>
 				</div>
 				<div id="mobile-controls-container" class="hidden">
+				</div>
+				<div class="absolute bottom-20 left-4 flex space-x-2">
+					<button id="exit-fullscreen-btn" class="hidden bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg text-sm transition">
+						${t('exit_fullscreen') || 'Exit Fullscreen'}
+					</button>
+					<a href="/lobby" data-link class="bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-lg text-sm transition">
+						${t('exit_game') || 'Exit Game'}
+					</a>
 				</div>
 				<a href="/lobby" data-link class="absolute bottom-4 right-4 text-blue-400 hover:text-blue-300">
 					${t('return_to_lobby_button')}
@@ -199,6 +214,8 @@ export function afterRender()
 	const fullscreenOverlay = document.getElementById('fullscreen-overlay') as HTMLDivElement;
 	const gameContent = document.getElementById('game-content') as HTMLDivElement;
 	const fullscreenBtn = document.getElementById('fullscreen-btn') as HTMLButtonElement;
+	const windowedBtn = document.getElementById('windowed-btn') as HTMLButtonElement;
+	const exitFullscreenBtn = document.getElementById('exit-fullscreen-btn') as HTMLButtonElement;
 	
 	const localCanvas = document.getElementById('pong-canvas') as HTMLCanvasElement;
 	if (localCanvas)
@@ -242,9 +259,25 @@ export function afterRender()
 		p2Down?.addEventListener('touchstart', p2DownStart);
 		p2Down?.addEventListener('touchend', p2DownEnd);
 
+		// Fullscreen mode
 		fullscreenBtn.addEventListener('click', () => {
-			if (gameContainer.requestFullscreen)
+			if (gameContainer.requestFullscreen) {
 				gameContainer.requestFullscreen();
+			}
+		});
+
+		// Windowed mode
+		windowedBtn.addEventListener('click', () => {
+			fullscreenOverlay.style.display = 'none';
+			gameContent.classList.remove('hidden');
+			startGame();
+		});
+
+		// Exit fullscreen while playing
+		exitFullscreenBtn.addEventListener('click', () => {
+			if (document.fullscreenElement) {
+				document.exitFullscreen();
+			}
 		});
 
 		fullscreenChangeHandler = () => {
@@ -252,13 +285,13 @@ export function afterRender()
 			{
 				fullscreenOverlay.style.display = 'none';
 				gameContent.classList.remove('hidden');
+				exitFullscreenBtn.classList.remove('hidden');
 				startGame();
 			}
-			else
+			else if (document.fullscreenElement === null && !gameContent.classList.contains('hidden'))
 			{
-				fullscreenOverlay.style.display = 'flex';
-				gameContent.classList.add('hidden');
-				stopGame();
+				// User exited fullscreen but game is still running - continue in windowed mode
+				exitFullscreenBtn.classList.add('hidden');
 			}
 		};
 		document.addEventListener('fullscreenchange', fullscreenChangeHandler);

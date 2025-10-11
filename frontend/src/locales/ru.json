@@ -141,5 +141,11 @@
     "return_to_tournament_lobby": "Вернуться в лобби турнира",
     "profile_update_success": "Профиль успешно обновлен!",
     "error_name_taken": "Это имя уже занято. Пожалуйста, выберите другое.",
-    "cannot_message_yourself": "Вы не можете отправить сообщение себе."
+    "cannot_message_yourself": "Вы не можете отправить сообщение себе.",
+    "game_mode_selection": "Выбор режима игры",
+    "enter_fullscreen_button": "Играть в полноэкранном режиме",
+    "play_windowed_button": "Играть в окне",
+    "back_to_lobby": "Вернуться в лобби",
+    "exit_fullscreen": "Выйти из полноэкранного режима",
+    "exit_game": "Выйти из игры"
 }

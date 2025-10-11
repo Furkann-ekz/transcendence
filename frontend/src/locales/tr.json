@@ -141,5 +141,11 @@
 	"private_from": "Kimden:",
 	"return_to_tournament_lobby": "Turnuva Lobisine Geri Dön",
 	"error_name_taken": "Bu kullanıcı adı zaten alınmış. Lütfen başka bir tane seçin.",
-	"cannot_message_yourself": "Kendinize mesaj gönderemezsiniz."
+	"cannot_message_yourself": "Kendinize mesaj gönderemezsiniz.",
+	"game_mode_selection": "Oyun Modu Seçimi",
+	"enter_fullscreen_button":"Tam ekranda oyna",
+	"play_windowed_button": "Pencerede Oyna",
+	"back_to_lobby": "Lobiye Geri Dön",
+	"exit_fullscreen": "Tam Ekrandan Çık",
+	"exit_game": "Oyundan Çık"
 }
