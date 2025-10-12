@@ -31,7 +31,7 @@ export function render(): string
   return `
 	<div class="h-screen w-screen flex flex-col bg-[#171A21] text-slate-100">
 	  <nav class="sticky top-0 z-10 bg-[#171A21] border-b border-slate-700/50 flex-shrink-0">
-      <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap md:flex-nowrap items-center justify-center md:justify-between gap-4">
+      <div class="max-w-6xl mx-auto px-4 pl-20 sm:pl-4 py-3 flex flex-wrap md:flex-nowrap items-center justify-center md:justify-between gap-4">
         <div class="w-full md:w-auto text-center md:text-left">
           <h1 class="text-2xl font-bold tracking-tight text-white">Transcendence</h1>
         </div>
@@ -96,7 +96,8 @@ export function afterRender()
 
 	function renderMessages()
 	{
-		if (!messagesListEl) return;
+		if (!messagesListEl)
+			return ;
 		const messages = getMessages();
 		const isScrolledToBottom = messagesListEl.scrollHeight - messagesListEl.clientHeight <= messagesListEl.scrollTop + 1;
 
@@ -110,19 +111,28 @@ export function afterRender()
 			let bubbleClass = '';
 			let meta = '';
 
-			if (msg.type === 'private') {
-				if (isMe) {
+			if (msg.type === 'private')
+			{
+				if (isMe)
+				{
 					bubbleClass = 'bg-indigo-600 text-white';
 					meta = `<div class="text-[11px] opacity-80 mb-1">${t('private_to')} ${msg.recipient?.name}</div>`;
-				} else {
+				}
+				else
+				{
 					bubbleClass = 'bg-emerald-900/70 text-emerald-100';
 					meta = `<div class="text-[11px] opacity-70 mb-1">${t('private_from')} ${senderName}</div>`;
 				}
-			} else { // public message
-				if (isMe) {
+			}
+			else
+			{
+				if (isMe)
+				{
 					bubbleClass = 'bg-slate-700 text-slate-100';
 					meta = `<div class="text-[11px] text-slate-400 mb-1">${senderName} (${t('you')})</div>`;
-				} else {
+				}
+				else
+				{
 					bubbleClass = 'bg-[#363A43] text-slate-200';
 					meta = `<div class="text-[11px] text-slate-400 mb-1">${senderName}</div>`;
 				}
@@ -136,17 +146,17 @@ export function afterRender()
           </div>
         </li>
       `;
-			return content;
+			return (content);
 		}).join('');
 
-		if (isScrolledToBottom) {
+		if (isScrolledToBottom)
 			messagesListEl.scrollTop = messagesListEl.scrollHeight;
-		}
 	}
 
 	function renderFriendRequests(pendingRequests: FriendRequest[])
 	{
-		if (!friendRequestListEl) return;
+		if (!friendRequestListEl)
+			return ;
 		friendRequestListEl.innerHTML = pendingRequests.length === 0
 			? `<li class="text-slate-400 text-sm">${t('no_friend_requests')}</li>`
 			: pendingRequests.map(req => `
@@ -162,7 +172,8 @@ export function afterRender()
 
 	function renderFriendList()
 	{
-		if (!friendListEl) return;
+		if (!friendListEl)
+			return ;
 		const onlineFriendIds = new Set(onlineUsers.map(u => u.id));
 		friendListEl.innerHTML = myFriends.length === 0
 			? `<li class="text-slate-400 text-sm px-2">${t('no_friends_message')}</li>`
@@ -183,7 +194,8 @@ export function afterRender()
 
 	function renderOnlineUsers()
 	{
-		if (!userListEl) return;
+		if (!userListEl)
+			return ;
 		userListEl.innerHTML = '';
 		const allOption = document.createElement('li');
 		allOption.textContent = t('everyone');
@@ -191,6 +203,14 @@ export function afterRender()
 		allOption.dataset.name = t('everyone');
 		allOption.className = 'p-3 rounded-lg hover:bg-slate-700/40 transition cursor-pointer text-slate-200 font-medium';
 		userListEl.appendChild(allOption);
+		onlineUsers.sort((a, b) =>
+		{
+			if (a.id === myId)
+				return (-1);
+			if (b.id === myId)
+				return (1);
+			return (a.name.localeCompare(b.name));
+		});
 		onlineUsers.forEach(user =>
 		{
 			const item = document.createElement('li');
@@ -216,39 +236,46 @@ export function afterRender()
 	function selectRecipient(user: { id: number | 'all', name: string })
 	{
 		selectedRecipient = user;
-		if (recipientInfoEl) recipientInfoEl.textContent = user.name || t('everyone');
+		if (recipientInfoEl)
+			recipientInfoEl.textContent = user.name || t('everyone');
 
 		const chatInput = document.getElementById('chat-input') as HTMLInputElement | null;
 		const chatSubmitBtn = document.querySelector('#chat-form button[type="submit"]') as HTMLButtonElement | null;
 
-		if (user.id === myId) {
-			if (chatInput) {
+		if (user.id === myId)
+		{
+			if (chatInput)
+			{
 				chatInput.disabled = true;
 				chatInput.placeholder = t('cannot_message_yourself');
 			}
-			if (chatSubmitBtn) {
+			if (chatSubmitBtn)
+			{
 				chatSubmitBtn.disabled = true;
 				chatSubmitBtn.classList.add('opacity-50', 'cursor-not-allowed');
 			}
-		} else {
-			if (chatInput) {
+		}
+		else
+		{
+			if (chatInput)
+			{
 				chatInput.disabled = false;
 				chatInput.placeholder = t('chat_placeholder');
 			}
-			if (chatSubmitBtn) {
+			if (chatSubmitBtn)
+			{
 				chatSubmitBtn.disabled = false;
 				chatSubmitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
 			}
 		}
 
-		// Clear previous selection highlight and set new with ring
-		document.querySelectorAll('#user-list li, #friend-list li').forEach(li => {
+		document.querySelectorAll('#user-list li, #friend-list li').forEach(li =>
+		{
 			li.classList.remove('bg-slate-700/60');
 		});
 		const match = document.querySelector<HTMLElement>(`#user-list li[data-id="${user.id}"], #friend-list li[data-id="${user.id}"]`);
-		if (match) {
+		if (match)
 			match.classList.add('bg-slate-700/60');
-		}
 	}
 
 	async function refreshAllLists()

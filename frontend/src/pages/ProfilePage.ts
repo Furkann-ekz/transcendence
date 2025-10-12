@@ -119,7 +119,7 @@ export function render(): string
   return `
 	<div class="h-screen w-screen flex flex-col bg-[#171A21] text-slate-100">
 		<nav class="sticky top-0 z-10 bg-[#171A21] border-b border-slate-700/50 flex-shrink-0">
-			<div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap md:flex-nowrap items-center justify-center md:justify-between gap-4">
+			<div class="max-w-6xl mx-auto px-4 pl-20 sm:pl-4 py-3 flex flex-wrap md:flex-nowrap items-center justify-center md:justify-between gap-4">
 				<div class="w-full md:w-auto text-center md:text-left">
 					<h1 class="text-2xl font-bold tracking-tight text-white">Transcendence</h1>
 				</div>

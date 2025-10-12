@@ -272,7 +272,6 @@ async function tournamentRoutes(fastify, { io })
 		}
 	});
 
-	// Delete/Destroy tournament (only host can do this)
 	fastify.delete('/tournaments/:id', { preHandler: [authenticate] }, async (request, reply) =>
 	{
 		const tournamentId = request.params.id;
@@ -294,17 +293,14 @@ async function tournamentRoutes(fastify, { io })
 			if (tournament.status !== 'LOBBY')
 				return (reply.code(403).send({ error: 'Cannot delete a tournament that is in progress or has finished.' }));
 
-			// Delete all tournament players first
 			await prisma.tournamentPlayer.deleteMany({
 				where: { tournamentId: tournamentId }
 			});
 
-			// Delete the tournament
 			await prisma.tournament.delete({
 				where: { id: tournamentId }
 			});
 
-			// Notify all players in the tournament lobby
 			io.to(tournamentId).emit('tournament_deleted');
 			io.emit('tournament_list_updated');
 

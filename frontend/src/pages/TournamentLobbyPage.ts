@@ -121,7 +121,6 @@ export async function afterRender()
 				};
 				actionsEl.appendChild(startButton);
 
-				// Add delete tournament button for host
 				const deleteButton = document.createElement('button');
 				deleteButton.textContent = t('delete_tournament') || 'Delete Tournament';
 				deleteButton.className = 'w-full inline-flex items-center justify-center rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-5 transition';
@@ -218,12 +217,13 @@ export async function afterRender()
 	if (socket)
 	{
 		socket.on('tournament_lobby_updated', renderLobby);
-		socket.on('tournament_started', ({ tournament }) => {
+		socket.on('tournament_started', ({ tournament }) =>
+		{
 			navigateTo(`/tournament/${tournament.id}/play`);
 		});
 		
-		// Handle tournament deletion
-		socket.on('tournament_deleted', () => {
+		socket.on('tournament_deleted', () =>
+		{
 			alert(t('tournament_deleted_message') || 'The tournament has been deleted by the host.');
 			navigateTo('/tournaments');
 		});
@@ -236,7 +236,7 @@ export function cleanup()
 	const pathParts = window.location.pathname.split('/');
 	const tournamentId = pathParts[2];
 	if (socket && tournamentId)
-		{
+	{
 		socket.emit('leave_tournament_lobby', { tournamentId });
 		socket.off('tournament_lobby_updated');
 		socket.off('tournament_started');

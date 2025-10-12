@@ -18,6 +18,9 @@ async function userRoutes(fastify, { io, onlineUsers })
 		const data = await request.file();
 		if (!data)
 			return (reply.code(400).send({ error: 'No file uploaded.' }));
+		const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif'];
+        if (!allowedMimeTypes.includes(data.mimetype))
+			return (reply.code(400).send({ error: 'error_invalid_file_type' }));
 		const uploadDir = path.join(__dirname, '..', 'uploads', 'avatars');
 		await fs.promises.mkdir(uploadDir, { recursive: true });
 		const filename = `avatar-${request.user.userId}${path.extname(data.filename)}`;
@@ -31,7 +34,7 @@ async function userRoutes(fastify, { io, onlineUsers })
 				where: { id: request.user.userId },
 				data: { avatarUrl },
 			});
-			return { message: 'Avatar updated successfully', avatarUrl };
+			return ({ message: 'Avatar updated successfully', avatarUrl });
 		}
 		catch (error)
 		{
@@ -91,7 +94,7 @@ async function userRoutes(fastify, { io, onlineUsers })
 				where: { id: userId },
 				data: { password: hashedPassword },
 			});
-			return { message: 'Password updated successfully' };
+			return ({ message: 'Password updated successfully' });
 		}
 		catch (error)
 		{
@@ -110,7 +113,7 @@ async function userRoutes(fastify, { io, onlineUsers })
 		});
 		if (!user)
 			return (reply.code(404).send({ error: 'User not found' }));
-		return user;
+		return (user);
 	});
 	fastify.get('/users/:id/matches', { preHandler: [authenticate] }, async (request, reply) =>
 	{
@@ -160,7 +163,7 @@ async function userRoutes(fastify, { io, onlineUsers })
 				include: { receiver: { select: { id: true, name: true } } }
 			});
 			const acceptedFriends = friends.map(f => f.requesterId === userId ? f.receiver : f.requester);
-			return { friends: acceptedFriends, pendingRequests, sentRequests };
+			return ({ friends: acceptedFriends, pendingRequests, sentRequests });
 		}
 		catch (error)
 		{
@@ -186,7 +189,7 @@ async function userRoutes(fastify, { io, onlineUsers })
 				where: { blockerId_blockedId: { blockerId: targetId, blockedId: myId } }
 			});
 			if (targetBlockedMe)
-				return { friendshipStatus: 'blocked_by_them', isBlocked: false };
+				return ({ friendshipStatus: 'blocked_by_them', isBlocked: false });
 			const response =
 			{
 				friendshipStatus: 'none',
@@ -273,7 +276,7 @@ async function userRoutes(fastify, { io, onlineUsers })
 		notifyUser(otherUserId); 
 		notifyUser(userId);
 		
-		return { message: "Friendship removed." };
+		return ({ message: "Friendship removed." });
 	});
 
 	fastify.post('/users/:targetId/block', { preHandler: [authenticate] }, async (request, reply) =>
@@ -318,7 +321,7 @@ async function userRoutes(fastify, { io, onlineUsers })
 			});
 			notifyUser(blockerId);
 			notifyUser(blockedId);
-			return { message: "User unblocked." };
+			return ({ message: "User unblocked." });
 		}
 		catch (error)
 		{

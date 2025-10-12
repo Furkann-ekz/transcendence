@@ -1,6 +1,7 @@
 {
 	"watch": ["."],
-	"ignore": [
+	"ignore":
+	[
 		"node_modules",
 		"uploads/*"
 	],

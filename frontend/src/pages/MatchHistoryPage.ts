@@ -20,7 +20,7 @@ export function render(): string
   return `
 	<div class="h-screen w-screen flex flex-col bg-[#171A21] text-slate-100">
 		<nav class="sticky top-0 z-10 bg-[#171A21] border-b border-slate-700/50 flex-shrink-0">
-			<div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap md:flex-nowrap items-center justify-center md:justify-between gap-4">
+			<div class="max-w-6xl mx-auto px-4 pl-20 sm:pl-4 py-3 flex flex-wrap md:flex-nowrap items-center justify-center md:justify-between gap-4">
 				<div class="w-full md:w-auto text-center md:text-left">
 					<h1 class="text-2xl font-bold tracking-tight text-white">Transcendence</h1>
 				</div>
@@ -93,28 +93,25 @@ export async function afterRender()
 
 		const profileOwnerId = parseInt(userId, 10);
 
-		// Sort matches by date, most recent first
 		matches.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-		// Calculate aggregate stats
 		let totalWins = 0;
 		let totalScoreFor = 0;
 		let totalScoreAgainst = 0;
 		let currentWinStreak = 0;
 
-		// Calculate win streak
-		for (const match of matches) {
-			if (match.winnerId === profileOwnerId) {
+		for (const match of matches)
+		{
+			if (match.winnerId === profileOwnerId)
 				currentWinStreak++;
-			} else {
-				break;
-			}
+			else
+				break ;
 		}
 
-		matches.forEach((match: any) => {
-			if (match.winnerId === profileOwnerId) {
+		matches.forEach((match: any) =>
+		{
+			if (match.winnerId === profileOwnerId)
 				totalWins++;
-			}
 			const isPlayer1 = match.player1Id === profileOwnerId;
 			totalScoreFor += isPlayer1 ? match.team1Score : match.team2Score;
 			totalScoreAgainst += isPlayer1 ? match.team2Score : match.team1Score;
@@ -124,7 +121,6 @@ export async function afterRender()
 		const winRate = totalMatches > 0 ? (totalWins / totalMatches) * 100 : 0;
 		const lastMatchDate = totalMatches > 0 ? new Date(matches[0].createdAt).toLocaleDateString() : t('n_a');
 
-		// Render stats dashboard
 		statsDashboard.innerHTML = `
 			<h3 class="text-xl font-semibold text-white mb-4">${t('overall_stats')}</h3>
 			<div class="grid grid-cols-2 gap-4 text-center">

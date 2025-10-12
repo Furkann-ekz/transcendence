@@ -116,6 +116,6 @@ export async function getMyActiveTournament()
 	if (!response.ok)
 		throw new Error('Could not check for active tournament.');
 	if (response.status === 204)
-		return null;
+		return (null);
 	return (response.json());
 }

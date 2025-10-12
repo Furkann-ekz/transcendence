@@ -15,9 +15,7 @@ async function authenticate(request, reply) {
 		});
 
 		if (!user)
-	
 			return (reply.code(401).send({ error: 'Unauthorized: User not found' }));
-
 		request.user = decoded;
 	}
 	catch (error)

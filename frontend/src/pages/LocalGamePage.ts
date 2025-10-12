@@ -2,7 +2,6 @@ import { t } from '../i18n';
 import { getGameSettings, createPowerup, applyPowerupEffect, removePowerupEffect } from '../utils/gameSettings';
 import type { GameSettings, PowerupEffect } from '../utils/gameSettings';
 
-// Dynamic game settings
 let gameSettings: GameSettings;
 let PADDLE_WIDTH = 10;
 let PADDLE_HEIGHT = 100;
@@ -18,7 +17,7 @@ let gameState =
 	ballSpeedY: 6,
 	leftScore: 0,
 	rightScore: 0,
-	// Power-up related state
+
 	ballSpeedMultiplier: 1,
 	paddleSizeMultiplier: 1,
 	leftSpeedMultiplier: 1,
@@ -40,22 +39,22 @@ let p2UpStart: (e: Event) => void, p2UpEnd: (e: Event) => void;
 let p2DownStart: (e: Event) => void, p2DownEnd: (e: Event) => void;
 let fullscreenChangeHandler: () => void;
 
-function initializeGameSettings() {
+function initializeGameSettings()
+{
 	gameSettings = getGameSettings();
 	
-	// Update game constants based on settings
 	PADDLE_WIDTH = Math.max(8, Math.floor(gameSettings.paddleHeight * 0.1));
 	PADDLE_HEIGHT = gameSettings.paddleHeight;
 	BALL_SIZE = gameSettings.ballSize;
 	
-	// Update canvas size
-	if (canvas) {
+	if (canvas)
+	{
 		canvas.width = gameSettings.mapWidth;
 		canvas.height = gameSettings.mapHeight;
 	}
 	
-	// Reset game state with new settings
-	gameState = {
+	gameState =
+	{
 		leftPaddleY: (gameSettings.mapHeight - PADDLE_HEIGHT) / 2,
 		rightPaddleY: (gameSettings.mapHeight - PADDLE_HEIGHT) / 2,
 		ballX: gameSettings.mapWidth / 2,
@@ -64,7 +63,7 @@ function initializeGameSettings() {
 		ballSpeedY: gameSettings.ballSpeed * (Math.random() < 0.5 ? -0.6 : 0.6),
 		leftScore: 0,
 		rightScore: 0,
-		// Power-up related state
+
 		ballSpeedMultiplier: 1,
 		paddleSizeMultiplier: 1,
 		leftSpeedMultiplier: 1,
@@ -76,63 +75,67 @@ function initializeGameSettings() {
 	};
 }
 
-function updatePowerups() {
+function updatePowerups()
+{
 	const currentTime = Date.now();
 	
-	// Spawn new powerups in powerup mode
-	if (gameSettings.mode === 'powerup' && currentTime - gameState.lastPowerupSpawn > 15000) {
+	if (gameSettings.mode === 'powerup' && currentTime - gameState.lastPowerupSpawn > 15000)
+	{
 		const availableTypes = Object.entries(gameSettings.powerups)
 			.filter(([_, enabled]) => enabled)
 			.map(([type, _]) => type);
 			
-		if (availableTypes.length > 0) {
+		if (availableTypes.length > 0)
+		{
 			const powerup = createPowerup(
 				Math.random() * (gameSettings.mapWidth - 40) + 20,
 				Math.random() * (gameSettings.mapHeight - 40) + 20,
 				availableTypes
 			);
-			if (powerup) {
+			if (powerup)
+			{
 				gameState.powerups.push(powerup);
 				gameState.lastPowerupSpawn = currentTime;
 			}
 		}
 	}
 
-	// Update active powerups (remove expired ones)
-	gameState.activePowerups = gameState.activePowerups.filter(powerup => {
-		if (currentTime - powerup.duration > 0) {
+	gameState.activePowerups = gameState.activePowerups.filter(powerup =>
+	{
+		if (currentTime - powerup.duration > 0)
+		{
 			removePowerupEffect(powerup, gameState);
-			return false;
+			return (false);
 		}
-		return true;
+		return (true);
 	});
 
-	// Check powerup collisions with ball
-	gameState.powerups = gameState.powerups.filter(powerup => {
+	gameState.powerups = gameState.powerups.filter(powerup =>
+	{
 		const dx = gameState.ballX - powerup.x;
 		const dy = gameState.ballY - powerup.y;
 		const distance = Math.sqrt(dx * dx + dy * dy);
 		
-		if (distance < BALL_SIZE + 15) { // 15px powerup radius
-			// Activate powerup
+		if (distance < BALL_SIZE + 15)
+		{
 			powerup.duration = Date.now() + powerup.duration;
 			gameState.activePowerups.push(powerup);
 			applyPowerupEffect(powerup, gameState);
-			return false; // Remove from available powerups
+			return (false);
 		}
-		return true;
+		return (true);
 	});
 }
 
-function drawPowerups() {
-	// Draw available powerups
-	gameState.powerups.forEach(powerup => {
+function drawPowerups()
+{
+	gameState.powerups.forEach(powerup =>
+	{
 		context.fillStyle = getPowerupColor(powerup.type);
 		context.beginPath();
 		context.arc(powerup.x, powerup.y, 15, 0, Math.PI * 2);
 		context.fill();
 		
-		// Draw powerup icon
 		context.fillStyle = 'white';
 		context.font = '12px Arial';
 		context.textAlign = 'center';
@@ -140,24 +143,28 @@ function drawPowerups() {
 	});
 }
 
-function getPowerupColor(type: string): string {
-	const colors: { [key: string]: string } = {
+function getPowerupColor(type: string): string
+{
+	const colors: { [key: string]: string } =
+	{
 		speedBoost: '#ff6b6b',
 		paddleExtend: '#4ecdc4',
 		multiBall: '#45b7d1',
 		freeze: '#96ceb4'
 	};
-	return colors[type] || '#ffffff';
+	return (colors[type] || '#ffffff');
 }
 
-function getPowerupIcon(type: string): string {
-	const icons: { [key: string]: string } = {
+function getPowerupIcon(type: string): string
+{
+	const icons: { [key: string]: string } =
+	{
 		speedBoost: '⚡',
 		paddleExtend: '📏',
 		multiBall: '⚪',
 		freeze: '❄️'
 	};
-	return icons[type] || '?';
+	return (icons[type] || '?');
 }
 
 export function render()
@@ -180,7 +187,7 @@ export function render()
 				</div>
 			</div>
 
-			<div id="game-content" class="hidden h-full w-full flex flex-col items-center justify-center">
+			<div id="game-content" class="hidden h-full w-full flex-col items-center justify-center">
 				<div id="local-game-layout" class="flex items-center justify-center w-full">
 					<div id="p1-controls" class="hidden flex-col items-center justify-center p-4 space-y-6">
 						<button id="p1-up" class="select-none size-20 bg-blue-500/70 active:bg-red-600 text-white rounded-full text-2xl touch-manipulation">↑</button>
@@ -239,20 +246,16 @@ function renderGame()
 	drawText(gameState.leftScore.toString(), canvas.width / 4, canvas.height / 5, "white");
 	drawText(gameState.rightScore.toString(), 3 * canvas.width / 4, canvas.height / 5, "white");
 	
-	// Draw paddles with size multiplier
 	const leftPaddleHeight = PADDLE_HEIGHT * gameState.paddleSizeMultiplier;
 	const rightPaddleHeight = PADDLE_HEIGHT * gameState.paddleSizeMultiplier;
 	
 	drawRect(0, gameState.leftPaddleY, PADDLE_WIDTH, leftPaddleHeight, "white");
 	drawRect(canvas.width - PADDLE_WIDTH, gameState.rightPaddleY, PADDLE_WIDTH, rightPaddleHeight, "white");
 	
-	// Draw ball
 	drawCircle(gameState.ballX, gameState.ballY, BALL_SIZE, "white");
 	
-	// Draw powerups if in powerup mode
-	if (gameSettings && gameSettings.mode === 'powerup') {
+	if (gameSettings && gameSettings.mode === 'powerup')
 		drawPowerups();
-	}
 }
 
 function resetBall()
@@ -266,7 +269,7 @@ function resetBall()
 	let randomY;
 	do
 	{
-			randomY = Math.random() * 12 - 6;
+		randomY = Math.random() * 12 - 6;
 	}
 	while (Math.abs(randomY) < 2.5);
 	gameState.ballSpeedY = randomY;
@@ -278,12 +281,9 @@ function update()
 	if (!canvas || !gameSettings)
 		return ;
 		
-	// Update powerups if in powerup mode
-	if (gameSettings.mode === 'powerup') {
+	if (gameSettings.mode === 'powerup')
 		updatePowerups();
-	}
 	
-	// Apply speed multipliers to paddle movement
 	const leftSpeed = gameSettings.paddleSpeed * gameState.leftSpeedMultiplier;
 	const rightSpeed = gameSettings.paddleSpeed * gameState.rightSpeedMultiplier;
 	const paddleHeight = PADDLE_HEIGHT * gameState.paddleSizeMultiplier;
@@ -297,7 +297,6 @@ function update()
 	if (keysPressed['ArrowDown'] && gameState.rightPaddleY < canvas.height - paddleHeight)
 		gameState.rightPaddleY += rightSpeed;
 
-	// Apply ball speed multiplier
 	const ballSpeedX = gameState.ballSpeedX * gameState.ballSpeedMultiplier;
 	const ballSpeedY = gameState.ballSpeedY * gameState.ballSpeedMultiplier;
 	
@@ -307,33 +306,33 @@ function update()
 	if (gameState.ballY - BALL_SIZE < 0 || gameState.ballY + BALL_SIZE > canvas.height)
 		gameState.ballSpeedY = -gameState.ballSpeedY;
 
-	// Left paddle collision
 	if (
 		gameState.ballX - BALL_SIZE < PADDLE_WIDTH &&
 		gameState.ballY + BALL_SIZE > gameState.leftPaddleY &&
 		gameState.ballY - BALL_SIZE < gameState.leftPaddleY + paddleHeight
-	) {
+	)
+	{
 		const collidePoint = (gameState.ballY - (gameState.leftPaddleY + PADDLE_HEIGHT / 2));
 		const normalizedCollidePoint = collidePoint / (PADDLE_HEIGHT / 2);
-		const bounceAngle = normalizedCollidePoint * (Math.PI / 4); // Max 45 degrees
+		const bounceAngle = normalizedCollidePoint * (Math.PI / 4);
 		
-		gameState.ballSpeedX = Math.abs(gameState.ballSpeedX) * 1.05; // Increase speed
+		gameState.ballSpeedX = Math.abs(gameState.ballSpeedX) * 1.05;
 		gameState.ballSpeedY = (Math.abs(gameState.ballSpeedX) + Math.abs(gameState.ballSpeedY)) * Math.sin(bounceAngle);
-		gameState.ballX = PADDLE_WIDTH + BALL_SIZE; // Prevent sticking
+		gameState.ballX = PADDLE_WIDTH + BALL_SIZE;
 	}
-	// Right paddle collision
 	else if (
 		gameState.ballX + BALL_SIZE > canvas.width - PADDLE_WIDTH &&
 		gameState.ballY + BALL_SIZE > gameState.rightPaddleY &&
 		gameState.ballY - BALL_SIZE < gameState.rightPaddleY + PADDLE_HEIGHT
-	) {
+	)
+	{
 		const collidePoint = (gameState.ballY - (gameState.rightPaddleY + PADDLE_HEIGHT / 2));
 		const normalizedCollidePoint = collidePoint / (PADDLE_HEIGHT / 2);
-		const bounceAngle = normalizedCollidePoint * (Math.PI / 4); // Max 45 degrees
+		const bounceAngle = normalizedCollidePoint * (Math.PI / 4);
 
-		gameState.ballSpeedX = -Math.abs(gameState.ballSpeedX) * 1.05; // Increase speed
+		gameState.ballSpeedX = -Math.abs(gameState.ballSpeedX) * 1.05;
 		gameState.ballSpeedY = (Math.abs(gameState.ballSpeedX) + Math.abs(gameState.ballSpeedY)) * Math.sin(bounceAngle);
-		gameState.ballX = canvas.width - PADDLE_WIDTH - BALL_SIZE; // Prevent sticking
+		gameState.ballX = canvas.width - PADDLE_WIDTH - BALL_SIZE;
 	}
 
 	if (gameState.ballX - BALL_SIZE < 0)
@@ -384,7 +383,6 @@ export function afterRender()
 		canvas = localCanvas;
 		context = canvas.getContext('2d')!;
 
-		// Initialize game settings
 		initializeGameSettings();
 
 		window.addEventListener('keydown', handleKeyDown);
@@ -393,7 +391,8 @@ export function afterRender()
 		const p1Controls = document.getElementById('p1-controls');
 		const p2Controls = document.getElementById('p2-controls');
 		const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-		if (isMobile) {
+		if (isMobile)
+		{
 			p1Controls?.classList.remove('hidden');
 			p1Controls?.classList.add('flex');
 			p2Controls?.classList.remove('hidden');
@@ -423,28 +422,27 @@ export function afterRender()
 		p2Down?.addEventListener('touchstart', p2DownStart);
 		p2Down?.addEventListener('touchend', p2DownEnd);
 
-		// Fullscreen mode
-		fullscreenBtn.addEventListener('click', () => {
-			if (gameContainer.requestFullscreen) {
+		fullscreenBtn.addEventListener('click', () =>
+		{
+			if (gameContainer.requestFullscreen)
 				gameContainer.requestFullscreen();
-			}
 		});
 
-		// Windowed mode
-		windowedBtn.addEventListener('click', () => {
+		windowedBtn.addEventListener('click', () =>
+		{
 			fullscreenOverlay.style.display = 'none';
 			gameContent.classList.remove('hidden');
 			startGame();
 		});
 
-		// Exit fullscreen while playing
-		exitFullscreenBtn.addEventListener('click', () => {
-			if (document.fullscreenElement) {
+		exitFullscreenBtn.addEventListener('click', () =>
+		{
+			if (document.fullscreenElement)
 				document.exitFullscreen();
-			}
 		});
 
-		fullscreenChangeHandler = () => {
+		fullscreenChangeHandler = () =>
+		{
 			if (document.fullscreenElement === gameContainer)
 			{
 				fullscreenOverlay.style.display = 'none';
@@ -453,10 +451,7 @@ export function afterRender()
 				startGame();
 			}
 			else if (document.fullscreenElement === null && !gameContent.classList.contains('hidden'))
-			{
-				// User exited fullscreen but game is still running - continue in windowed mode
 				exitFullscreenBtn.classList.add('hidden');
-			}
 		};
 		document.addEventListener('fullscreenchange', fullscreenChangeHandler);
 	}
@@ -493,7 +488,7 @@ export function cleanup()
 		ballSpeedY: 5,
 		leftScore: 0,
 		rightScore: 0,
-		// Power-up related state
+
 		ballSpeedMultiplier: 1,
 		paddleSizeMultiplier: 1,
 		leftSpeedMultiplier: 1,

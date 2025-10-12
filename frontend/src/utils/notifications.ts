@@ -1,3 +1,5 @@
+import { t } from '../i18n';
+
 export function showToast(message: string, duration: number = 3000)
 {
 	const toast = document.createElement('div');
@@ -36,11 +38,11 @@ export function showConfirmationModal(message: string, onConfirm: () => void, on
 	buttonContainer.className = 'flex justify-center space-x-4';
 
 	const confirmButton = document.createElement('button');
-	confirmButton.textContent = 'Accept';
+	confirmButton.textContent = t('accept_button');
 	confirmButton.className = 'bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded';
 
 	const declineButton = document.createElement('button');
-	declineButton.textContent = 'Decline';
+	declineButton.textContent = t('reject_button');
 	declineButton.className = 'bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded';
 
 	buttonContainer.appendChild(declineButton);

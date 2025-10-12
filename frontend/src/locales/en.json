@@ -191,5 +191,6 @@
 	"tall": "Tall",
 	"narrow": "Narrow",
 	"wide": "Wide",
-	"back": "Back"
+	"back": "Back",
+	"error_invalid_file_type": "Invalid file type. Only JPG, PNG, and GIF are allowed."
 }

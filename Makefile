@@ -23,6 +23,9 @@ clean: down
 	@docker ps -a -q --filter "name=transcendence_backend" | xargs -r docker rm -f -t 0 || true
 	@docker ps -a -q --filter "name=transcendence_frontend" | xargs -r docker rm -f -t 0 || true
 	@docker ps -a -q --filter "name=transcendence_nginx" | xargs -r docker rm -f -t 0 || true
+	@docker ps -a -q --filter "name=transcendence_node_exporter" | xargs -r docker rm -f -t 0 || true
+	@docker ps -a -q --filter "name=transcendence_prometheus" | xargs -r docker rm -f -t 0 || true
+	@docker ps -a -q --filter "name=transcendence_grafana" | xargs -r docker rm -f -t 0 || true
 
 remove:
 	@(cd backend && rm -rf node_modules package-lock.json)

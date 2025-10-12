@@ -134,19 +134,19 @@ function initializeGame(payload: GameStartPayload)
 	window.addEventListener('keyup', handleKeyUp);
 
 	if (movementInterval) clearInterval(movementInterval);
-	movementInterval = setInterval(() => {
-		if (!socket) return;
+	movementInterval = setInterval(() =>
+	{
+		if (!socket)
+			return ;
 		let direction: 'up' | 'down' | null = null;
-		if (keysPressed['w'] || keysPressed['ArrowUp'] || keysPressed['mobile_up']) {
+		if (keysPressed['w'] || keysPressed['ArrowUp'] || keysPressed['mobile_up'])
 			direction = 'up';
-		} else if (keysPressed['s'] || keysPressed['ArrowDown'] || keysPressed['mobile_down']) {
+		else if (keysPressed['s'] || keysPressed['ArrowDown'] || keysPressed['mobile_down'])
 			direction = 'down';
-		}
 
-		if (direction) {
+		if (direction)
 			socket.emit('playerMove', { direction });
-		}
-	}, 1000 / 60); // 60 times per second
+	}, 1000 / 60);
 
 	if (animationFrameId)
 		cancelAnimationFrame(animationFrameId);

@@ -37,23 +37,28 @@ let customGameButtonHandler: (() => void) | null = null;
 
 export function afterRender()
 {
-    button1v1Handler = () => {
+    button1v1Handler = () =>
+    {
         const socket = getSocket();
-        if (!socket) return;
+        if (!socket)
+            return ;
         
         const customSettings = getBackendGameConfig();
         socket.emit('joinMatchmaking', { mode: '1v1', customSettings });
         navigateTo('/online-game');
     };
-    button2v2Handler = () => {
+    button2v2Handler = () =>
+    {
         const socket = getSocket();
-        if (!socket) return;
+        if (!socket)
+            return ;
         
         const customSettings = getBackendGameConfig();
         socket.emit('joinMatchmaking', { mode: '2v2', customSettings });
         navigateTo('/online-game');
     };
-    customGameButtonHandler = () => {
+    customGameButtonHandler = () =>
+    {
         alert('Custom online games are coming soon! This will require backend changes.');
     };
 

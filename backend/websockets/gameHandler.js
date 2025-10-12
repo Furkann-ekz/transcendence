@@ -19,11 +19,9 @@ function getGameConfig(customSettings = null) {
 		}
 	};
 
-	if (!customSettings) {
-		return defaultConfig;
-	}
+	if (!customSettings)
+		return (defaultConfig);
 
-	// Merge custom settings with defaults, ensuring valid values
 	return {
 		canvasSize: Math.max(customSettings.mapWidth || defaultConfig.canvasSize, customSettings.mapHeight || defaultConfig.canvasSize),
 		paddleSize: Math.max(60, Math.min(150, customSettings.paddleHeight || defaultConfig.paddleSize)),
@@ -130,9 +128,8 @@ async function cleanUpPlayer(sock, io, gameRooms)
 			allRemainingPlayers.forEach(p =>
 			{
 				const playerSocket = io.sockets.sockets.get(p.socketId);
-				if (playerSocket) {
+				if (playerSocket)
 					playerSocket.emit('gameOver', { winners, losers, reason: 'forfeit' });
-				}
 			});
 			
 			await updatePlayerStats(winners.map(p => p.id), 'win');
@@ -231,7 +228,7 @@ function startGameLoop(room, players, io, mode, gameConfig, onMatchEnd)
 		
 		if (scored)
 		{
-			if(scoringTeam === 1)
+			if (scoringTeam === 1)
 				gameState.team1Score++;
 			else
 				gameState.team2Score++;
@@ -305,7 +302,6 @@ function handleJoinMatchmaking(io, socket, state, payload)
 		return ;
 	}
 
-	// Store custom settings with the player
 	socket.customGameSettings = customSettings;
 	const pool = state.waitingPlayers[mode];
 	pool.push(socket);
@@ -318,7 +314,6 @@ function handleJoinMatchmaking(io, socket, state, payload)
 	if (mode === '1v1' && pool.length >= 2)
 	{
 		playerSockets = pool.splice(0, 2);
-		// Use custom settings from the first player, or default if none
 		gameConfig = getGameConfig(playerSockets[0].customGameSettings);
 		
 		const [p1, p2] = playerSockets;
@@ -332,7 +327,6 @@ function handleJoinMatchmaking(io, socket, state, payload)
 	if (mode === '2v2' && pool.length >= 4)
 	{
 		playerSockets = pool.splice(0, 4);
-		// Use custom settings from the first player, or default if none
 		gameConfig = getGameConfig(playerSockets[0].customGameSettings);
 		
 		shuffleArray(playerSockets);
@@ -340,7 +334,8 @@ function handleJoinMatchmaking(io, socket, state, payload)
 
 		if (teamConfig === 1)
 		{
-			players = [
+			players =
+			[
 				{ ...playerSockets[0].user, socketId: playerSockets[0].id, position: 'left', team: 1 },
 				{ ...playerSockets[1].user, socketId: playerSockets[1].id, position: 'top', team: 1 },
 				{ ...playerSockets[2].user, socketId: playerSockets[2].id, position: 'right', team: 2 },
@@ -360,10 +355,26 @@ function handleJoinMatchmaking(io, socket, state, payload)
 		players.forEach(p =>
 		{
 			const center = (gameConfig.canvasSize / 2) - (gameConfig.paddleSize / 2);
-			if (p.position === 'left') { p.x = 0; p.y = center; }
-			if (p.position === 'right') { p.x = gameConfig.canvasSize - gameConfig.paddleThickness; p.y = center; }
-			if (p.position === 'top') { p.y = 0; p.x = center; }
-			if (p.position === 'bottom') { p.y = gameConfig.canvasSize - gameConfig.paddleThickness; p.x = center; }
+			if (p.position === 'left')
+			{
+				p.x = 0;
+				p.y = center;
+			}
+			if (p.position === 'right')
+			{
+				p.x = gameConfig.canvasSize - gameConfig.paddleThickness;
+				p.y = center;
+			}
+			if (p.position === 'top')
+			{
+				p.y = 0;
+				p.x = center;
+			}
+			if (p.position === 'bottom')
+			{
+				p.y = gameConfig.canvasSize - gameConfig.paddleThickness;
+				p.x = center;
+			}
 		});
 	}
 

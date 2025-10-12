@@ -2,4 +2,4 @@ nginx/ssl/
 nginx/ssl/cert.conf
 
 .vscode/
-prisma/ 
+prisma/

@@ -75,8 +75,16 @@ function initializeSocket(io)
 		tournamentHandler.handlePlayerReady(socket, io, onlineUsers, gameState.gameRooms);
 		tournamentHandler.handleRequestCurrentMatch(socket);
 		socket.on('joinMatchmaking', (payload) => handleJoinMatchmaking(io, socket, gameState, payload));
-		socket.on('join_tournament_lobby', ({ tournamentId }) => { if (tournamentId) socket.join(tournamentId); });
-		socket.on('leave_tournament_lobby', ({ tournamentId }) => { if (tournamentId) socket.leave(tournamentId); });
+		socket.on('join_tournament_lobby', ({ tournamentId }) =>
+		{
+			if (tournamentId)
+				socket.join(tournamentId);
+		});
+		socket.on('leave_tournament_lobby', ({ tournamentId }) =>
+		{
+			if (tournamentId)
+				socket.leave(tournamentId);
+		});
 
 		socket.on('leave_tournament', async ({ tournamentId }) =>
 		{
@@ -135,7 +143,7 @@ function initializeSocket(io)
 
 		socket.on('client_ready_for_game', () =>
 		{
-			 if (socket.gameRoom)
+			if (socket.gameRoom)
 			{
 				const game = gameState.gameRooms.get(socket.gameRoom.id);
 				if (game)
@@ -165,7 +173,7 @@ function initializeSocket(io)
 				return ;
 			
 			const { direction } = data;
-			const moveSpeed = 15; // Movement speed per update
+			const moveSpeed = 15;
 			const canvasSize = game.canvasSize || 800;
 			const paddleSize = game.paddleSize || 100;
 
@@ -275,7 +283,8 @@ function initializeSocket(io)
 				}
 				else if (inviterSocket && !accepted)
 				{
-					inviterSocket.emit('invitation_declined', {
+					inviterSocket.emit('invitation_declined',
+					{
 						recipient: { id: recipientSocket.user.id, name: recipientSocket.user.name }
 					});
 				}
