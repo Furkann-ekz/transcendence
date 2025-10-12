@@ -7,7 +7,7 @@ import { navigateTo } from '../router';
 interface Player { id: number; name: string; email: string; socketId: string; position: 'left' | 'right' | 'top' | 'bottom'; team: 1 | 2; x: number; y: number; }
 interface Powerup { type: string; x: number; y: number; }
 interface GameConfig { canvasSize: number; paddleSize: number; paddleThickness: number; mode: string; tournamentId?: string; }
-interface GameState { ballX?: number; ballY?: number; team1Score?: number; team2Score?: number; players?: Player[]; powerups?: Powerup[]; } // 'powerups' özelliği eklendi.
+interface GameState { ballX?: number; ballY?: number; team1Score?: number; team2Score?: number; players?: Player[]; powerups?: Powerup[]; }
 
 interface GameStartPayload extends GameConfig { players: Player[]; }
 interface UpdateQueuePayload { queueSize: number; requiredSize: number; }
@@ -46,7 +46,7 @@ function createDottedPattern(dotColor: string, bgColor: string): CanvasPattern |
 function renderGame()
 {
     if (!context || !gameState.players || !gameConfig?.canvasSize)
-		return ;
+		return;
     const { players, ballX, ballY, team1Score, team2Score, powerups } = gameState;
     const { canvasSize, paddleSize, paddleThickness } = gameConfig;
 
@@ -69,8 +69,7 @@ function renderGame()
     context.textAlign = 'right';
     context.fillText(team2Players, canvasSize - 20, 30);
 
-    players.forEach((player: Player) =>
-	{
+    players.forEach((player: Player) => {
         context.fillStyle = player.id === myUserId ? myPaddlePattern : (player.team === 1 ? '#60a5fa' : '#f87171');
         if (player.position === 'left' || player.position === 'right')
             context.fillRect(player.x, player.y, paddleThickness, paddleSize);
@@ -88,12 +87,13 @@ function renderGame()
 
     if (powerups && powerups.length > 0)
 	{
-        powerups.forEach((powerup: Powerup) =>
+        powerups.forEach((powerup: any) =>
 		{
             context.fillStyle = '#ff6b6b';
             context.beginPath();
             context.arc(powerup.x, powerup.y, 15, 0, Math.PI * 2);
             context.fill();
+            
             context.fillStyle = 'white';
             context.font = '12px Arial';
             context.textAlign = 'center';
