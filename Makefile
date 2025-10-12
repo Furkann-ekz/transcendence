@@ -44,8 +44,8 @@ migrate:
 	docker compose exec backend npx prisma migrate dev
 
 links:
-	@echo "for network: https://$$(hostname -I | awk '{print $$1}')"
-	@echo "for local:   https://localhost"
+	@echo "for network: https://$$(hostname -I | awk '{print $$1}'):4043"
+	@echo "for local:   https://localhost:4043"
 
 check-env:
 	@if [ ! -f secrets/.env ]; then \

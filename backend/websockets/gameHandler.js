@@ -304,7 +304,7 @@ function handleJoinMatchmaking(io, socket, state, payload)
 
 	socket.customGameSettings = customSettings;
 	const pool = state.waitingPlayers[mode];
-	pool.push(socket);
+    pool.push(socket);
 	pool.forEach(p => p.emit('updateQueue', { queueSize: pool.length, requiredSize: mode === '1v1' ? 2 : 4 }));
 
 	let playerSockets;
