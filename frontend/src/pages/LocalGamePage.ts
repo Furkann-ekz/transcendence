@@ -68,8 +68,8 @@ function updatePowerups()
 	if (gameSettings.mode === 'powerup' && gameSettings.powerups.speedBoost && currentTime - gameState.lastPowerupSpawn > 15000)
 	{
 		const powerup = createPowerup(
-			Math.random() * (CANVAS_WIDTH - 40) + 20,
-			Math.random() * (CANVAS_HEIGHT - 40) + 20
+			Math.random() * (CANVAS_WIDTH - 60) + 30,
+			Math.random() * (CANVAS_HEIGHT - 60) + 30
 		);
 		gameState.powerups.push(powerup);
 		gameState.lastPowerupSpawn = currentTime;
@@ -261,7 +261,7 @@ function gameLoop()
 }
 function startGame()
 {
-	gameState.lastPowerupSpawn = Date.now() - 12000;
+	gameState.lastPowerupSpawn = Date.now() - 5000;
 	if (animationFrameId)
 		cancelAnimationFrame(animationFrameId);
 	gameLoop();

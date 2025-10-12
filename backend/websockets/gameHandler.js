@@ -3,36 +3,36 @@ const prisma = require('../prisma/db');
 
 function getGameConfig(customSettings = null)
 {
-    const defaultConfig =
+	const defaultConfig =
 	{
-        canvasSize: 800,
-        paddleSize: 100,
-        paddleThickness: 15,
-        ballSpeed: 8,
-        paddleSpeed: 15,
-        ballSize: 10,
-        mode: 'classic',
-        powerupsEnabled: false,
-        enabledPowerups:
+		canvasSize: 800,
+		paddleSize: 100,
+		paddleThickness: 15,
+		ballSpeed: 8,
+		paddleSpeed: 15,
+		ballSize: 10,
+		mode: 'classic',
+		powerupsEnabled: false,
+		enabledPowerups:
 		{
-            speedBoost: false,
-        }
-    };
+			speedBoost: false,
+		}
+	};
 
-    if (!customSettings)
-        return (defaultConfig);
+	if (!customSettings)
+		return (defaultConfig);
 
-    return {
-        canvasSize: customSettings.canvasSize || defaultConfig.canvasSize,
-        paddleSize: customSettings.paddleSize || defaultConfig.paddleSize,
-        paddleThickness: customSettings.paddleThickness || defaultConfig.paddleThickness,
-        ballSpeed: customSettings.ballSpeed || defaultConfig.ballSpeed,
-        paddleSpeed: customSettings.paddleSpeed || defaultConfig.paddleSpeed,
-        ballSize: customSettings.ballSize || defaultConfig.ballSize,
-        mode: customSettings.mode || defaultConfig.mode,
-        powerupsEnabled: customSettings.powerupsEnabled,
-        enabledPowerups: customSettings.enabledPowerups || defaultConfig.enabledPowerups
-    };
+	return {
+		canvasSize: customSettings.canvasSize || defaultConfig.canvasSize,
+		paddleSize: customSettings.paddleSize || defaultConfig.paddleSize,
+		paddleThickness: customSettings.paddleThickness || defaultConfig.paddleThickness,
+		ballSpeed: customSettings.ballSpeed || defaultConfig.ballSpeed,
+		paddleSpeed: customSettings.paddleSpeed || defaultConfig.paddleSpeed,
+		ballSize: customSettings.ballSize || defaultConfig.ballSize,
+		mode: customSettings.mode || defaultConfig.mode,
+		powerupsEnabled: customSettings.powerupsEnabled,
+		enabledPowerups: customSettings.enabledPowerups || defaultConfig.enabledPowerups
+	};
 }
 
 async function updatePlayerStats(playerIds, outcome)
@@ -148,172 +148,192 @@ async function cleanUpPlayer(sock, io, gameRooms)
 	}
 }
 
-function startGameLoop(room, players, io, mode, gameConfig, onMatchEnd) {
-    const startTime = Date.now();
-    const WINNING_SCORE = 20;
-    const BALL_RADIUS = 10;
-    const POWERUP_RADIUS = 15;
+function startGameLoop(room, players, io, mode, gameConfig, onMatchEnd)
+{
+	const startTime = Date.now();
+	const WINNING_SCORE = 20;
+	const BALL_RADIUS = 10;
+	const POWERUP_RADIUS = 15;
 
-    const game = { 
-        players, 
-        mode, 
-        gameState: {}, 
-        intervalId: null, 
-        startTime: startTime, 
-        onMatchEnd: onMatchEnd,
-        ...gameConfig 
-    };
+	const game =
+	{
+		players, 
+		mode, 
+		gameState: {}, 
+		intervalId: null, 
+		startTime: startTime, 
+		onMatchEnd: onMatchEnd,
+		...gameConfig 
+	};
 
-    let gameState = {
-        ballX: gameConfig.canvasSize / 2,
-        ballY: gameConfig.canvasSize / 2,
-        ballSpeedX: gameConfig.ballSpeed || 8,
-        ballSpeedY: (gameConfig.ballSpeed || 8) * 0.75,
-        team1Score: 0,
-        team2Score: 0,
-        players: players.map(p => ({ ...p, hits: 0 })),
-        powerups: [],
-        activePowerups: [],
-        lastPowerupSpawn: 0, // Başlangıçta 0 olarak ayarla
-        ballSpeedMultiplier: 1,
-    };
-    game.gameState = gameState;
+	let gameState =
+	{
+		ballX: gameConfig.canvasSize / 2,
+		ballY: gameConfig.canvasSize / 2,
+		ballSpeedX: gameConfig.ballSpeed || 8,
+		ballSpeedY: (gameConfig.ballSpeed || 8) * 0.75,
+		team1Score: 0,
+		team2Score: 0,
+		players: players.map(p => ({ ...p, hits: 0 })),
+		powerups: [],
+		activePowerups: [],
+		lastPowerupSpawn: Date.now() - 5000,
+		ballSpeedMultiplier: 1,
+	};
+	game.gameState = gameState;
 
-    const updatePowerupsInLoop = () => {
-        const currentTime = Date.now();
-        if (gameConfig.powerupsEnabled && gameConfig.enabledPowerups.speedBoost && currentTime - gameState.lastPowerupSpawn > 15000) {
-            gameState.powerups.push({
-                type: 'speedBoost',
-                x: Math.random() * (gameConfig.canvasSize - 80) + 40,
-                y: Math.random() * (gameConfig.canvasSize - 80) + 40,
-                duration: 5000,
-            });
-            gameState.lastPowerupSpawn = currentTime;
-        }
-        gameState.activePowerups = gameState.activePowerups.filter(p => {
-            if (currentTime > p.activationTime + p.duration) {
-                if (p.type === 'speedBoost') gameState.ballSpeedMultiplier = 1;
-                return false;
-            }
-            return true;
-        });
-        gameState.powerups = gameState.powerups.filter(p => {
-            const dx = gameState.ballX - p.x;
-            const dy = gameState.ballY - p.y;
-            if (Math.sqrt(dx * dx + dy * dy) < BALL_RADIUS + POWERUP_RADIUS) {
-                p.activationTime = currentTime;
-                gameState.activePowerups.push(p);
-                if (p.type === 'speedBoost') gameState.ballSpeedMultiplier = 1.5;
-                return false;
-            }
-            return true;
-        });
-    };
+	const updatePowerupsInLoop = () =>
+	{
+		const currentTime = Date.now();
+		if (gameConfig.powerupsEnabled && gameConfig.enabledPowerups.speedBoost && currentTime - gameState.lastPowerupSpawn > 15000) {
+			gameState.powerups.push({
+				type: 'speedBoost',
+				x: Math.random() * (gameConfig.canvasSize - 60) + 30,
+				y: Math.random() * (gameConfig.canvasSize - 60) + 30,
+				duration: 5000,
+			});
+			gameState.lastPowerupSpawn = currentTime;
+		}
+		gameState.activePowerups = gameState.activePowerups.filter(p =>
+			{
+			if (currentTime > p.activationTime + p.duration)
+			{
+				if (p.type === 'speedBoost')
+					gameState.ballSpeedMultiplier = 1;
+				return (false);
+			}
+			return (true);
+		});
+		gameState.powerups = gameState.powerups.filter(p =>
+		{
+			const dx = gameState.ballX - p.x;
+			const dy = gameState.ballY - p.y;
+			if (Math.sqrt(dx * dx + dy * dy) < BALL_RADIUS + POWERUP_RADIUS)
+			{
+				p.activationTime = currentTime;
+				gameState.activePowerups.push(p);
+				if (p.type === 'speedBoost')
+					gameState.ballSpeedMultiplier = 1.5;
+				return (false);
+			}
+			return (true);
+		});
+	};
 
-    // --- DOĞRU YER BURASI ---
-    // Oyun döngüsü başlamadan hemen önce zamanlayıcıyı ayarla
-    gameState.lastPowerupSpawn = Date.now() - 12000; // İlk güçlendirmenin ~3 saniye sonra çıkmasını sağlar
-    // --- ---
+	gameState.lastPowerupSpawn = Date.now() - 12000;
 
-    const intervalId = setInterval(async () => {
-        if (game.mode === 'powerup' || (gameConfig.mode === 'powerup' && gameConfig.powerupsEnabled)) {
-            updatePowerupsInLoop();
-        }
+	const intervalId = setInterval(async () =>
+	{
+		if (game.mode === 'powerup' || (gameConfig.mode === 'powerup' && gameConfig.powerupsEnabled))
+			updatePowerupsInLoop();
 
-        gameState.ballX += gameState.ballSpeedX * gameState.ballSpeedMultiplier;
-        gameState.ballY += gameState.ballSpeedY * gameState.ballSpeedMultiplier;
+		gameState.ballX += gameState.ballSpeedX * gameState.ballSpeedMultiplier;
+		gameState.ballY += gameState.ballSpeedY * gameState.ballSpeedMultiplier;
 
-        gameState.players.forEach(p => {
-            if (p.position === 'left' || p.position === 'right') {
-                const paddleEdgeX = (p.position === 'left') ? gameConfig.paddleThickness : gameConfig.canvasSize - gameConfig.paddleThickness;
-                const ballEdgeX = (p.position === 'left') ? gameState.ballX - BALL_RADIUS : gameState.ballX + BALL_RADIUS;
-                if (((p.position === 'left' && ballEdgeX <= paddleEdgeX && gameState.ballSpeedX < 0) || (p.position === 'right' && ballEdgeX >= paddleEdgeX && gameState.ballSpeedX > 0)) && (gameState.ballY > p.y && gameState.ballY < p.y + gameConfig.paddleSize)) {
-                    gameState.ballSpeedX = -gameState.ballSpeedX;
-                }
-            } else {
-                const paddleEdgeY = (p.position === 'top') ? gameConfig.paddleThickness : gameConfig.canvasSize - gameConfig.paddleThickness;
-                const ballEdgeY = (p.position === 'top') ? gameState.ballY - BALL_RADIUS : gameState.ballY + BALL_RADIUS;
-                if (((p.position === 'top' && ballEdgeY <= paddleEdgeY && gameState.ballSpeedY < 0) || (p.position === 'bottom' && ballEdgeY >= paddleEdgeY && gameState.ballSpeedY > 0)) && (gameState.ballX > p.x && gameState.ballX < p.x + gameConfig.paddleSize)) {
-                    gameState.ballSpeedY = -gameState.ballSpeedY;
-                }
-            }
-        });
+		gameState.players.forEach(p =>
+		{
+			if (p.position === 'left' || p.position === 'right')
+			{
+				const paddleEdgeX = (p.position === 'left') ? gameConfig.paddleThickness : gameConfig.canvasSize - gameConfig.paddleThickness;
+				const ballEdgeX = (p.position === 'left') ? gameState.ballX - BALL_RADIUS : gameState.ballX + BALL_RADIUS;
+				if (((p.position === 'left' && ballEdgeX <= paddleEdgeX && gameState.ballSpeedX < 0) || (p.position === 'right' && ballEdgeX >= paddleEdgeX && gameState.ballSpeedX > 0)) && (gameState.ballY > p.y && gameState.ballY < p.y + gameConfig.paddleSize))
+					gameState.ballSpeedX = -gameState.ballSpeedX;
+			}
+			else
+			{
+				const paddleEdgeY = (p.position === 'top') ? gameConfig.paddleThickness : gameConfig.canvasSize - gameConfig.paddleThickness;
+				const ballEdgeY = (p.position === 'top') ? gameState.ballY - BALL_RADIUS : gameState.ballY + BALL_RADIUS;
+				if (((p.position === 'top' && ballEdgeY <= paddleEdgeY && gameState.ballSpeedY < 0) || (p.position === 'bottom' && ballEdgeY >= paddleEdgeY && gameState.ballSpeedY > 0)) && (gameState.ballX > p.x && gameState.ballX < p.x + gameConfig.paddleSize))
+					gameState.ballSpeedY = -gameState.ballSpeedY;
+			}
+		});
 
-        let scored = false;
-        let scoringTeam = null;
-        if (gameState.ballX - BALL_RADIUS < 0) {
-            const player = gameState.players.find(p => p.position === 'left');
-            scoringTeam = player.team === 1 ? 2 : 1;
-            scored = true;
-        } else if (gameState.ballX + BALL_RADIUS > gameConfig.canvasSize) {
-            const player = gameState.players.find(p => p.position === 'right');
-            scoringTeam = player.team === 1 ? 2 : 1;
-            scored = true;
-        }
-        
-        if (mode === '2v2') {
-            if (gameState.ballY - BALL_RADIUS < 0) {
-                const player = gameState.players.find(p => p.position === 'top');
-                scoringTeam = player.team === 1 ? 2 : 1;
-                scored = true;
-            } else if (gameState.ballY + BALL_RADIUS > gameConfig.canvasSize) {
-                const player = gameState.players.find(p => p.position === 'bottom');
-                scoringTeam = player.team === 1 ? 2 : 1;
-                scored = true;
-            }
-        } else {
-            if (gameState.ballY - BALL_RADIUS <= 0 || gameState.ballY + BALL_RADIUS >= gameConfig.canvasSize) {
-                gameState.ballSpeedY = -gameState.ballSpeedY;
-            }
-        }
-        
-        if (scored) {
-            scoringTeam === 1 ? gameState.team1Score++ : gameState.team2Score++;
-            if (gameState.team1Score >= WINNING_SCORE || gameState.team2Score >= WINNING_SCORE) {
-                clearInterval(intervalId);
-                const winners = players.filter(p => p.team === scoringTeam);
-                const losers = players.filter(p => p.team !== scoringTeam);
-                
-                await updatePlayerStats(winners.map(p => p.id), 'win');
-                await updatePlayerStats(losers.map(p => p.id), 'loss');
-                await saveMatch(game, scoringTeam, false);
+		let scored = false;
+		let scoringTeam = null;
+		if (gameState.ballX - BALL_RADIUS < 0)
+		{
+			const player = gameState.players.find(p => p.position === 'left');
+			scoringTeam = player.team === 1 ? 2 : 1;
+			scored = true;
+		}
+		else if (gameState.ballX + BALL_RADIUS > gameConfig.canvasSize)
+		{
+			const player = gameState.players.find(p => p.position === 'right');
+			scoringTeam = player.team === 1 ? 2 : 1;
+			scored = true;
+		}
+		
+		if (mode === '2v2')
+		{
+			if (gameState.ballY - BALL_RADIUS < 0)
+			{
+				const player = gameState.players.find(p => p.position === 'top');
+				scoringTeam = player.team === 1 ? 2 : 1;
+				scored = true;
+			}
+			else if (gameState.ballY + BALL_RADIUS > gameConfig.canvasSize)
+			{
+				const player = gameState.players.find(p => p.position === 'bottom');
+				scoringTeam = player.team === 1 ? 2 : 1;
+				scored = true;
+			}
+		}
+		else
+			if (gameState.ballY - BALL_RADIUS <= 0 || gameState.ballY + BALL_RADIUS >= gameConfig.canvasSize)
+				gameState.ballSpeedY = -gameState.ballSpeedY;
+		
+		if (scored)
+		{
+			scoringTeam === 1 ? gameState.team1Score++ : gameState.team2Score++;
+			if (gameState.team1Score >= WINNING_SCORE || gameState.team2Score >= WINNING_SCORE)
+			{
+				clearInterval(intervalId);
+				const winners = players.filter(p => p.team === scoringTeam);
+				const losers = players.filter(p => p.team !== scoringTeam);
+				
+				await updatePlayerStats(winners.map(p => p.id), 'win');
+				await updatePlayerStats(losers.map(p => p.id), 'loss');
+				await saveMatch(game, scoringTeam, false);
 
-                io.to(room).emit('gameOver', { winners, losers, reason: 'score' });
-                
-                if (onMatchEnd) onMatchEnd(losers); 
+				io.to(room).emit('gameOver', { winners, losers, reason: 'score' });
+				
+				if (onMatchEnd) onMatchEnd(losers);
 
-                players.map(p => io.sockets.sockets.get(p.socketId)).filter(Boolean)
-                       .forEach(sock => { if(sock) { sock.leave(room); sock.gameRoom = null; } });
-                return; 
-            }
-            
-            gameState.ballX = gameConfig.canvasSize / 2;
-            gameState.ballY = gameConfig.canvasSize / 2;
-            const baseSpeedX = gameConfig.ballSpeed || 8;
-            gameState.ballSpeedX = (Math.random() < 0.5 ? -baseSpeedX : baseSpeedX);
-            let randomY;
-            do {
-                randomY = Math.random() * (baseSpeedX * 1.5) - (baseSpeedX * 0.75);
-            } while (Math.abs(randomY) < baseSpeedX * 0.3);
-            gameState.ballSpeedY = randomY;
-        }
-        
-        io.to(room).emit('gameStateUpdate', gameState);
-            
-    }, 1000 / 60);
+				players.map(p => io.sockets.sockets.get(p.socketId)).filter(Boolean)
+					   .forEach(sock => { if(sock) { sock.leave(room); sock.gameRoom = null; } });
+				return;
+			}
+			
+			gameState.ballX = gameConfig.canvasSize / 2;
+			gameState.ballY = gameConfig.canvasSize / 2;
+			const baseSpeedX = gameConfig.ballSpeed || 8;
+			gameState.ballSpeedX = (Math.random() < 0.5 ? -baseSpeedX : baseSpeedX);
+			let randomY;
+			do
+			{
+				randomY = Math.random() * (baseSpeedX * 1.5) - (baseSpeedX * 0.75);
+			}
+			while (Math.abs(randomY) < baseSpeedX * 0.3);
+			gameState.ballSpeedY = randomY;
+		}
+		
+		io.to(room).emit('gameStateUpdate', gameState);
+			
+	}, 1000 / 60);
 
-    game.intervalId = intervalId;
+	game.intervalId = intervalId;
 
-    const gameStartPayload = {
-        players: players.map(p => ({id: p.id, name: p.name, email: p.email, position: p.position, team: p.team})),
-        mode: mode,
-        canvasSize: gameConfig.canvasSize,
-        paddleSize: gameConfig.paddleSize,
-        paddleThickness: gameConfig.paddleThickness,
-        tournamentId: gameConfig.tournamentId || null 
-    };
-    io.to(room).emit('gameStart', gameStartPayload);
-    return game;
+	const gameStartPayload =
+	{
+		players: players.map(p => ({id: p.id, name: p.name, email: p.email, position: p.position, team: p.team})),
+		mode: mode,
+		canvasSize: gameConfig.canvasSize,
+		paddleSize: gameConfig.paddleSize,
+		paddleThickness: gameConfig.paddleThickness,
+		tournamentId: gameConfig.tournamentId || null 
+	};
+	io.to(room).emit('gameStart', gameStartPayload);
+	return (game);
 }
 
 function handleJoinMatchmaking(io, socket, state, payload)
@@ -331,7 +351,7 @@ function handleJoinMatchmaking(io, socket, state, payload)
 
 	socket.customGameSettings = customSettings;
 	const pool = state.waitingPlayers[mode];
-    pool.push(socket);
+	pool.push(socket);
 	pool.forEach(p => p.emit('updateQueue', { queueSize: pool.length, requiredSize: mode === '1v1' ? 2 : 4 }));
 
 	let playerSockets;
