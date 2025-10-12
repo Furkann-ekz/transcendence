@@ -38,8 +38,7 @@ export function afterRender()
         const socket = getSocket();
         if (!socket)
             return;
-        
-        const customSettings = getBackendGameConfig();
+		const customSettings = getBackendGameConfig();
         socket.emit('joinMatchmaking', { mode: '1v1', customSettings });
         
         navigateTo('/online-game');

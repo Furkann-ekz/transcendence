@@ -261,6 +261,7 @@ function gameLoop()
 }
 function startGame()
 {
+	gameState.lastPowerupSpawn = Date.now() - 12000;
 	if (animationFrameId)
 		cancelAnimationFrame(animationFrameId);
 	gameLoop();
