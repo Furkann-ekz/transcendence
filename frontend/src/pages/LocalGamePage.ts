@@ -42,13 +42,13 @@ function initializeGameSettings()
     gameSettings = getGameSettings();
 
     if (canvas)
-	{
+    {
         canvas.width = CANVAS_WIDTH;
         canvas.height = CANVAS_HEIGHT;
     }
     
     gameState =
-	{
+    {
         leftPaddleY: (CANVAS_HEIGHT - PADDLE_HEIGHT) / 2,
         rightPaddleY: (CANVAS_HEIGHT - PADDLE_HEIGHT) / 2,
         ballX: CANVAS_WIDTH / 2,
@@ -69,7 +69,7 @@ function updatePowerups()
     const currentTime = Date.now();
     
     if (gameSettings.mode === 'powerup' && gameSettings.powerups.speedBoost && currentTime - gameState.lastPowerupSpawn > 15000)
-	{
+    {
         const powerup = createPowerup(
             Math.random() * (CANVAS_WIDTH - 40) + 20,
             Math.random() * (CANVAS_HEIGHT - 40) + 20
@@ -79,9 +79,9 @@ function updatePowerups()
     }
 
     gameState.activePowerups = gameState.activePowerups.filter(powerup =>
-	{
+    {
         if (currentTime > powerup.duration)
-		{
+        {
             removePowerupEffect(powerup, gameState);
             return (false);
         }
@@ -89,16 +89,17 @@ function updatePowerups()
     });
 
     gameState.powerups = gameState.powerups.filter(powerup =>
-	{
+    {
         const dx = gameState.ballX - powerup.x;
         const dy = gameState.ballY - powerup.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         
-        if (distance < BALL_SIZE + 15) {
+        if (distance < BALL_SIZE + 15)
+        {
             powerup.duration = Date.now() + powerup.duration;
             gameState.activePowerups.push(powerup);
             applyPowerupEffect(powerup, gameState);
-            return (false);
+            return false;
         }
         return (true);
     });
@@ -107,7 +108,7 @@ function updatePowerups()
 function drawPowerups()
 {
     gameState.powerups.forEach(powerup =>
-	{
+    {
         context.fillStyle = '#ff6b6b';
         context.beginPath();
         context.arc(powerup.x, powerup.y, 15, 0, Math.PI * 2);
@@ -177,7 +178,7 @@ function drawText(text: string, x: number, y: number, color: string)
 function renderGame()
 {
     if (!context)
-		return;
+        return;
     drawRect(0, 0, canvas.width, canvas.height, "black");
     drawText(gameState.leftScore.toString(), canvas.width / 4, canvas.height / 5, "white");
     drawText(gameState.rightScore.toString(), 3 * canvas.width / 4, canvas.height / 5, "white");
@@ -199,17 +200,17 @@ function resetBall()
     gameState.ballSpeedX = (Math.random() < 0.5 ? -baseSpeedX : baseSpeedX);
     let randomY;
     do
-	{
+    {
         randomY = Math.random() * (baseSpeedX * 1.5) - (baseSpeedX * 0.75);
     }
-	while (Math.abs(randomY) < baseSpeedX * 0.3);
+    while (Math.abs(randomY) < baseSpeedX * 0.3);
     gameState.ballSpeedY = randomY;
 }
 
 function update()
 {
     if (!canvas || !gameSettings)
-		return ;
+        return;
         
     if (gameSettings.mode === 'powerup')
         updatePowerups();
@@ -239,7 +240,7 @@ function update()
         gameState.ballY + BALL_SIZE > gameState.leftPaddleY &&
         gameState.ballY - BALL_SIZE < gameState.leftPaddleY + PADDLE_HEIGHT
     )
-	{
+    {
         const collidePoint = (gameState.ballY - (gameState.leftPaddleY + PADDLE_HEIGHT / 2));
         const normalizedCollidePoint = collidePoint / (PADDLE_HEIGHT / 2);
         const bounceAngle = normalizedCollidePoint * (Math.PI / 4);
@@ -248,12 +249,12 @@ function update()
         gameState.ballSpeedY = (Math.abs(gameSettings.ballSpeed) * 1.5) * Math.sin(bounceAngle);
         gameState.ballX = PADDLE_WIDTH + BALL_SIZE;
     }
-	else if (
+    else if (
         gameState.ballX + BALL_SIZE > canvas.width - PADDLE_WIDTH &&
         gameState.ballY + BALL_SIZE > gameState.rightPaddleY &&
         gameState.ballY - BALL_SIZE < gameState.rightPaddleY + PADDLE_HEIGHT
     )
-	{
+    {
         const collidePoint = (gameState.ballY - (gameState.rightPaddleY + PADDLE_HEIGHT / 2));
         const normalizedCollidePoint = collidePoint / (PADDLE_HEIGHT / 2);
         const bounceAngle = normalizedCollidePoint * (Math.PI / 4);
@@ -264,12 +265,12 @@ function update()
     }
 
     if (gameState.ballX - BALL_SIZE < 0)
-	{
+    {
         gameState.rightScore++;
         resetBall();
     }
-	else if (gameState.ballX + BALL_SIZE > canvas.width)
-	{
+    else if (gameState.ballX + BALL_SIZE > canvas.width)
+    {
         gameState.leftScore++;
         resetBall();
     }
@@ -285,14 +286,14 @@ function gameLoop()
 function startGame()
 {
     if (animationFrameId)
-		cancelAnimationFrame(animationFrameId);
+        cancelAnimationFrame(animationFrameId);
     gameLoop();
 }
 
 function stopGame()
 {
     if (animationFrameId)
-		cancelAnimationFrame(animationFrameId);
+        cancelAnimationFrame(animationFrameId);
     animationFrameId = 0;
 }
 
@@ -307,7 +308,7 @@ export function afterRender()
     
     const localCanvas = document.getElementById('pong-canvas') as HTMLCanvasElement;
     if (localCanvas)
-	{
+    {
         canvas = localCanvas;
         context = canvas.getContext('2d')!;
         initializeGameSettings();
@@ -317,7 +318,7 @@ export function afterRender()
         const p2Controls = document.getElementById('p2-controls');
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         if (isMobile)
-		{
+        {
             p1Controls?.classList.remove('hidden');
             p1Controls?.classList.add('flex');
             p2Controls?.classList.remove('hidden');
@@ -344,30 +345,31 @@ export function afterRender()
         p2Down?.addEventListener('touchstart', p2DownStart);
         p2Down?.addEventListener('touchend', p2DownEnd);
         fullscreenBtn.addEventListener('click', () =>
-		{
+        {
             if (gameContainer.requestFullscreen)
-				gameContainer.requestFullscreen();
+                gameContainer.requestFullscreen();
         });
         windowedBtn.addEventListener('click', () =>
-		{
+        {
             fullscreenOverlay.style.display = 'none';
             gameContent.classList.remove('hidden');
             startGame();
         });
         exitFullscreenBtn.addEventListener('click', () =>
-		{
+        {
             if (document.fullscreenElement)
-				document.exitFullscreen();
+                document.exitFullscreen();
         });
-        fullscreenChangeHandler = () => {
+        fullscreenChangeHandler = () =>
+        {
             if (document.fullscreenElement === gameContainer)
-			{
+            {
                 fullscreenOverlay.style.display = 'none';
                 gameContent.classList.remove('hidden');
                 exitFullscreenBtn.classList.remove('hidden');
                 startGame();
             }
-			else if (document.fullscreenElement === null && !gameContent.classList.contains('hidden'))
+            else if (document.fullscreenElement === null && !gameContent.classList.contains('hidden'))
                 exitFullscreenBtn.classList.add('hidden');
         };
         document.addEventListener('fullscreenchange', fullscreenChangeHandler);
@@ -394,7 +396,7 @@ export function cleanup()
     p2Down?.removeEventListener('touchend', p2DownEnd);
     
     gameState =
-	{
+    {
         leftPaddleY: (CANVAS_HEIGHT - PADDLE_HEIGHT) / 2,
         rightPaddleY: (CANVAS_HEIGHT - PADDLE_HEIGHT) / 2,
         ballX: CANVAS_WIDTH / 2,

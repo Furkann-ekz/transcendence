@@ -5,8 +5,10 @@ import { t } from '../i18n';
 import { navigateTo } from '../router';
 
 interface Player { id: number; name: string; email: string; socketId: string; position: 'left' | 'right' | 'top' | 'bottom'; team: 1 | 2; x: number; y: number; }
+interface Powerup { type: string; x: number; y: number; }
 interface GameConfig { canvasSize: number; paddleSize: number; paddleThickness: number; mode: string; tournamentId?: string; }
-interface GameState { ballX?: number; ballY?: number; team1Score?: number; team2Score?: number; players?: Player[]; }
+interface GameState { ballX?: number; ballY?: number; team1Score?: number; team2Score?: number; players?: Player[]; powerups?: Powerup[]; } // 'powerups' özelliği eklendi.
+
 interface GameStartPayload extends GameConfig { players: Player[]; }
 interface UpdateQueuePayload { queueSize: number; requiredSize: number; }
 interface GameOverPayload { winners: Player[]; losers: Player[]; reason:string; }
@@ -16,7 +18,6 @@ let canvas: HTMLCanvasElement;
 let context: CanvasRenderingContext2D;
 let gameState: GameState = {};
 let gameConfig: GameConfig | null = null;
-let myPlayer: Player | null = null;
 let animationFrameId: number;
 let myUserId: number | null;
 
@@ -24,77 +25,81 @@ const keysPressed: { [key: string]: boolean } = {};
 let movementInterval: number | null = null;
 
 const myPaddlePattern = createDottedPattern('#ffde59', '#333');
-
 function createDottedPattern(dotColor: string, bgColor: string): CanvasPattern | string
 {
-	const patternCanvas = document.createElement('canvas');
-	const patternContext = patternCanvas.getContext('2d');
-	
-	if (!patternContext)
+    const patternCanvas = document.createElement('canvas');
+    const patternContext = patternCanvas.getContext('2d');
+    if (!patternContext) 
 		return (bgColor);
-
-	patternCanvas.width = 16;
-	patternCanvas.height = 16;
-
-	patternContext.fillStyle = bgColor;
-	patternContext.fillRect(0, 0, patternCanvas.width, patternCanvas.height);
-
-	patternContext.beginPath();
-	patternContext.arc(8, 8, 3, 0, 2 * Math.PI);
-	patternContext.fillStyle = dotColor;
-	patternContext.fill();
-
-	return (patternContext.createPattern(patternCanvas, 'repeat')!);
+    patternCanvas.width = 16;
+    patternCanvas.height = 16;
+    patternContext.fillStyle = bgColor;
+    patternContext.fillRect(0, 0, patternCanvas.width, patternCanvas.height);
+    patternContext.beginPath();
+    patternContext.arc(8, 8, 3, 0, 2 * Math.PI);
+    patternContext.fillStyle = dotColor;
+    patternContext.fill();
+    return (patternContext.createPattern(patternCanvas, 'repeat')!);
 }
+
 
 function renderGame()
 {
-	if (!context || !gameState.players || !gameConfig?.canvasSize)
+    if (!context || !gameState.players || !gameConfig?.canvasSize)
 		return ;
-	const { players, ballX, ballY, team1Score, team2Score } = gameState;
-	const { canvasSize, paddleSize, paddleThickness } = gameConfig;
+    const { players, ballX, ballY, team1Score, team2Score, powerups } = gameState;
+    const { canvasSize, paddleSize, paddleThickness } = gameConfig;
 
-	context.fillStyle = 'black';
-	context.fillRect(0, 0, canvasSize, canvasSize);
+    context.fillStyle = 'black';
+    context.fillRect(0, 0, canvasSize, canvasSize);
 
-	context.fillStyle = 'white';
-	context.font = "75px Arial";
-	context.textAlign = 'center';
-	context.fillText(String(team1Score ?? 0), canvasSize / 4, canvasSize / 5);
-	context.fillText(String(team2Score ?? 0), (canvasSize * 3) / 4, canvasSize / 5);
+    context.fillStyle = 'white';
+    context.font = "75px Arial";
+    context.textAlign = 'center';
+    context.fillText(String(team1Score ?? 0), canvasSize / 4, canvasSize / 5);
+    context.fillText(String(team2Score ?? 0), (canvasSize * 3) / 4, canvasSize / 5);
 
-	context.font = "16px Arial";
-	const team1Players = players.filter(p => p.team === 1).map(p => p.name).join(' & ');
-	const team2Players = players.filter(p => p.team === 2).map(p => p.name).join(' & ');
+    context.font = "16px Arial";
+    const team1Players = players.filter(p => p.team === 1).map(p => p.name).join(' & ');
+    const team2Players = players.filter(p => p.team === 2).map(p => p.name).join(' & ');
+    context.fillStyle = '#60a5fa';
+    context.textAlign = 'left';
+    context.fillText(team1Players, 20, 30);
+    context.fillStyle = '#f87171';
+    context.textAlign = 'right';
+    context.fillText(team2Players, canvasSize - 20, 30);
 
-	context.fillStyle = '#60a5fa';
-	context.textAlign = 'left';
-	context.fillText(team1Players, 20, 30);
-
-	context.fillStyle = '#f87171';
-	context.textAlign = 'right';
-	context.fillText(team2Players, canvasSize - 20, 30);
-
-	players.forEach((player: Player) =>
+    players.forEach((player: Player) =>
 	{
-		if (player.id === myUserId)
-			context.fillStyle = myPaddlePattern;
-		else
-			context.fillStyle = player.team === 1 ? '#60a5fa' : '#f87171';
+        context.fillStyle = player.id === myUserId ? myPaddlePattern : (player.team === 1 ? '#60a5fa' : '#f87171');
+        if (player.position === 'left' || player.position === 'right')
+            context.fillRect(player.x, player.y, paddleThickness, paddleSize);
+        else
+            context.fillRect(player.x, player.y, paddleSize, paddleThickness);
+    });
 
-		if (player.position === 'left' || player.position === 'right')
-			context.fillRect(player.x, player.y, paddleThickness, paddleSize);
-		else
-			context.fillRect(player.x, player.y, paddleSize, paddleThickness);
-	});
-
-	if (ballX !== undefined && ballY !== undefined)
+    if (ballX !== undefined && ballY !== undefined)
 	{
-	  context.fillStyle = 'white';
-	  context.beginPath();
-	  context.arc(ballX, ballY, 10, 0, Math.PI * 2);
-	  context.fill();
-	}
+      context.fillStyle = 'white';
+      context.beginPath();
+      context.arc(ballX, ballY, 10, 0, Math.PI * 2);
+      context.fill();
+    }
+
+    if (powerups && powerups.length > 0)
+	{
+        powerups.forEach((powerup: Powerup) =>
+		{
+            context.fillStyle = '#ff6b6b';
+            context.beginPath();
+            context.arc(powerup.x, powerup.y, 15, 0, Math.PI * 2);
+            context.fill();
+            context.fillStyle = 'white';
+            context.font = '12px Arial';
+            context.textAlign = 'center';
+            context.fillText('⚡', powerup.x, powerup.y + 4);
+        });
+    }
 }
 
 function gameLoop()
@@ -103,11 +108,13 @@ function gameLoop()
 	animationFrameId = requestAnimationFrame(gameLoop);
 }
 
-function handleKeyDown(event: KeyboardEvent) {
+function handleKeyDown(event: KeyboardEvent)
+{
 	keysPressed[event.key] = true;
 }
 
-function handleKeyUp(event: KeyboardEvent) {
+function handleKeyUp(event: KeyboardEvent)
+{
 	keysPressed[event.key] = false;
 }
 
@@ -128,12 +135,11 @@ function initializeGame(payload: GameStartPayload)
 	statusDiv.classList.add('hidden'); 
 	canvas.classList.remove('hidden');
 	
-	myPlayer = payload.players.find((p: Player) => p.id === myUserId) || null;
-
 	window.addEventListener('keydown', handleKeyDown);
 	window.addEventListener('keyup', handleKeyUp);
 
-	if (movementInterval) clearInterval(movementInterval);
+	if (movementInterval)
+		clearInterval(movementInterval);
 	movementInterval = setInterval(() =>
 	{
 		if (!socket)
@@ -232,11 +238,13 @@ export function afterRender()
 	if (isMobile())
 		mobileControls.classList.remove('hidden');
 
-	const handleTouchStart = (direction: 'up' | 'down') => {
+	const handleTouchStart = (direction: 'up' | 'down') =>
+	{
 		keysPressed[`mobile_${direction}`] = true;
 	};
 
-	const handleTouchEnd = (direction: 'up' | 'down') => {
+	const handleTouchEnd = (direction: 'up' | 'down') =>
+	{
 		keysPressed[`mobile_${direction}`] = false;
 	};
 
@@ -366,7 +374,6 @@ export function cleanup()
 	if (animationFrameId)
 		cancelAnimationFrame(animationFrameId);
 	animationFrameId = 0;
-	myPlayer = null;
 	gameConfig = null;
 	gameState = {};
 	sessionStorage.removeItem('activeTournamentId');
