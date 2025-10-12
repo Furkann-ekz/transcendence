@@ -65,7 +65,7 @@ function initializeGameSettings()
 function updatePowerups()
 {
 	const currentTime = Date.now();
-	if (gameSettings.mode === 'powerup' && gameSettings.powerups.speedBoost && currentTime - gameState.lastPowerupSpawn > 15000)
+	if (gameSettings.mode === 'powerup' && gameSettings.powerups.speedBoost && currentTime - gameState.lastPowerupSpawn > 8000)
 	{
 		const powerup = createPowerup(
 			Math.random() * (CANVAS_WIDTH - 60) + 30,
