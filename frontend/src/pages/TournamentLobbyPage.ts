@@ -86,6 +86,16 @@ export async function afterRender()
 
 			if (amIHost)
 			{
+                const settingsButton = document.createElement('a');
+                settingsButton.textContent = t('game_settings') || 'Game Settings';
+                settingsButton.href = `/game-settings/tournament/${tournamentId}`;
+                settingsButton.setAttribute('data-link', '');
+                settingsButton.className = 'w-full inline-flex items-center justify-center rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-semibold py-2 px-5 transition';
+                actionsEl.appendChild(settingsButton);
+            }
+
+			if (amIHost)
+			{
 				const meAsPlayer = tournament.players.find(p => p.user.id === myId)!;
 				const readyButton = document.createElement('button');
 				readyButton.textContent = meAsPlayer.isReady ? t('not_ready_button') : t('ready_button');

@@ -40,70 +40,70 @@ const app = document.querySelector<HTMLDivElement>('#app')!;
 
 export async function handleLocation(forceReload = false)
 {
-	const path = window.location.pathname;
-	const token = localStorage.getItem('token');
+    const path = window.location.pathname;
+    const token = localStorage.getItem('token');
 
-	const protectedPaths = ['/dashboard', '/lobby', '/online-lobby', '/local-game', '/online-game', '/game-settings', '/profile/edit', '/tournaments'];
-	const isProtectedRoute = protectedPaths.includes(path) || path.startsWith('/profile/') || path.startsWith('/tournaments/') || path.startsWith('/tournament/');
-
-	if (isProtectedRoute)
+    const isPublicPath = path === '/' || path === '/register';
+    
+    if (!isPublicPath)
 	{
-		if (!token)
+        if (!token)
 		{
-			navigateTo('/');
-			return ;
-		}
-		if (!getSocket() || !getSocket()?.connected)
+            navigateTo('/');
+            return ;
+        }
+        if (!getSocket() || !getSocket()?.connected)
 		{
-			try
+            try
 			{
-				await connectSocket(token);
-			}
+                await connectSocket(token);
+            }
 			catch (error)
 			{
-				console.error("Geçersiz token ile giriş denemesi engellendi, çıkış yapılıyor.");
-				localStorage.removeItem('token');
-				navigateTo('/');
-				return ;
-			}
-		}
-	} 
+                console.error("Geçersiz token ile giriş denemesi engellendi, çıkış yapılıyor.");
+                localStorage.removeItem('token');
+                navigateTo('/');
+                return ;
+            }
+        }
+    }
 	else if (token)
 	{
-		navigateTo('/dashboard');
-		return ;
-	}
+        navigateTo('/dashboard');
+        return ;
+    }
 
-	let routeToRender: Route | null = null;
-	
-	if (routes[path])
-		routeToRender = routes[path];
-	else if (path.startsWith('/tournaments/'))
-		routeToRender = TournamentLobbyPage;
-	else if (path.startsWith('/tournament/') && path.endsWith('/play'))
-		routeToRender = TournamentFlowPage;
-	else if (path.startsWith('/profile/') && path.endsWith('/history'))
-		routeToRender = MatchHistoryPage;
-	else if (path.startsWith('/profile/'))
-		routeToRender = ProfilePage;
-	else
-		routeToRender = routes['/'];
+    let routeToRender: Route | null = null;
+    
+    if (routes[path])
+        routeToRender = routes[path];
+    else if (path.startsWith('/game-settings/tournament/'))
+        routeToRender = GameSettingsPage;
+    else if (path.startsWith('/tournaments/'))
+        routeToRender = TournamentLobbyPage;
+    else if (path.startsWith('/tournament/') && path.endsWith('/play'))
+        routeToRender = TournamentFlowPage;
+    else if (path.startsWith('/profile/') && path.endsWith('/history'))
+        routeToRender = MatchHistoryPage;
+    else if (path.startsWith('/profile/'))
+        routeToRender = ProfilePage;
+    else
+        routeToRender = routes['/'];
 
-	if (!routeToRender)
+    if (!routeToRender) {
+        app.innerHTML = '<h1>404 Not Found</h1>';
+        return ;
+    }
+
+    if (currentRoute !== routeToRender || forceReload)
 	{
-		app.innerHTML = '<h1>404 Not Found</h1>';
-		return ;
-	}
-
-	if (currentRoute !== routeToRender || forceReload)
-	{
-		if (currentRoute && currentRoute.cleanup)
-			currentRoute.cleanup();
-		app.innerHTML = routeToRender.render();
-		if (routeToRender.afterRender)
-			void routeToRender.afterRender();
-		currentRoute = routeToRender;
-	}
+        if (currentRoute && currentRoute.cleanup)
+            currentRoute.cleanup();
+        app.innerHTML = routeToRender.render();
+        if (routeToRender.afterRender)
+            void routeToRender.afterRender();
+        currentRoute = routeToRender;
+    }
 }
 
 export async function navigateTo(path: string)

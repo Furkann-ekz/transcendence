@@ -110,20 +110,12 @@ export function afterRender(): void
     const speedBoostCheck = document.getElementById('speedBoost') as HTMLInputElement;
 
     modeCards.forEach(card =>
-    {
+	{
         card.addEventListener('click', () =>
-        {
+		{
             const mode = card.getAttribute('data-mode') as 'classic' | 'powerup';
             currentSettings.mode = mode;
             
-            modeCards.forEach(c =>
-            {
-                c.classList.remove('border-blue-400');
-                c.classList.add('border-transparent');
-            });
-            card.classList.remove('border-transparent');
-            card.classList.add('border-blue-400');
-
             if (mode === 'powerup')
                 powerupSettings.classList.remove('hidden');
             else

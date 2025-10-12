@@ -92,6 +92,7 @@ model Tournament {
 	players					TournamentPlayer[]
 	winnerId				Int?
 	winner					User?					@relation("WonTournaments", fields: [winnerId], references: [id])
+	gameSettingsJson		String					@default("{}")
 }
 
 model TournamentPlayer {
