@@ -1,9 +1,11 @@
 import { t } from '../i18n';
 import { navigateTo } from '../router';
-import { getGameSettings, saveGameSettings, resetGameSettings} from '../utils/gameSettings';
+import { getGameSettings, saveGameSettings, resetGameSettings } from '../utils/gameSettings';
+import { getTournamentSettings, updateTournamentSettings } from '../api/tournaments';
 import type { GameSettings } from '../utils/gameSettings';
 
 let currentSettings: GameSettings;
+let tournamentId: string | null = null;
 
 export function render(): string
 {
@@ -91,8 +93,11 @@ export function render(): string
 	`;
 }
 
-export function afterRender(): void
+export async function afterRender(): Promise<void>
 {
+	const pathParts = window.location.pathname.split('/');
+	if (pathParts[2] === 'tournament' && pathParts[3])
+		tournamentId = pathParts[3];
 	const backBtn = document.getElementById('back-btn')!;
 	const saveBtn = document.getElementById('save-settings')!;
 	const resetBtn = document.getElementById('reset-settings')!;
@@ -108,6 +113,33 @@ export function afterRender(): void
 	const paddleSpeedValue = document.getElementById('paddle-speed-value')!;
 
 	const speedBoostCheck = document.getElementById('speedBoost') as HTMLInputElement;
+
+	if (tournamentId)
+	{
+		try
+		{
+			const tournamentSettings = await getTournamentSettings(tournamentId);
+			if (Object.keys(tournamentSettings).length > 0)
+			{
+				currentSettings = { ...getGameSettings(), ...tournamentSettings };
+				(document.getElementById('ball-speed') as HTMLInputElement).value = currentSettings.ballSpeed.toString();
+				document.getElementById('ball-speed-value')!.textContent = currentSettings.ballSpeed.toString();
+				(document.getElementById('paddle-speed') as HTMLInputElement).value = currentSettings.paddleSpeed.toString();
+				document.getElementById('paddle-speed-value')!.textContent = currentSettings.paddleSpeed.toString();
+				(document.getElementById('speedBoost') as HTMLInputElement).checked = currentSettings.powerups.speedBoost;
+				
+				const powerupSettings = document.getElementById('powerup-settings')!;
+				if (currentSettings.mode === 'powerup')
+					powerupSettings.classList.remove('hidden');
+				else
+					powerupSettings.classList.add('hidden');
+			}
+		}
+		catch (e)
+		{
+			console.error("Failed to load tournament settings, using defaults.", e);
+		}
+	}
 
 	modeCards.forEach(card =>
 	{
@@ -140,12 +172,33 @@ export function afterRender(): void
 		currentSettings.powerups.speedBoost = speedBoostCheck.checked;
 	});
 
-	backBtn.addEventListener('click', () => navigateTo('/lobby'));
-
-	saveBtn.addEventListener('click', () =>
+	backBtn.addEventListener('click', () =>
 	{
-		saveGameSettings(currentSettings);
-		alert(t('settings_saved') || 'Settings saved successfully!');
+		if (tournamentId)
+			navigateTo(`/tournaments/${tournamentId}`);
+		else
+			navigateTo('/lobby');
+	});
+
+	saveBtn.addEventListener('click', async () =>
+	{
+		if (tournamentId)
+		{
+			try
+			{
+				await updateTournamentSettings(tournamentId, currentSettings);
+				alert(t('settings_saved') || 'Settings saved successfully!');
+			}
+			catch (error: any)
+			{
+				alert(error.message);
+			}
+		}
+		else
+		{
+			saveGameSettings(currentSettings);
+			alert(t('settings_saved') || 'Settings saved successfully!');
+		}
 	});
 
 	resetBtn.addEventListener('click', () =>
@@ -163,6 +216,5 @@ export function afterRender(): void
 		navigateTo('/local-game');
 	});
 }
-
 
 export function cleanup(): void {}

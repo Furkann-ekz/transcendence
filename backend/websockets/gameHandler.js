@@ -1,10 +1,10 @@
 const { shuffleArray } = require('../utils/arrayUtils');
 const prisma = require('../prisma/db');
 
-function getGameConfig(customSettings = null)
+
+function getGameConfig(customSettings = {})
 {
-	const defaultConfig =
-	{
+	const defaultConfig = {
 		canvasSize: 800,
 		paddleSize: 100,
 		paddleThickness: 15,
@@ -13,26 +13,22 @@ function getGameConfig(customSettings = null)
 		ballSize: 10,
 		mode: 'classic',
 		powerupsEnabled: false,
-		enabledPowerups:
-		{
+		enabledPowerups: {
 			speedBoost: false,
 		}
 	};
 
-	if (!customSettings)
-		return (defaultConfig);
+	const finalSettings = { ...defaultConfig, ...customSettings };
 
-	return {
-		canvasSize: customSettings.canvasSize || defaultConfig.canvasSize,
-		paddleSize: customSettings.paddleSize || defaultConfig.paddleSize,
-		paddleThickness: customSettings.paddleThickness || defaultConfig.paddleThickness,
-		ballSpeed: customSettings.ballSpeed || defaultConfig.ballSpeed,
-		paddleSpeed: customSettings.paddleSpeed || defaultConfig.paddleSpeed,
-		ballSize: customSettings.ballSize || defaultConfig.ballSize,
-		mode: customSettings.mode || defaultConfig.mode,
-		powerupsEnabled: customSettings.powerupsEnabled,
-		enabledPowerups: customSettings.enabledPowerups || defaultConfig.enabledPowerups
-	};
+	const powerupsConfig = finalSettings.enabledPowerups || finalSettings.powerups || {};
+
+	const isPowerupsEnabled = finalSettings.mode === 'powerup' && 
+							Object.values(powerupsConfig).some(isEnabled => isEnabled === true);
+
+	finalSettings.powerupsEnabled = isPowerupsEnabled;
+	finalSettings.enabledPowerups = powerupsConfig;
+
+	return (finalSettings);
 }
 
 async function updatePlayerStats(playerIds, outcome)
@@ -287,10 +283,11 @@ function startGameLoop(room, players, io, mode, gameConfig, onMatchEnd)
 			scoringTeam === 1 ? gameState.team1Score++ : gameState.team2Score++;
 			if (gameState.team1Score >= WINNING_SCORE || gameState.team2Score >= WINNING_SCORE)
 			{
+				io.to(room).emit('gameStateUpdate', gameState); 
 				clearInterval(intervalId);
 				const winners = players.filter(p => p.team === scoringTeam);
 				const losers = players.filter(p => p.team !== scoringTeam);
-				
+
 				await updatePlayerStats(winners.map(p => p.id), 'win');
 				await updatePlayerStats(losers.map(p => p.id), 'loss');
 				await saveMatch(game, scoringTeam, false);
@@ -299,8 +296,14 @@ function startGameLoop(room, players, io, mode, gameConfig, onMatchEnd)
 				
 				if (onMatchEnd) onMatchEnd(losers);
 
-				players.map(p => io.sockets.sockets.get(p.socketId)).filter(Boolean)
-					   .forEach(sock => { if(sock) { sock.leave(room); sock.gameRoom = null; } });
+				players.map(p => io.sockets.sockets.get(p.socketId)).filter(Boolean).forEach(sock =>
+				{
+					if(sock)
+					{
+						sock.leave(room);
+						sock.gameRoom = null;
+					}
+				});
 				return;
 			}
 			
@@ -443,6 +446,7 @@ module.exports =
 	handleJoinMatchmaking,
 	updatePlayerStats,
 	saveMatch,
+	getGameConfig,
 	startGameLoop,
 	cleanUpPlayer
 };

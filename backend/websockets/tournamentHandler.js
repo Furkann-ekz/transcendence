@@ -123,30 +123,35 @@ function handlePlayerReady(socket, io, onlineUsers, gameRooms)
 					clearInterval(activeCountdowns[tournamentId]);
 					delete activeCountdowns[tournamentId];
 					
-					const playersStatus = await prisma.tournamentPlayer.findMany({
-						where: { tournamentId: tournamentId, userId: { in: [player1Id, player2Id] } }
-					});
-					if (playersStatus.length !== 2 || playersStatus.some(p => p.isEliminated))
-					{
-						startNextMatch(tournamentId, io);
-						return ;
-					}
+					const tournament = await prisma.tournament.findUnique({
+                        where: { id: tournamentId },
+                        include: { players: { where: { userId: { in: [player1Id, player2Id] } } } }
+                    });
+                    if (!tournament || tournament.players.length !== 2 || tournament.players.some(p => p.isEliminated))
+                    {
+                        startNextMatch(tournamentId, io);
+                        return;
+                    }
 					
 					const player1Socket = io.sockets.sockets.get(onlineUsers.get(player1Id)?.socketId);
-					const player2Socket = io.sockets.sockets.get(onlineUsers.get(player2Id)?.socketId);
+                    const player2Socket = io.sockets.sockets.get(onlineUsers.get(player2Id)?.socketId);
 
-					if (!player1Socket || !player2Socket)
-					{
-						startNextMatch(tournamentId, io);
-						return ;
-					}
+                    if (!player1Socket || !player2Socket)
+                    {
+                        startNextMatch(tournamentId, io);
+                        return;
+                    }
 
-					player1Socket.emit('go_to_match');
-					player2Socket.emit('go_to_match');
+                    player1Socket.emit('go_to_match');
+                    player2Socket.emit('go_to_match');
 
-					const gameConfig = { canvasSize: 800, paddleSize: 100, paddleThickness: 15, tournamentId: tournamentId };
-					const p1 = await prisma.user.findUnique({ where: { id: player1Id } });
-					const p2 = await prisma.user.findUnique({ where: { id: player2Id } });
+					const customSettings = JSON.parse(tournament.gameSettingsJson || '{}');
+                    const { getGameConfig } = require('./gameHandler');
+                    const gameConfig = getGameConfig(customSettings);
+                    gameConfig.tournamentId = tournamentId;
+
+                    const p1 = await prisma.user.findUnique({ where: { id: player1Id } });
+                    const p2 = await prisma.user.findUnique({ where: { id: player2Id } });
 
 					const players =
 					[
@@ -184,7 +189,7 @@ function handlePlayerReady(socket, io, onlineUsers, gameRooms)
 						}
 					};
 
-					const game = startGameLoop(roomName, players, io, '1v1', gameConfig, onMatchEnd);
+					const game = startGameLoop(roomName, players, io, gameConfig.mode, gameConfig, onMatchEnd);
 					gameRooms.set(roomName, game);
 				}
 			}, 1000);

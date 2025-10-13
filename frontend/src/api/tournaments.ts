@@ -119,3 +119,25 @@ export async function getMyActiveTournament()
 		return (null);
 	return (response.json());
 }
+
+export async function getTournamentSettings(tournamentId: string)
+{
+    const response = await apiFetch(`${API_URL}/${tournamentId}/settings`);
+    if (!response.ok)
+        throw new Error('Failed to fetch tournament settings.');
+    return (response.json());
+}
+
+export async function updateTournamentSettings(tournamentId: string, settings: any)
+{
+    const response = await apiFetch(`${API_URL}/${tournamentId}/settings`, {
+        method: 'POST',
+        body: JSON.stringify(settings)
+    });
+    if (!response.ok)
+    {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update tournament settings.');
+    }
+    return (response.json());
+}

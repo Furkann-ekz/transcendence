@@ -412,6 +412,67 @@ async function tournamentRoutes(fastify, { io })
 			return (reply.code(500).send({ error: 'Could not start the tournament.' }));
 		}
 	});
+
+	fastify.get('/tournaments/:id/settings', { preHandler: [authenticate] }, async (request, reply) =>
+    {
+        const { id: tournamentId } = request.params;
+        try
+        {
+            const tournament = await prisma.tournament.findUnique({
+                where: { id: tournamentId },
+                select: { gameSettingsJson: true }
+            });
+
+            if (!tournament)
+                return (reply.code(404).send({ error: 'Tournament not found.' }));
+
+            const defaultSettings = {
+                mode: 'classic', ballSpeed: 7, paddleSpeed: 8, powerups: { speedBoost: true }
+            };
+            const customSettings = JSON.parse(tournament.gameSettingsJson || '{}');
+            const finalSettings = { ...defaultSettings, ...customSettings };
+
+            return (finalSettings);
+        }
+        catch (error)
+        {
+            fastify.log.error(error);
+            return (reply.code(500).send({ error: 'Could not fetch tournament settings.' }));
+        }
+    });
+
+    fastify.post('/tournaments/:id/settings', { preHandler: [authenticate] }, async (request, reply) =>
+    {
+        const { id: tournamentId } = request.params;
+        const userId = request.user.userId;
+        const settings = request.body;
+
+        try
+        {
+            const tournament = await prisma.tournament.findUnique({
+                where: { id: tournamentId },
+                select: { hostId: true }
+            });
+
+            if (!tournament)
+                return (reply.code(404).send({ error: 'Tournament not found.' }));
+
+            if (tournament.hostId !== userId)
+                return (reply.code(403).send({ error: 'Only the host can change tournament settings.' }));
+
+            await prisma.tournament.update({
+                where: { id: tournamentId },
+                data: { gameSettingsJson: JSON.stringify(settings) }
+            });
+
+            return ({ success: true, message: 'Settings updated successfully.' });
+        }
+        catch (error)
+        {
+            fastify.log.error(error);
+            return (reply.code(500).send({ error: 'Could not update tournament settings.' }));
+        }
+    });
 }
 
 module.exports = tournamentRoutes;
