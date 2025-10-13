@@ -3,7 +3,7 @@ all: up
 init-ssl:
 	@sh ./init-ssl.sh
 
-up: check-env init-ssl clean
+up: check-env init-ssl clean db
 	@echo "--- Starting containers with a fresh build... ---"
 	docker compose up --build -d
 	@echo "--- Waiting for containers to initialize... ---"
