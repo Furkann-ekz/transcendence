@@ -162,46 +162,46 @@ function initializeSocket(io)
 			}
 		});
 		socket.on('playerMove', (data) =>
-        {
-            if (!socket.gameRoom)
-                return ;
-            const game = gameState.gameRooms.get(socket.gameRoom.id); // Önce oyun odası bilgilerini al
-            if (!game)
-                return ;
-            const playerState = game.gameState.players.find(p => p.id === socket.user.id);
-            if (!playerState)
-                return ;
-            
-            const { direction } = data;
-            
-            const moveSpeed = game.paddleSpeed || 15;
+		{
+			if (!socket.gameRoom)
+				return ;
+			const game = gameState.gameRooms.get(socket.gameRoom.id); // Önce oyun odası bilgilerini al
+			if (!game)
+				return ;
+			const playerState = game.gameState.players.find(p => p.id === socket.user.id);
+			if (!playerState)
+				return ;
+			
+			const { direction } = data;
+			
+			const moveSpeed = game.paddleSpeed || 15;
 
-            const canvasSize = game.canvasSize || 800;
-            const paddleSize = game.paddleSize || 100;
+			const canvasSize = game.canvasSize || 800;
+			const paddleSize = game.paddleSize || 100;
 
-            let currentPos;
-            if (playerState.position === 'left' || playerState.position === 'right')
-                currentPos = playerState.y;
-            else
-                currentPos = playerState.x;
+			let currentPos;
+			if (playerState.position === 'left' || playerState.position === 'right')
+				currentPos = playerState.y;
+			else
+				currentPos = playerState.x;
 
-            let newPosition = currentPos;
-            if (direction === 'up')
-                newPosition = currentPos - moveSpeed;
-            else if (direction === 'down')
-                newPosition = currentPos + moveSpeed;
+			let newPosition = currentPos;
+			if (direction === 'up')
+				newPosition = currentPos - moveSpeed;
+			else if (direction === 'down')
+				newPosition = currentPos + moveSpeed;
 
-            let finalPosition = newPosition;
-            if (finalPosition < 0)
-                finalPosition = 0;
-            if (finalPosition > canvasSize - paddleSize)
-                finalPosition = canvasSize - paddleSize;
+			let finalPosition = newPosition;
+			if (finalPosition < 0)
+				finalPosition = 0;
+			if (finalPosition > canvasSize - paddleSize)
+				finalPosition = canvasSize - paddleSize;
 
-            if (playerState.position === 'left' || playerState.position === 'right')
-                playerState.y = finalPosition;
-            if (playerState.position === 'top' || playerState.position === 'bottom')
-                playerState.x = finalPosition;
-        });
+			if (playerState.position === 'left' || playerState.position === 'right')
+				playerState.y = finalPosition;
+			if (playerState.position === 'top' || playerState.position === 'bottom')
+				playerState.x = finalPosition;
+		});
 
 		socket.on('invite_to_game', async ({ recipientId }) =>
 		{

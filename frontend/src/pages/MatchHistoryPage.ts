@@ -210,7 +210,8 @@ export async function afterRender()
 
 export function cleanup()
 {
-	if (logoutClickListener) {
+	if (logoutClickListener)
+	{
 		document.getElementById('logout-button')?.removeEventListener('click', logoutClickListener);
 		logoutClickListener = null;
 	}

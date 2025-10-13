@@ -314,9 +314,8 @@ export function afterRender()
 
 	socket.on('gameStateUpdate', (newGameState: GameState) =>
 	{
-		if (newGameState.powerups && newGameState.powerups.length > 0) {
+		if (newGameState.powerups && newGameState.powerups.length > 0)
             console.log('[DEBUG] Power-ups ALINDI:', newGameState.powerups);
-        }
 		gameState = newGameState;
 	});
 
