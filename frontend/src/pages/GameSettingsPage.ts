@@ -201,11 +201,25 @@ export async function afterRender(): Promise<void>
 		}
 	});
 
-	resetBtn.addEventListener('click', () =>
+	resetBtn.addEventListener('click', async () =>
 	{
 		if (confirm(t('reset_confirm') || 'Are you sure you want to reset all settings to default?'))
 		{
-			currentSettings = resetGameSettings();
+			const defaultSettings = resetGameSettings();
+
+			if (tournamentId)
+			{
+				try
+				{
+					await updateTournamentSettings(tournamentId, defaultSettings);
+				}
+				catch (error: any)
+				{
+					alert(`Error resetting tournament settings: ${error.message}`);
+					return ;
+				}
+			}
+			
 			window.location.reload();
 		}
 	});
